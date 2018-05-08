@@ -1,5 +1,7 @@
 package ofbx
 
+import "bytes"
+
 type Vec2 struct {
 	x, y float64
 }
@@ -72,129 +74,302 @@ const (
 )
 
 type Type int
+
 const (
-	ROOT Type = iota
-	GEOMETRY Type = iota
-	MATERIAL Type = iota
-	MESH Type = iota
-	TEXTURE Type = iota
-	LIMB_NODE Type = iota
-	NULL_NODE Type = iota
-	NODE_ATTRIBUTE Type = iota
-	CLUSTER Type = iota
-	SKIN Type = iota
-	ANIMATION_STACK Type = iota
-	ANIMATION_LAYER Type = iota
-	ANIMATION_CURVE Type = iota
+	ROOT                 Type = iota
+	GEOMETRY             Type = iota
+	MATERIAL             Type = iota
+	MESH                 Type = iota
+	TEXTURE              Type = iota
+	LIMB_NODE            Type = iota
+	NULL_NODE            Type = iota
+	NODE_ATTRIBUTE       Type = iota
+	CLUSTER              Type = iota
+	SKIN                 Type = iota
+	ANIMATION_STACK      Type = iota
+	ANIMATION_LAYER      Type = iota
+	ANIMATION_CURVE      Type = iota
 	ANIMATION_CURVE_NODE Type = iota
-) 
+)
 
-type Object {
+type DataView bytes.Buffer
 
+type PropertyType rune
+
+const (
+	LONG         PropertyType = 'L'
+	INTEGER      PropertyType = 'I'
+	STRING       PropertyType = 'S'
+	FLOAT        PropertyType = 'F'
+	DOUBLE       PropertyType = 'D'
+	ARRAY_DOUBLE PropertyType = 'd'
+	ARRAY_INT    PropertyType = 'i'
+	ARRAY_LONG   PropertyType = 'l'
+	ARRAY_FLOAT  PropertyType = 'f'
+)
+
+type IElementProperty struct {
 }
-	Object(const Scene& _scene, const IElement& _element);
 
-	virtual ~Object() {}
-	virtual Type getType() const = 0;
-	
-	const IScene& getScene() const;
-	Object* resolveObjectLink(int idx) const;
-	Object* resolveObjectLink(Type type, const char* property, int idx) const;
-	Object* resolveObjectLinkReverse(Type type) const;
-	Object* getParent() const;
+func (iep *IElementProperty) getType() Type {
+	return 0
+}
 
-    RotationOrder getRotationOrder() const;
-	Vec3 getRotationOffset() const;
-	Vec3 getRotationPivot() const;
-	Vec3 getPostRotation() const;
-	Vec3 getScalingOffset() const;
-	Vec3 getScalingPivot() const;
-	Vec3 getPreRotation() const;
-	Vec3 getLocalTranslation() const;
-	Vec3 getLocalRotation() const;
-	Vec3 getLocalScaling() const;
-	Matrix getGlobalTransform() const;
-	Matrix getLocalTransform() const;
-	Matrix evalLocal(const Vec3& translation, const Vec3& rotation) const;
-	Matrix evalLocal(const Vec3& translation, const Vec3& rotation, const Vec3& scaling) const;
-	bool isNode() const { return is_node; }
+func (iep *IElementProperty) getNext() *IElementProperty {
+	return nil
+}
 
+func (iep *IElementProperty) getValue() DataView {
+	return DataView{}
+}
 
-	template <typename T> T* resolveObjectLink(int idx) const
-	{
-		return static_cast<T*>(resolveObjectLink(T::s_type, nullptr, idx));
-	}
+func (iep *IElementProperty) getCount() int {
+	return 0
+}
 
-	uint64 id;
-	char name[128];
-	const IElement& element;
-	const Object* node_attribute;
+func (iep *IElementProperty) getValuesF64(values []float64, max_size int) bool {
+	return false
+}
 
-protected:
-	bool is_node;
-	const Scene& scene;
-};
+func (iep *IElementProperty) getValuesInt(values []int, max_size int) bool {
+	return false
+}
 
+func (iep *IElementProperty) getValuesF32(values []float32, max_size int) bool {
+	return false
+}
 
-type Texture struct { Object }
-{
-	enum TextureType
-	{
-		DIFFUSE,
-		NORMAL,
+func (iep *IElementProperty) getValuesUInt64(values []uint64, max_size int) bool {
+	return false
+}
 
-		COUNT
-	};
+func (iep *IElementProperty) getValuesInt64(values []int64, max_size int) bool {
+	return false
+}
 
-	static const Type s_type = Type::TEXTURE;
+type IElement struct{}
 
-	Texture(const Scene& _scene, const IElement& _element);
-	virtual DataView getFileName() const = 0;
-	virtual DataView getRelativeFileName() const = 0;
-};
+func (ie *IElement) getFirstChild() *IElement {
+	return nil
+}
+func (ie *IElement) getSibling() *IElement {
+	return nil
+}
+func (ie *IElement) getID() DataView {
+	return DataView{}
+}
+func (ie *IElement) getFirstProperty() *IElementProperty {
+	return nil
+}
 
+type RotationOrder int
 
-type Material struct { Object }
-{
-	static const Type s_type = Type::MATERIAL;
+const (
+	EULER_XYZ   RotationOrder = iota
+	EULER_XZY   RotationOrder = iota
+	EULER_YZX   RotationOrder = iota
+	EULER_YXZ   RotationOrder = iota
+	EULER_ZXY   RotationOrder = iota
+	EULER_ZYX   RotationOrder = iota
+	SPHERIC_XYZ RotationOrder = iota // Currently unsupported. Treated as EULER_XYZ.
+)
 
-	Material(const Scene& _scene, const IElement& _element);
+type Object struct {
+	ID             uint64
+	Name           string
+	Element        *IElement
+	Node_attribute *Object
 
-	virtual Color getDiffuseColor() const = 0;
-	virtual const Texture* getTexture(Texture::TextureType type) const = 0;
-};
+	is_node bool
+	scene   *Scene
+}
 
+func NewObject(scene *Scene, element *IElement) *Object {
+	return nil
+}
 
-type Cluster struct { Object }
-{
-	static const Type s_type = Type::CLUSTER;
+func (o *Object) getType() Type {
+	return 0
+}
 
-	Cluster(const Scene& _scene, const IElement& _element);
+func (o *Object) getScene() *IScene {
+	return nil
+}
 
-	virtual const int* getIndices() const = 0;
-	virtual int getIndicesCount() const = 0;
-	virtual const double* getWeights() const = 0;
-	virtual int getWeightsCount() const = 0;
-	virtual Matrix getTransformMatrix() const = 0;
-	virtual Matrix getTransformLinkMatrix() const = 0;
-	virtual const Object* getLink() const = 0;
-};
+func (o *Object) resolveObjectLinkIndex(idx int) *Object {
+	return nil
+}
+func (o *Object) resolveObjectLink(typ Type, property string, idx int) *Object {
+	return nil
+}
+func (o *Object) resolveObjectLinkReverse(typ Type) *Object {
+	return nil
+}
+func (o *Object) getParent() *Object {
+	return nil
+}
+func (o *Object) getRotationOrder() RotationOrder {
+	return RotationOrder{}
+}
+func (o *Object) getRotationOffset() Vec3 {
+	return Vec3{}
+}
 
+func (o *Object) getRotationPivot() Vec3 {
+	return Vec3{}
+}
 
-type Skin struct { Object }
-{
-	static const Type s_type = Type::SKIN;
+func (o *Object) getPostRotation() Vec3 {
+	return Vec3{}
+}
 
-	Skin(const Scene& _scene, const IElement& _element);
+func (o *Object) getScalingOffset() Vec3 {
+	return Vec3{}
+}
 
-	virtual int getClusterCount() const = 0;
-	virtual const Cluster* getCluster(int idx) const = 0;
-};
+func (o *Object) getScalingPivot() Vec3 {
+	return Vec3{}
+}
 
+func (o *Object) getPreRotation() Vec3 {
+	return Vec3{}
+}
 
+func (o *Object) getLocalTranslation() Vec3 {
+	return Vec3{}
+}
 
-type NodeAttribute struct { 
-	Object 
+func (o *Object) getLocalRotation() Vec3 {
+	return Vec3{}
+}
+
+func (o *Object) getLocalScaling() Vec3 {
+	return Vec3{}
+}
+
+func (o *Object) getGlobalTransform() Matrix {
+	return Matrix{}
+}
+
+func (o *Object) getLocalTransform() Matrix {
+	return Matrix{}
+}
+
+func (o *Object) evalLocal(translation, rotation *Vec3) Matrix {
+	return Matrix{}
+}
+
+func (o *Object) evalLocalScaling(translation, rotation, scaling *Vec3) Matrix {
+	return Matrix{}
+}
+
+func (o *Object) isNode() bool {
+	return o.is_node
+}
+
+// template <typename T> T* resolveObjectLink(int idx) const
+// {
+// 	return static_cast<T*>(resolveObjectLink(T::s_type, nullptr, idx));
+// }
+
+type TextureType int
+
+const (
+	DIFFUSE TextureType = iota
+	NORMAL  TextureType = iota
+	COUNT   TextureType = iota
+)
+
+type Texture struct {
+	Object
+}
+
+func NewTexture(scene *Scene, element *IElement) *Texture {
+	return nil
+}
+
+func (t *Texture) Type() Type {
+	return TEXTURE
+}
+
+func (t *Texture) getFileName() DataView {
+	return DataView{}
+}
+
+func (t *Texture) getRelativeFileName() DataView {
+	return DataView{}
+}
+
+type Material struct {
+	Object
+}
+
+func NewMaterial(scene *Scene, element *IElement) *Material {
+	return nil
+}
+
+func (m *Material) Type() Type {
+	return MATERIAL
+}
+
+func (m *Material) getDiffuseColor() Color {
+	return Color{}
+}
+
+func (m *Material) getTexture(typ TextureType) *Texture {
+	return nil
+}
+
+type Cluster struct {
+	Object
+}
+
+func NewCluster(scene *Scene, element *IElement) *Cluster {
+	return nil
+}
+
+func (c *Cluster) Type() Type {
+	return CLUSTER
+}
+
+func (c *Cluster) getIndices() []int {
+	return nil
+}
+
+func (c *Cluster) getWeights() *float64 {
+	return nil
+}
+
+func (c *Cluster) getTransformMatrix() Matrix {
+	return Matrix{}
+}
+
+func (c *Cluster) getTransformLinkMatrix() Matrix {
+	return Matrix{}
+}
+
+func (c *Cluster) getLink() *Object {
+	return nil
+}
+
+type Skin struct {
+	Object
+}
+
+func NewSkin(scene *Scene, element *IElement) *Skin {
+	return nil
+}
+
+func (s *Skin) Type() Type {
+	return SKIN
+}
+
+func (s *Skin) getCluster() []Cluster {
+	return nil
+}
+
+type NodeAttribute struct {
+	Object
 }
 
 func NewNodeAttribute(scene *Scene, element *IElement) *NodeAttribute {
@@ -205,32 +380,53 @@ func (na *NodeAttribute) Type() Type {
 	return NODE_ATTRIBUTE
 }
 
-{
-	static const Type s_type = Type::NODE_ATTRIBUTE;
+func (na NodeAttribute) getAttributeType() DataView {
+	return DataView{}
+}
 
-	NodeAttribute(const Scene& _scene, const IElement& _element);
+type Geometry struct {
+	Object
+}
 
-	virtual DataView getAttributeType() const = 0;
-};
+func NewGeometry(scene *Scene, element *IElement) *Geometry {
+	return nil
+}
 
+func (g *Geometry) Type() Type {
+	return GEOMETRY
+}
 
-type Geometry struct { Object }
-{
-	static const Type s_type = Type::GEOMETRY;
-    static const int s_uvs_max = 4;
+func (g *Geometry) UVSMax() int {
+	return 4
+}
 
-	Geometry(const Scene& _scene, const IElement& _element);
+func (g *Geometry) getVertices() []Vec3 {
+	return nil
+}
 
-	virtual const Vec3* getVertices() const = 0;
-	virtual int getVertexCount() const = 0;
+func (g *Geometry) getNormals() *Vec3 {
+	return nil
+}
 
-	virtual const Vec3* getNormals() const = 0;
-	virtual const Vec2* getUVs(int index = 0) const = 0;
-	virtual const Vec4* getColors() const = 0;
-	virtual const Vec3* getTangents() const = 0;
-	virtual const Skin* getSkin() const = 0;
-	virtual const int* getMaterials() const = 0;
-};
+func (g *Geometry) getUVs(index int) *Vec2 {
+	return nil
+}
+
+func (g *Geometry) getColors() *Vec4 {
+	return nil
+}
+
+func (g *Geometry) getTangents() *Vec3 {
+	return nil
+}
+
+func (g *Geometry) getSkin() *Skin {
+	return nil
+}
+
+func (g *Geometry) getMaterials() *int {
+	return nil
+}
 
 type Mesh struct {
 	Object
@@ -252,12 +448,8 @@ func (m *Mesh) getGeometricMatrix() Matrix {
 	return Matrix{}
 }
 
-func (m *Mesh) getMaterial(idx int) *Material {
+func (m *Mesh) getMaterial(idx int) []Material {
 	return nil
-}
-
-func (m *Mesh) getMaterialCount() int {
-	return 0
 }
 
 type AnimationStack struct {
@@ -308,20 +500,21 @@ func (ac *AnimationCurve) Type() Type {
 	return ANIMATION_CURVE
 }
 
-func (ac *AnimationCurve) int getKeyCount() int {
+// 200sc note: this may be the length of the next two functions, i.e. unneeded
+func (ac *AnimationCurve) getKeyCount() int {
 	return 0
 }
 
-func (ac *AnimationCurve) const int64* getKeyTime() *int64 {
+func (ac *AnimationCurve) getKeyTime() *int64 {
 	return nil
 }
 
-func (ac *AnimationCurve) const float* getKeyValue() *float32 {
+func (ac *AnimationCurve) getKeyValue() *float32 {
 	return nil
 }
 
 type AnimationCurveNode struct {
-	Object	
+	Object
 }
 
 func (acn *AnimationCurveNode) Type() Type {
@@ -336,29 +529,62 @@ func (acn *AnimationCurveNode) getBone() *Object {
 	return nil
 }
 
-
 type TakeInfo struct {
-	name DataView
-	filename DataView
-	local_time_from float64
-	local_time_to float64
+	name                DataView
+	filename            DataView
+	local_time_from     float64
+	local_time_to       float64
 	reference_time_from float64
-	reference_time_to float64
+	reference_time_to   float64
+}
+
+type Scene struct{}
+
+type IScene struct{}
+
+func (is *IScene) getRootElement() *IElement {
+	return nil
+}
+func (is *IScene) getRoot() *Object {
+	return nil
+}
+func (is *IScene) getTakeInfo(name string) *TakeInfo {
+	return nil
+}
+func (is *IScene) getSceneFrameRate() float32 {
+	return 0
+}
+func (is *IScene) getMesh(int index) []Mesh {
+	return nil
+}
+func (is *IScene) getAnimationStack(index int) []AnimationStack {
+	return nil
+}
+func (is *IScene) getAllObjects() []Object {
+	return nil
+}
+
+func load(data []byte) *Iscene {
+	return nil
+}
+
+func getError() string {
+	return ""
 }
 
 var (
-	UpAxis UpVector = UpVector_AxisX
-	UpAxisSign int = 1
-	FrontAxis FrontVector = FrontVector_ParityOdd
-	FrontAxisSign int = 1
-	CoordAxis CoordSystem = CoordSystem_RightHanded
-	CoordAxisSign int = 1
-	OriginalUpAxis int = 0
-	OriginalUpAxisSign int = 1
-	UnitScaleFactor float32 = 1
-	OriginalUnitScaleFactor float32 = 1
-	TimeSpanStart uint64 = 0
-	TimeSpanStop uint64 = 0
-	TimeMode FrameRate = FrameRate_DEFAULT
-	CustomFrameRate float32 = -1.0
+	UpAxis                  UpVector    = UpVector_AxisX
+	UpAxisSign              int         = 1
+	FrontAxis               FrontVector = FrontVector_ParityOdd
+	FrontAxisSign           int         = 1
+	CoordAxis               CoordSystem = CoordSystem_RightHanded
+	CoordAxisSign           int         = 1
+	OriginalUpAxis          int         = 0
+	OriginalUpAxisSign      int         = 1
+	UnitScaleFactor         float32     = 1
+	OriginalUnitScaleFactor float32     = 1
+	TimeSpanStart           uint64      = 0
+	TimeSpanStop            uint64      = 0
+	TimeMode                FrameRate   = FrameRate_DEFAULT
+	CustomFrameRate         float32     = -1.0
 )
