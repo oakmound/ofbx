@@ -1,15 +1,36 @@
-#include "ofbx.h"
-#include "miniz.h"
-#include <cassert>
-#include <cmath>
-#include <ctype.h>
-#include <memory>
-#include <unordered_map>
-#include <vector>
 
 
-namespace ofbx
-{
+
+
+func fbxTimeToSeconds(value int64) float64{
+	return float64(value)/float64(46186158000)
+}
+func secondsToFbxTime(value float64) int64{
+	return int64(value /46186158000)
+}
+
+func (v *Vec3) Mul(f){
+	return NewVec3(v.x * f, v.y * f, v.z * f)
+}
+
+
+func (v *Vec3) Add(v2 *Vec3){
+	return NewVec3(a.x + b.x, a.y + b.y, a.z + b.z)
+}
+
+
+
+
+
+
+
+
+
+
+
+
+//-------------------------------------
+
 
 
 struct Error
@@ -76,6 +97,12 @@ struct Header
 #pragma pack()
 
 
+
+
+
+// We might care starting here... but probs not
+
+
 struct Cursor
 {
 	const uint8* current;
@@ -97,6 +124,8 @@ static Vec3 operator-(const Vec3& v)
 	return {-v.x, -v.y, -v.z};
 }
 
+
+//START MATRIX STUFF
 
 static Matrix operator*(const Matrix& lhs, const Matrix& rhs)
 {
@@ -191,28 +220,12 @@ static Matrix getRotationMatrix(const Vec3& euler, RotationOrder order)
 }
 
 
-static double fbxTimeToSeconds(int64 value)
-{
-	return double(value) / 46186158000L;
-}
+//END MATRIX
 
 
-static int64 secondsToFbxTime(double value)
-{
-	return int64(value * 46186158000L);
-}
 
 
-static Vec3 operator*(const Vec3& v, float f)
-{
-	return {v.x * f, v.y * f, v.z * f};
-}
 
-
-static Vec3 operator+(const Vec3& a, const Vec3& b)
-{
-	return {a.x + b.x, a.y + b.y, a.z + b.z};
-}
 
 
 template <int SIZE> static bool copyString(char (&destination)[SIZE], const char* source)
@@ -319,6 +332,9 @@ bool DataView::operator==(const char* rhs) const
 struct Property;
 template <typename T> static bool parseArrayRaw(const Property& property, T* out, int max_size);
 template <typename T> static bool parseBinaryArray(const Property& property, std::vector<T>* out);
+
+
+
 
 
 struct Property : IElementProperty
@@ -448,22 +464,6 @@ Object::Object(const Scene& _scene, const IElement& _element)
 }
 
 
-static bool decompress(const uint8* in, size_t in_size, uint8* out, size_t out_size)
-{
-	mz_stream stream = {};
-	mz_inflateInit(&stream);
-
-	stream.avail_in = (int)in_size;
-	stream.next_in = in;
-	stream.avail_out = (int)out_size;
-	stream.next_out = out;
-
-	int status = mz_inflate(&stream, Z_SYNC_FLUSH);
-
-	if (status != Z_STREAM_END) return false;
-
-	return mz_inflateEnd(&stream) == Z_OK;
-}
 
 
 template <typename T> static OptionalError<T> read(Cursor* cursor)
@@ -2847,11 +2847,10 @@ Object* Object::resolveObjectLinkReverse(Object::Type type) const
 	return nullptr;
 }
 
-
-const IScene& Object::getScene() const
-{
-	return scene;
+func (o *Object) getScene() IScene{
+	return o.scene
 }
+
 
 
 Object* Object::resolveObjectLink(int idx) const
@@ -2895,8 +2894,25 @@ Object* Object::resolveObjectLink(Object::Type type, const char* property, int i
 }
 
 
+func (o *Object) getParent() *Object{
+	scene := o.getScene()
+	for con := range scene.m_connections{
+		if con.from == o.id{
+			obj := scene.m_object_map[con.to]
+			
+			if (obj && obj->is_node)
+			{
+				return obj
+			}
+		}
+	}
+}
+
+
 Object* Object::getParent() const
 {
+
+
 	Object* parent = nullptr;
 	for (auto& connection : scene.m_connections)
 	{
@@ -2938,6 +2954,9 @@ IScene* load(const uint8* data, int size)
 
 	return scene.release();
 }
+
+
+
 
 
 const char* getError()
