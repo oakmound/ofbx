@@ -14,7 +14,6 @@ struct Cursor
 	const uint8* end;
 };
 
-
 static void setTranslation(const Vec3& t, Matrix* mtx)
 {
 	mtx.m[12] = t.x;
@@ -53,7 +52,6 @@ static int resolveEnumProperty(const Object& object, const char* name, int defau
 	return x.value.toInt();
 }
 
-
 static Vec3 resolveVec3Property(const Object& object, const char* name, const Vec3& default_value)
 {
 	Element* element = (Element*)resolveProperty(object, name);
@@ -63,7 +61,6 @@ static Vec3 resolveVec3Property(const Object& object, const char* name, const Ve
 
 	return {x.value.toDouble(), x.next.value.toDouble(), x.next.next.value.toDouble()};
 }
-
 
 Object::Object(const Scene& _scene, const IElement& _element)
 	: scene(_scene)
@@ -82,9 +79,6 @@ Object::Object(const Scene& _scene, const IElement& _element)
 	}
 }
 
-
-
-
 template <typename T> static OptionalError<T> read(Cursor* cursor)
 {
 	if (cursor.current + sizeof(T) > cursor.end) return Error("Reading past the end");
@@ -92,7 +86,6 @@ template <typename T> static OptionalError<T> read(Cursor* cursor)
 	cursor.current += sizeof(T);
 	return value;
 }
-
 
 static OptionalError<DataView> readShortString(Cursor* cursor)
 {
@@ -109,7 +102,6 @@ static OptionalError<DataView> readShortString(Cursor* cursor)
 	return value;
 }
 
-
 static OptionalError<DataView> readLongString(Cursor* cursor)
 {
 	DataView value;
@@ -124,7 +116,6 @@ static OptionalError<DataView> readLongString(Cursor* cursor)
 
 	return value;
 }
-
 
 static OptionalError<Property*> readProperty(Cursor* cursor)
 {
@@ -179,7 +170,6 @@ static OptionalError<Property*> readProperty(Cursor* cursor)
 	return prop.release();
 }
 
-
 static void deleteElement(Element* el)
 {
 	if (!el) return;
@@ -196,7 +186,6 @@ static void deleteElement(Element* el)
 	} while (iter);
 }
 
-
 static OptionalError<uint64> readElementOffset(Cursor* cursor, uint16 version)
 {
 	if (version >= 7500)
@@ -210,7 +199,6 @@ static OptionalError<uint64> readElementOffset(Cursor* cursor, uint16 version)
 	if (tmp.isError()) return Error();
 	return tmp.getValue();
 }
-
 
 static OptionalError<Element*> readElement(Cursor* cursor, uint32 version)
 {
@@ -276,12 +264,10 @@ static OptionalError<Element*> readElement(Cursor* cursor, uint32 version)
 	return element;
 }
 
-
 static bool isEndLine(const Cursor& cursor)
 {
 	return *cursor.current == '\n';
 }
-
 
 static void skipInsignificantWhitespaces(Cursor* cursor)
 {
@@ -290,7 +276,6 @@ static void skipInsignificantWhitespaces(Cursor* cursor)
 		++cursor.current;
 	}
 }
-
 
 static void skipLine(Cursor* cursor)
 {
@@ -302,7 +287,6 @@ static void skipLine(Cursor* cursor)
 	skipInsignificantWhitespaces(cursor);
 }
 
-
 static void skipWhitespaces(Cursor* cursor)
 {
 	while (cursor.current < cursor.end && isspace(*cursor.current))
@@ -312,12 +296,10 @@ static void skipWhitespaces(Cursor* cursor)
 	while (cursor.current < cursor.end && *cursor.current == ';') skipLine(cursor);
 }
 
-
 static bool isTextTokenChar(char c)
 {
 	return isalnum(c) || c == '_';
 }
-
 
 static DataView readTextToken(Cursor* cursor)
 {
@@ -330,7 +312,6 @@ static DataView readTextToken(Cursor* cursor)
 	ret.end = cursor.current;
 	return ret;
 }
-
 
 static OptionalError<Property*> readTextProperty(Cursor* cursor)
 {
@@ -377,7 +358,6 @@ static OptionalError<Property*> readTextProperty(Cursor* cursor)
 				if (cursor.current < cursor.end && *cursor.current == '-') ++cursor.current;
 				while (cursor.current < cursor.end && isdigit(*cursor.current)) ++cursor.current;
 			}
-
 
 			prop.value.end = cursor.current;
 		}
@@ -428,7 +408,6 @@ static OptionalError<Property*> readTextProperty(Cursor* cursor)
 	assert(false);
 	return Error("TODO");
 }
-
 
 static OptionalError<Element*> readTextElement(Cursor* cursor)
 {
@@ -486,7 +465,6 @@ static OptionalError<Element*> readTextElement(Cursor* cursor)
 	return element;
 }
 
-
 static OptionalError<Element*> tokenizeText(const uint8* data, size_t size)
 {
 	Cursor cursor;
@@ -525,7 +503,6 @@ static OptionalError<Element*> tokenizeText(const uint8* data, size_t size)
 	return root;
 }
 
-
 static OptionalError<Element*> tokenize(const uint8* data, size_t size)
 {
 	Cursor cursor;
@@ -558,7 +535,6 @@ static OptionalError<Element*> tokenize(const uint8* data, size_t size)
 	}
 }
 
-
 static void parseTemplates(const Element& root)
 {
 	const Element* defs = findChild(root, "Definitions");
@@ -589,13 +565,10 @@ static void parseTemplates(const Element& root)
 	// TODO
 }
 
-
-
 Material::Material(const Scene& _scene, const IElement& _element)
 	: Object(_scene, _element)
 {
 }
-
 
 struct MaterialImpl : Material
 {
@@ -607,14 +580,12 @@ struct MaterialImpl : Material
 
 	Type getType() const override { return Type::MATERIAL; }
 
-
 	const Texture* getTexture(Texture::TextureType type) const override { return textures[type]; }
 	Color getDiffuseColor() const override { return diffuse_color; }
 
 	const Texture* textures[Texture::TextureType::COUNT];
 	Color diffuse_color;
 };
-
 
 struct LimbNodeImpl : Object
 {
@@ -626,7 +597,6 @@ struct LimbNodeImpl : Object
 	Type getType() const override { return Type::LIMB_NODE; }
 };
 
-
 struct NullImpl : Object
 {
 	NullImpl(const Scene& _scene, const IElement& _element)
@@ -636,15 +606,6 @@ struct NullImpl : Object
 	}
 	Type getType() const override { return Type::NULL_NODE; }
 };
-
-
-
-
-
-
-
-
-
 
 struct Root : Object
 {
@@ -673,17 +634,11 @@ struct OptionalError<Object*> parseTexture(const Scene& scene, const Element& el
 	return texture;
 }
 
-
 template <typename T> static OptionalError<Object*> parse(const Scene& scene, const Element& element)
 {
 	T* obj = new T(scene, element);
 	return obj;
 }
-
-
-
-
-
 
 static OptionalError<Object*> parseLimbNode(const Scene& scene, const Element& element)
 {
@@ -699,7 +654,6 @@ static OptionalError<Object*> parseLimbNode(const Scene& scene, const Element& e
 	return obj;
 }
 
-
 static OptionalError<Object*> parseMesh(const Scene& scene, const Element& element)
 {
 	if (!element.first_property
@@ -712,7 +666,6 @@ static OptionalError<Object*> parseMesh(const Scene& scene, const Element& eleme
 
 	return new MeshImpl(scene, element);
 }
-
 
 static OptionalError<Object*> parseMaterial(const Scene& scene, const Element& element)
 {
@@ -735,7 +688,6 @@ static OptionalError<Object*> parseMaterial(const Scene& scene, const Element& e
 	}
 	return material;
 }
-
 
 template<typename T> static bool parseTextArrayRaw(const Property& property, T* out, int max_size);
 
@@ -781,7 +733,6 @@ template <typename T> static bool parseArrayRaw(const Property& property, T* out
 	return parseTextArrayRaw(property, out, max_size);
 }
 
-
 template <typename T> const char* fromString(const char* str, const char* end, T* val);
 template <> const char* fromString<int>(const char* str, const char* end, int* val)
 {
@@ -792,7 +743,6 @@ template <> const char* fromString<int>(const char* str, const char* end, int* v
 	return (const char*)iter;
 }
 
-
 template <> const char* fromString<uint64>(const char* str, const char* end, uint64* val)
 {
 	*val = strtoull(str, nullptr, 10);
@@ -801,7 +751,6 @@ template <> const char* fromString<uint64>(const char* str, const char* end, uin
 	if (iter < end) ++iter; // skip ','
 	return (const char*)iter;
 }
-
 
 template <> const char* fromString<int64>(const char* str, const char* end, int64* val)
 {
@@ -812,7 +761,6 @@ template <> const char* fromString<int64>(const char* str, const char* end, int6
 	return (const char*)iter;
 }
 
-
 template <> const char* fromString<double>(const char* str, const char* end, double* val)
 {
 	*val = atof(str);
@@ -822,7 +770,6 @@ template <> const char* fromString<double>(const char* str, const char* end, dou
 	return (const char*)iter;
 }
 
-
 template <> const char* fromString<float>(const char* str, const char* end, float* val)
 {
 	*val = (float)atof(str);
@@ -831,7 +778,6 @@ template <> const char* fromString<float>(const char* str, const char* end, floa
 	if (iter < end) ++iter; // skip ','
 	return (const char*)iter;
 }
-
 
 const char* fromString(const char* str, const char* end, double* val, int count)
 {
@@ -849,30 +795,25 @@ const char* fromString(const char* str, const char* end, double* val, int count)
 	return (const char*)iter;
 }
 
-
 template <> const char* fromString<Vec2>(const char* str, const char* end, Vec2* val)
 {
 	return fromString(str, end, &val.x, 2);
 }
-
 
 template <> const char* fromString<Vec3>(const char* str, const char* end, Vec3* val)
 {
 	return fromString(str, end, &val.x, 3);
 }
 
-
 template <> const char* fromString<Vec4>(const char* str, const char* end, Vec4* val)
 {
 	return fromString(str, end, &val.x, 4);
 }
 
-
 template <> const char* fromString<Matrix>(const char* str, const char* end, Matrix* val)
 {
 	return fromString(str, end, &val.m[0], 16);
 }
-
 
 template<typename T> static void parseTextArray(const Property& property, std::vector<T>* out)
 {
@@ -884,7 +825,6 @@ template<typename T> static void parseTextArray(const Property& property, std::v
 		out.push_back(val);
 	}
 }
-
 
 template<typename T> static bool parseTextArrayRaw(const Property& property, T* out_raw, int max_size)
 {
@@ -899,7 +839,6 @@ template<typename T> static bool parseTextArrayRaw(const Property& property, T* 
 	}
 	return out - out_raw == max_size / sizeof(T);
 }
-
 
 template <typename T> static bool parseBinaryArray(const Property& property, std::vector<T>* out)
 {
@@ -928,7 +867,6 @@ template <typename T> static bool parseBinaryArray(const Property& property, std
 	}
 }
 
-
 template <typename T> static bool parseDoubleVecData(Property& property, std::vector<T>* out_vec)
 {
 	assert(out_vec);
@@ -956,7 +894,6 @@ template <typename T> static bool parseDoubleVecData(Property& property, std::ve
 	}
 	return true;
 }
-
 
 template <typename T>
 static bool parseVertexData(const Element& element,
@@ -1012,7 +949,6 @@ static bool parseVertexData(const Element& element,
 	return parseDoubleVecData(*data_element.first_property, out);
 }
 
-
 template <typename T>
 static void splat(std::vector<T>* out,
 	GeometryImpl::VertexDataMapping mapping,
@@ -1064,7 +1000,6 @@ static void splat(std::vector<T>* out,
 	}
 }
 
-
 template <typename T> static void remap(std::vector<T>* out, const std::vector<int>& map)
 {
 	if (out.empty()) return;
@@ -1078,7 +1013,6 @@ template <typename T> static void remap(std::vector<T>* out, const std::vector<i
 		else out.push_back(T());
 	}
 }
-
 
 static OptionalError<Object*> parseAnimationCurve(const Scene& scene, const Element& element)
 {
@@ -1110,7 +1044,6 @@ static OptionalError<Object*> parseAnimationCurve(const Scene& scene, const Elem
 	return curve.release();
 }
 
-
 static int getTriCountFromPoly(const std::vector<int>& indices, int* idx)
 {
 	int count = 1;
@@ -1122,23 +1055,6 @@ static int getTriCountFromPoly(const std::vector<int>& indices, int* idx)
 	*idx = *idx + 2 + count;
 	return count;
 }
-
-
-
-
-static bool isString(const Property* prop)
-{
-	if (!prop) return false;
-	return prop.getType() == Property::STRING;
-}
-
-
-static bool isLong(const Property* prop)
-{
-	if (!prop) return false;
-	return prop.getType() == Property::LONG;
-}
-
 
 static bool parseConnections(const Element& root, Scene* scene)
 {
@@ -1187,7 +1103,6 @@ static bool parseConnections(const Element& root, Scene* scene)
 	}
 	return true;
 }
-
 
 static bool parseTakes(Scene* scene)
 {
@@ -1302,7 +1217,6 @@ static void parseGlobalSettings(const Element& root, Scene* scene)
 		}
 	}
 }
-
 
 static bool parseObjects(const Element& root, Scene* scene)
 {
