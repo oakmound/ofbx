@@ -60,100 +60,80 @@ func (v *Vec3) Add(v2 *Vec3){
 }
 
 
-
-//START MATRIX STUFF
-
-static Matrix operator*(const Matrix& lhs, const Matrix& rhs)
-{
-	Matrix res;
+func (m1 *Matrix) Mul(m2){
+	Matrix result = make{[]float64, 16}
 	for (int j = 0; j < 4; ++j)
 	{
 		for (int i = 0; i < 4; ++i)
 		{
-			double tmp = 0;
+			double tmp = 0
 			for (int k = 0; k < 4; ++k)
 			{
-				tmp += lhs.m[i + k * 4] * rhs.m[k + j * 4];
+				tmp += m1.m[i + k * 4] * m2.m[k + j * 4]
 			}
-			res.m[i + j * 4] = tmp;
+			res.m[i + j * 4] = tmp
 		}
 	}
 	return res;
 }
 
-
-static Matrix makeIdentity()
-{
-	return {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+func makeIdentity() Matrix{
+	return Matrix{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}	
 }
 
-
-static Matrix rotationX(double angle)
-{
+func (m *Matrix) rotationX(angle float64){
 	Matrix m = makeIdentity();
-	double c = cos(angle);
-	double s = sin(angle);
-
-	m.m[5] = m.m[10] = c;
-	m.m[9] = -s;
-	m.m[6] = s;
-
-	return m;
+	//radian
+	c := math.Cos(angle)
+	s := math.Sin(angle)
+	m.m[5] = m.m[10] = c
+	m.m[9] = -s
+	m.m[6] = s
+	return m
 }
 
-
-static Matrix rotationY(double angle)
-{
-	Matrix m = makeIdentity();
-	double c = cos(angle);
-	double s = sin(angle);
-
-	m.m[0] = m.m[10] = c;
-	m.m[8] = s;
-	m.m[2] = -s;
-
-	return m;
+func (m *Matrix) rotationY(angle float64){
+	Matrix m = makeIdentity()
+	//radian
+	c := math.Cos(angle)
+	s := math.Sin(angle)
+	m.m[0] = m.m[10] = c
+	m.m[8] = s
+	m.m[2] = -s
+	return m
 }
 
-
-static Matrix rotationZ(double angle)
-{
-	Matrix m = makeIdentity();
-	double c = cos(angle);
-	double s = sin(angle);
-
-	m.m[0] = m.m[5] = c;
-	m.m[4] = -s;
-	m.m[1] = s;
-
-	return m;
+func (m *Matrix) rotationZ(angle float64){
+	Matrix m = makeIdentity()
+	//radian
+	c := math.Cos(angle)
+	s := math.Sin(angle)
+	m.m[0] = m.m[5] = c
+	m.m[4] = -s
+	m.m[1] = s
+	return m
 }
 
-
-static Matrix getRotationMatrix(const Vec3& euler, RotationOrder order)
-{
-	const double TO_RAD = 3.1415926535897932384626433832795028 / 180.0;
-	Matrix rx = rotationX(euler.x * TO_RAD);
-	Matrix ry = rotationY(euler.y * TO_RAD);
-	Matrix rz = rotationZ(euler.z * TO_RAD);
+func getRotationMatrix(euler *Vec3, order RotationOrder) Matrix{
+	float64 TO_RAD =  3.1415926535897932384626433832795028 / 180.0 //TODO: Update this
+	rx = rotationX(euler.X * TO_RAD)
+	ry = rotationY(euler.Y * TO_RAD)
+	rz = rotationZ(euler.Z * TO_RAD)
 	switch (order) {
-		default:
-		case RotationOrder::SPHERIC_XYZ:
-			assert(false);
-		case RotationOrder::EULER_XYZ:
-			return rz * ry * rx;
-		case RotationOrder::EULER_XZY:
-			return ry * rz * rx;
-		case RotationOrder::EULER_YXZ:
-			return rz * rx * ry;
-		case RotationOrder::EULER_YZX:
-			return rx * rz * ry;
-		case RotationOrder::EULER_ZXY:
-			return ry * rx * rz;
-		case RotationOrder::EULER_ZYX:
-			return rx * ry * rz;
-	}
+	default:
+	case RotationOrder::SPHERIC_XYZ:
+		assert(false);
+	case RotationOrder::EULER_XYZ:
+		return rz.Mul(ry).Mul(rx)
+	case RotationOrder::EULER_XZY:
+		return ry.Mul(rz).Mul(rx)
+	case RotationOrder::EULER_YXZ:
+		return rz.Mul(rx).Mul( ry)
+	case RotationOrder::EULER_YZX:
+		return rx.Mul(rz).Mul(ry)
+	case RotationOrder::EULER_ZXY:
+		return ry.Mul(rx).Mul(rz)
+	case RotationOrder::EULER_ZYX:
+		return rx.Mul(ry).Mul(rz)
 }
 
-
-//END MATRIX
