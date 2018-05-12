@@ -1,7 +1,5 @@
 package ofbx
 
-import "bytes"
-
 type Color struct {
 	r, g, b float32
 }
@@ -24,8 +22,6 @@ const (
 	ANIMATION_CURVE      Type = iota
 	ANIMATION_CURVE_NODE Type = iota
 )
-
-type DataView bytes.Buffer
 
 type RotationOrder int
 
