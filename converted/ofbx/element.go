@@ -84,6 +84,22 @@ func resolveProperty(const Object& obj, const char* name) *IElement {
 	return nil
 }
 
+func isString(prop *Property) bool {
+	if prop == nil {
+		return false
+	}
+	return prop.getType() == Property::STRING
+}
+
+
+func isLong(prop *Property) bool {
+	if prop == nil {
+		return false
+	}
+	return prop.getType() == Property::LONG
+}
+
+
 type Element struct {
 	id             DataView
 	child          *Element
