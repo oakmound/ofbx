@@ -31,7 +31,7 @@ type Geometry struct {
 }
 
 
-
+//Hey its a linked list of indices!.....
 type  NewVertex struct {
 	index int //should start as -1
 	next *NewVertex
@@ -39,6 +39,21 @@ type  NewVertex struct {
 func (nv *NewVertex) ~NewVertex() {
 	if(next!=nil){
 		next.~NewVertex()
+	}
+}
+func add(nv *NewVertex, index int){
+	return nv.add(index)
+}
+func (nv *NewVertex){
+	if (vtx.index == -1){
+		 //TODO: change this cuz we aint implementing it this way. Really its checking if the newvertex exists...
+		vtx.index = index;
+	}
+	else if (vtx.next){
+		add(*vtx.next, index);
+	}else{
+		vtx.next = new GeometryImpl::NewVertex;
+		vtx.next.index = index;
 	}
 }
 
