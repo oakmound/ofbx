@@ -34,14 +34,6 @@ static void setTranslation(const Vec3& t, Matrix* mtx)
 	mtx.m[14] = t.z;
 }
 
-
-
-
-
-
-
-
-
 template <int SIZE> static bool copyString(char (&destination)[SIZE], const char* source)
 {
 	const char* src = source;
@@ -146,9 +138,6 @@ bool DataView::operator==(const char* rhs) const
 struct Property;
 template <typename T> static bool parseArrayRaw(const Property& property, T* out, int max_size);
 template <typename T> static bool parseBinaryArray(const Property& property, std::vector<T>* out);
-
-
-
 
 
 struct Property : IElementProperty
@@ -784,51 +773,6 @@ static void parseTemplates(const Element& root)
 	// TODO
 }
 
-Mesh::Mesh(const Scene& _scene, const IElement& _element)
-	: Object(_scene, _element)
-{
-}
-
-
-struct MeshImpl : Mesh
-{
-	MeshImpl(const Scene& _scene, const IElement& _element)
-		: Mesh(_scene, _element)
-		, scene(_scene)
-	{
-		is_node = true;
-	}
-
-
-	Matrix getGeometricMatrix() const override
-	{
-		Vec3 translation = resolveVec3Property(*this, "GeometricTranslation", {0, 0, 0});
-		Vec3 rotation = resolveVec3Property(*this, "GeometricRotation", {0, 0, 0});
-		Vec3 scale = resolveVec3Property(*this, "GeometricScaling", {1, 1, 1});
-
-		Matrix scale_mtx = makeIdentity();
-		scale_mtx.m[0] = (float)scale.x;
-		scale_mtx.m[5] = (float)scale.y;
-		scale_mtx.m[10] = (float)scale.z;
-		Matrix mtx = getRotationMatrix(rotation, RotationOrder::EULER_XYZ);
-		setTranslation(translation, &mtx);
-
-		return scale_mtx * mtx;
-	}
-
-
-	Type getType() const override { return Type::MESH; }
-
-
-	const Geometry* getGeometry() const override { return geometry; }
-	const Material* getMaterial(int index) const override { return materials[index]; }
-	int getMaterialCount() const override { return (int)materials.size(); }
-
-
-	const Geometry* geometry = nullptr;
-	const Scene& scene;
-	std::vector<const Material*> materials;
-};
 
 
 Material::Material(const Scene& _scene, const IElement& _element)
