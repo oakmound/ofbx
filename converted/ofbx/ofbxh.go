@@ -2,55 +2,9 @@ package ofbx
 
 import "bytes"
 
-type Vec2 struct {
-	x, y float64
-}
-
-type Vec3 struct {
-	x, y, z float64
-}
-
-type Vec4 struct {
-	x, y, z, w float64
-}
-
-type Matrix struct {
-	m [16]float64 // last 4 are translation
-}
-
-type Quat struct {
-	x, y, z, w float64
-}
-
 type Color struct {
 	r, g, b float32
 }
-
-// Specifies which canonical axis represents up in the system (typically Y or Z).
-
-type UpVector int
-
-const (
-	UpVector_AxisX UpVector = 1
-	UpVector_AxisY UpVector = 2
-	UpVector_AxisZ UpVector = 3
-)
-
-// Vector with origin at the screen pointing toward the camera.
-type FrontVector int
-
-const (
-	FrontVector_ParityEven FrontVector = 1
-	FrontVector_ParityOdd  FrontVector = 2
-)
-
-// Specifies the third vector of the system.
-type CoordSystem int
-
-const (
-	CoordSystem_RightHanded CoordSystem = iota
-	CoordSystem_LeftHanded  CoordSystem = iota
-)
 
 // http://docs.autodesk.com/FBX/2014/ENU/FBX-SDK-Documentation/index.html?url=cpp_ref/class_fbx_time.html,topicNumber=cpp_ref_class_fbx_time_html29087af6-8c2c-4e9d-aede-7dc5a1c2436c,hash=a837590fd5310ff5df56ffcf7c394787e
 type FrameRate int
