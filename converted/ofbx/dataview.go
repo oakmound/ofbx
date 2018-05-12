@@ -1,54 +1,63 @@
 package ofbx
 
 import (
+	"bytes"
 	"encoding/binary"
+	"fmt"
 )
 
 type DataView *bytes.Buffer
 
 func (dv DataView) touint64() uint64 {
-	i, _ := binary.ReadUvarint(dv)
+	var i uint64
+	err := binary.Read(dv, binary.BigEndian, &i)
+	if err != nil {
+		fmt.Println("binary read failure:", err)
+	}
 	return i
 }
-
 
 func (dv DataView) toint64() int64 {
-	i, _ := binary.ReadVarint(dv)
+	var i int64
+	err := binary.Read(dv, binary.BigEndian, &i)
+	if err != nil {
+		fmt.Println("binary read failure:", err)
+	}
 	return i
 }
 
-
 func (dv DataView) toInt() int {
-	i, _ := binary.ReadVarint(dv)
-	return int(i)
+	var i int
+	err := binary.Read(dv, binary.BigEndian, &i)
+	if err != nil {
+		fmt.Println("binary read failure:", err)
+	}
+	return i
 }
-
 
 func (dv DataView) touint32() uint32 {
-	if (is_binary)
-	{
-		assert(end - begin == sizeof(uint32))
-		return *(uint32*)begin
+	var i uint32
+	err := binary.Read(dv, binary.BigEndian, &i)
+	if err != nil {
+		fmt.Println("binary read failure:", err)
 	}
-	return (uint32)atoll(( string)begin)
+	return i
 }
-
 
 func (dv DataView) toDouble() float64 {
-	if (is_binary)
-	{
-		assert(end - begin == sizeof(double))
-		return *(double*)begin
+	var i float64
+	err := binary.Read(dv, binary.BigEndian, &i)
+	if err != nil {
+		fmt.Println("binary read failure:", err)
 	}
-	return atof(( string)begin)
+	return i
 }
 
-
 func (dv DataView) toFloat() float32 {
-	if (is_binary)
-	{
-		assert(end - begin == sizeof(float))
-		return *(float*)begin
+	var i float32
+	err := binary.Read(dv, binary.BigEndian, &i)
+	if err != nil {
+		fmt.Println("binary read failure:", err)
 	}
-	return (float)atof(( string)begin)
+	return i
 }
