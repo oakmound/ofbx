@@ -1124,26 +1124,6 @@ struct AnimationCurveImpl : AnimationCurve
 };
 
 
-Skin::Skin(const Scene& _scene, const IElement& _element)
-	: Object(_scene, _element)
-{
-}
-
-
-struct SkinImpl : Skin
-{
-	SkinImpl(const Scene& _scene, const IElement& _element)
-		: Skin(_scene, _element)
-	{
-	}
-
-	int getClusterCount() const override { return (int)clusters.size(); }
-	const Cluster* getCluster(int idx) const override { return clusters[idx]; }
-
-	Type getType() const override { return Type::SKIN; }
-
-	std::vector<Cluster*> clusters;
-};
 
 
 
