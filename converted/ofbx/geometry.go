@@ -1,8 +1,49 @@
 package ofbx
 
+
+
+
+
+type VertexDataMapping int 
+
+const (
+		BY_POLYGON_VERTEX = iota,
+		BY_POLYGON = iota,
+		BY_VERTEX = iota
+)
+
+const s_uvs_max = 4
+
+
 type Geometry struct {
 	Object
+
+	skin *Skin
+
+	vertices, normals, tangents []Vec3
+	
+	uvs [s_uvs_max]Vec2
+	 colors []Vec4
+	materials, to_old_vertices []int
+	to_new_vertices []NewVector
+
+	
 }
+
+
+
+type  NewVertex struct {
+	index int //should start as -1
+	next *NewVertex
+}
+func (nv *NewVertex) ~NewVertex() {
+	if(next!=nil){
+		next.~NewVertex()
+	}
+}
+
+
+
 
 func NewGeometry(scene *Scene, element *IElement) *Geometry {
 	return nil
@@ -13,39 +54,52 @@ func (g *Geometry) Type() Type {
 }
 
 func (g *Geometry) UVSMax() int {
-	return 4
+	return s_uvs_max
 }
 
 func (g *Geometry) getVertices() []Vec3 {
-	return nil
+	return g.vertices
+}
+func (g *Geometry) getVertexCount() int{
+	return len(g.vertices)
 }
 
 func (g *Geometry) getNormals() *Vec3 {
-	return nil
+	return g.normals
 }
 
+func (g *Geometry) getUVs() *Vec2{return g.getUVs(0)}
 func (g *Geometry) getUVs(index int) *Vec2 {
-	return nil
+	if(index < 0 || index > len(g.uvs)){
+		return nil
+	}
+	return g.uvs[index]
 }
 
 func (g *Geometry) getColors() *Vec4 {
-	return nil
+	return g.colors
 }
 
 func (g *Geometry) getTangents() *Vec3 {
-	return nil
+	return g.tangents
 }
 
 func (g *Geometry) getSkin() *Skin {
-	return nil
+	return g.skin
 }
 
 func (g *Geometry) getMaterials() *int {
-	return nil
+	return g.materials
 }
 
 
+
+
 //From CPP
+
+func (g *Geometry) getType(){
+	return g.Type()
+}
 
 static void add(GeometryImpl::NewVertex& vtx, int index)
 {
@@ -214,60 +268,12 @@ static OptionalError<Object*> parseGeometry(const Scene& scene, const Element& e
 	return geom.release();
 }
 
-Geometry::Geometry(const Scene& _scene, const IElement& _element)
-	: Object(_scene, _element)
-{
-}
 
 
 struct GeometryImpl : Geometry
 {
-	enum VertexDataMapping
-	{
-		BY_POLYGON_VERTEX,
-		BY_POLYGON,
-		BY_VERTEX
-	};
-
-	struct NewVertex
-	{
-		~NewVertex() { delete next; }
-
-		int index = -1;
-		NewVertex* next = nullptr;
-	};
-
-	std::vector<Vec3> vertices;
-	std::vector<Vec3> normals;
-	std::vector<Vec2> uvs[s_uvs_max];
-	std::vector<Vec4> colors;
-	std::vector<Vec3> tangents;
-	std::vector<int> materials;
-
-	const Skin* skin = nullptr;
-
-	std::vector<int> to_old_vertices;
-	std::vector<NewVertex> to_new_vertices;
-
-	GeometryImpl(const Scene& _scene, const IElement& _element)
-		: Geometry(_scene, _element)
-	{
-	}
-
-
-	Type getType() const override { return Type::GEOMETRY; }
-	int getVertexCount() const override { return (int)vertices.size(); }
-	const Vec3* getVertices() const override { return &vertices[0]; }
-	const Vec3* getNormals() const override { return normals.empty() ? nullptr : &normals[0]; }
-	const Vec2* getUVs(int index = 0) const override { return index < 0 || index >= s_uvs_max || uvs[index].empty() ? nullptr : &uvs[index][0]; }
-	const Vec4* getColors() const override { return colors.empty() ? nullptr : &colors[0]; }
-	const Vec3* getTangents() const override { return tangents.empty() ? nullptr : &tangents[0]; }
-	const Skin* getSkin() const override { return skin; }
-	const int* getMaterials() const override { return materials.empty() ? nullptr : &materials[0]; }
-
-
-	void triangulate(const std::vector<int>& old_indices, std::vector<int>* indices, std::vector<int>* to_old)
-	{
+	
+	void triangulate(const std::vector<int>& old_indices, std::vector<int>* indices, std::vector<int>* to_old)	{
 		assert(indices);
 		assert(to_old);
 
