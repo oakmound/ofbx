@@ -10,6 +10,8 @@ const (
 
 type Texture struct {
 	Object
+	filename          DataView
+	relative_filename DataView
 }
 
 func NewTexture(scene *Scene, element *IElement) *Texture {
@@ -26,4 +28,10 @@ func (t *Texture) getFileName() DataView {
 
 func (t *Texture) getRelativeFileName() DataView {
 	return DataView{}
+}
+
+// Keeping for conversion sake, will update and remove later TODO:Clean out references so it can be removed
+
+func (t *Texture) getType() Type {
+	return t.Type()
 }

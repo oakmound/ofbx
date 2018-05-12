@@ -1146,26 +1146,7 @@ struct SkinImpl : Skin
 };
 
 
-Texture::Texture(const Scene& _scene, const IElement& _element)
-	: Object(_scene, _element)
-{
-}
 
-
-struct TextureImpl : Texture
-{
-	TextureImpl(const Scene& _scene, const IElement& _element)
-		: Texture(_scene, _element)
-	{
-	}
-
-	DataView getRelativeFileName() const override { return relative_filename; }
-	DataView getFileName() const override { return filename; }
-
-	DataView filename;
-	DataView relative_filename;
-	Type getType() const override { return Type::TEXTURE; }
-};
 
 
 struct Root : Object
