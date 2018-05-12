@@ -1,13 +1,3 @@
-
-func fbxTimeToSeconds(value int64) float64{
-	return float64(value)/float64(46186158000)
-}
-func secondsToFbxTime(value float64) int64{
-	return int64(value /46186158000)
-}
-
-//-------------------------------------
-
 struct Header
 {
 	uint8 magic[21];
@@ -15,9 +5,7 @@ struct Header
 	uint32 version;
 };
 
-
 // We might care starting here... but probs not
-
 
 struct Cursor
 {

@@ -56,3 +56,10 @@ func GetFramerateFromTimeMode(f FrameRate, custom float32) float32 {
 	}
 	return -1
 }
+
+func fbxTimeToSeconds(value int64) float64 {
+	return float64(value) / float64(46186158000)
+}
+func secondsToFbxTime(value float64) int64 {
+	return int64(value / 46186158000)
+}
