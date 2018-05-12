@@ -21,25 +21,38 @@ const (
 	FrameRate_CUSTOM          FrameRate = iota
 )
 
-static float getFramerateFromTimeMode(FrameRate time_mode, float custom_frame_rate)
-{
-	switch (time_mode)
-	{
-		case FrameRate_DEFAULT: return 1;
-		case FrameRate_120: return 120;
-		case FrameRate_100: return 100;
-		case FrameRate_60: return 60;
-		case FrameRate_50: return 50;
-		case FrameRate_48: return 48;
-		case FrameRate_30: return 30;
-		case FrameRate_30_DROP: return 30;
-		case FrameRate_NTSC_DROP_FRAME: return 29.9700262f;
-		case FrameRate_NTSC_FULL_FRAME: return 29.9700262f;
-		case FrameRate_PAL: return 25;
-		case FrameRate_CINEMA: return 24;
-		case FrameRate_1000: return 1000;
-		case FrameRate_CINEMA_ND: return 23.976f;
-		case FrameRate_CUSTOM: return custom_frame_rate;
+func GetFramerateFromTimeMode(f FrameRate, custom float32) float32 {
+	switch f {
+	case FrameRate_DEFAULT:
+		return 1
+	case FrameRate_120:
+		return 120
+	case FrameRate_100:
+		return 100
+	case FrameRate_60:
+		return 60
+	case FrameRate_50:
+		return 50
+	case FrameRate_48:
+		return 48
+	case FrameRate_30:
+		return 30
+	case FrameRate_30_DROP:
+		return 30
+	case FrameRate_NTSC_DROP_FRAME:
+		return 29.9700262
+	case FrameRate_NTSC_FULL_FRAME:
+		return 29.9700262
+	case FrameRate_PAL:
+		return 25
+	case FrameRate_CINEMA:
+		return 24
+	case FrameRate_1000:
+		return 1000
+	case FrameRate_CINEMA_ND:
+		return 23.976
+	case FrameRate_CUSTOM:
+		return custom_frame_rate
 	}
-	return -1;
+	return -1
 }
