@@ -14,79 +14,72 @@ const (
 	ARRAY_FLOAT  PropertyType = 'f'
 )
 
-type IElementProperty struct {
+type ElementProperty struct {
 }
 
-func (iep *IElementProperty) getType() Type {
+func (ep *ElementProperty) getType() Type {
 	return 0
 }
 
-func (iep *IElementProperty) getNext() *IElementProperty {
+func (ep *ElementProperty) getNext() *ElementProperty {
 	return nil
 }
 
-func (iep *IElementProperty) getValue() DataView {
+func (ep *ElementProperty) getValue() DataView {
 	return DataView{}
 }
 
-func (iep *IElementProperty) getCount() int {
+func (ep *ElementProperty) getCount() int {
 	return 0
 }
 
-func (iep *IElementProperty) getValuesF64(values []float64, max_size int) bool {
+func (ep *ElementProperty) getValuesF64(values []float64, max_size int) bool {
 	return false
 }
 
-func (iep *IElementProperty) getValuesInt(values []int, max_size int) bool {
+func (ep *ElementProperty) getValuesInt(values []int, max_size int) bool {
 	return false
 }
 
-func (iep *IElementProperty) getValuesF32(values []float32, max_size int) bool {
+func (ep *ElementProperty) getValuesF32(values []float32, max_size int) bool {
 	return false
 }
 
-func (iep *IElementProperty) getValuesUInt64(values []uint64, max_size int) bool {
+func (ep *ElementProperty) getValuesUInt64(values []uint64, max_size int) bool {
 	return false
 }
 
-func (iep *IElementProperty) getValuesInt64(values []int64, max_size int) bool {
+func (ep *ElementProperty) getValuesInt64(values []int64, max_size int) bool {
 	return false
 }
 
-type IElement struct{}
-
-func (ie *IElement) getFirstChild() *IElement {
-	return nil
-}
-func (ie *IElement) getSibling() *IElement {
-	return nil
-}
-func (ie *IElement) getID() DataView {
-	return DataView{}
-}
-func (ie *IElement) getFirstProperty() *IElementProperty {
-	return nil
+type Element struct {
+	id             DataView
+	child          *Element
+	sibling        *Element
+	first_property *Property
 }
 
-struct Element : IElement
-{
-	IElement* getFirstChild() const override { return child; }
-	IElement* getSibling() const override { return sibling; }
-	DataView getID() const override { return id; }
-	IElementProperty* getFirstProperty() const override { return first_property; }
-	IElementProperty* getProperty(int idx) const
-	{
-		IElementProperty* prop = first_property;
-		for (int i = 0; i < idx; ++i)
-		{
-			if (prop == nullptr) return nullptr;
-			prop = prop.getNext();
+func (e *Element) getFirstChild() *Element {
+	return e.child
+}
+func (e *Element) getSibling() *Element {
+	return e.sibling
+}
+func (e *Element) getID() DataView {
+	return e.id
+}
+func (e *Element) getFirstProperty() *ElementProperty {
+	return e.first_property
+}
+
+func (e *Element) getProperty(idx int) *ElementProperty {
+	prop := e.first_property
+	for i := 0; i < idx; i++ {
+		if prop == nil {
+			return nil
 		}
-		return prop;
+		prop = prop.getNext()
 	}
-
-	DataView id;
-	Element* child = nullptr;
-	Element* sibling = nullptr;
-	Property* first_property = nullptr;
-};
+	return prop
+}
