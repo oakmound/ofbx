@@ -12,19 +12,14 @@ type Cluster struct {
 }
 
 func NewCluster(scene *Scene, element *IElement) *Cluster {
-
-
-
-
 	c := NewObject(scene, element)
-	c.clusterPostProcess(scene, element)
-	c.link = &Object{}
-	c.skin := &Skin{}
-	c.transform_link_matrix = NewMatrix(scene, element) 
-	c.transform_matrix= NewMatrix(scene, element)
+	if(c.clusterPostProcess(scene, element)){
+			return c
 
-	return c
-}
+	}
+	errors.New("I think this is an error now")
+	return nil
+		}
 
 func (c *Cluster) Type() Type {
 	return CLUSTER
@@ -62,7 +57,7 @@ func (c *Cluster) getLink() *Object {
 
 // clusterPostProcess adds the additional fields that clusters have over just object fields.
 // In this case its setting up indicies and weights
-func (c *Cluster) clusterPostProcess(scene, element){
+func (c *Cluster) clusterPostProcess(scene, element) {
 	 geom := (*GeometryImpl).skin.resolveObjectLinkReverse(GEOMETRY)
 	 if (geom==nil){
 		return false
