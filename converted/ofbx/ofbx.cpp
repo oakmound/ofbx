@@ -52,72 +52,8 @@ template <int SIZE> static bool copyString(char (&destination)[SIZE], const char
 	return *src == '\0';
 }
 
-struct Property;
 template <typename T> static bool parseArrayRaw(const Property& property, T* out, int max_size);
 template <typename T> static bool parseBinaryArray(const Property& property, std::vector<T>* out);
-
-
-struct Property : IElementProperty
-{
-	~Property() { delete next; }
-	Type getType() const override { return (Type)type; }
-	IElementProperty* getNext() const override { return next; }
-	DataView getValue() const override { return value; }
-	int getCount() const override
-	{
-		assert(type == ARRAY_DOUBLE || type == ARRAY_INT || type == ARRAY_FLOAT || type == ARRAY_LONG);
-		if (value.is_binary)
-		{
-			return int(*(uint32*)value.begin);
-		}
-		return count;
-	}
-
-	bool getValues(double* values, int max_size) const override { return parseArrayRaw(*this, values, max_size); }
-
-	bool getValues(float* values, int max_size) const override { return parseArrayRaw(*this, values, max_size); }
-
-	bool getValues(uint64* values, int max_size) const override { return parseArrayRaw(*this, values, max_size); }
-	
-	bool getValues(int64* values, int max_size) const override { return parseArrayRaw(*this, values, max_size); }
-
-	bool getValues(int* values, int max_size) const override { return parseArrayRaw(*this, values, max_size); }
-
-	int count;
-	uint8 type;
-	DataView value;
-	Property* next = nullptr;
-};
-
-static const Element* findChild(const Element& element, const char* id)
-{
-	Element* const* iter = &element.child;
-	while (*iter)
-	{
-		if ((*iter).id == id) return *iter;
-		iter = &(*iter).sibling;
-	}
-	return nullptr;
-}
-
-
-static IElement* resolveProperty(const Object& obj, const char* name)
-{
-	const Element* props = findChild((const Element&)obj.element, "Properties70");
-	if (!props) return nullptr;
-
-	Element* prop = props.child;
-	while (prop)
-	{
-		if (prop.first_property && prop.first_property.value == name)
-		{
-			return prop;
-		}
-		prop = prop.sibling;
-	}
-	return nullptr;
-}
-
 
 static int resolveEnumProperty(const Object& object, const char* name, int default_value)
 {
