@@ -44,3 +44,18 @@ type Matrix struct {
 type Quat struct {
 	x, y, z, w float64
 }
+
+
+func (v *Vec3) Minus() *Vec3{
+	return {-v.x, -v.y, -v.z}
+}
+
+func (v *Vec3) Mul(f){
+	return NewVec3(v.x * f, v.y * f, v.z * f)
+}
+
+
+func (v *Vec3) Add(v2 *Vec3){
+	return NewVec3(v.x + v2.x, v.y + v2.y, v.z + v2.z)
+}
+

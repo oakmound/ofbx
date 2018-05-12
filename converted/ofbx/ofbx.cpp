@@ -9,16 +9,6 @@ func secondsToFbxTime(value float64) int64{
 	return int64(value /46186158000)
 }
 
-func (v *Vec3) Mul(f){
-	return NewVec3(v.x * f, v.y * f, v.z * f)
-}
-
-
-func (v *Vec3) Add(v2 *Vec3){
-	return NewVec3(a.x + b.x, a.y + b.y, a.z + b.z)
-}
-
-
 
 
 
@@ -116,12 +106,6 @@ static void setTranslation(const Vec3& t, Matrix* mtx)
 	mtx.m[12] = t.x;
 	mtx.m[13] = t.y;
 	mtx.m[14] = t.z;
-}
-
-
-static Vec3 operator-(const Vec3& v)
-{
-	return {-v.x, -v.y, -v.z};
 }
 
 
