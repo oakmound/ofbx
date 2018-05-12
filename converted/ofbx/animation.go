@@ -5,23 +5,25 @@ type AnimationStack struct {
 }
 
 func NewAnimationStack(scene *Scene, element *IElement) *AnimationStack {
-	return nil
+	return &AnimationStack{}
 }
 
 func (as *AnimationStack) Type() Type {
 	return ANIMATION_STACK
 }
 
-func (as *AnimationStack) getLayer() int {
-	return 0
+func (as *AnimationStack) getLayer(index int) *AnimationLayer {
+	// This may need to change
+	return as.resolveObjectLink(index)
 }
 
 type AnimationLayer struct {
 	Object
+	curve_nodes []*AnimationCurveNode
 }
 
 func NewAnimationLayer(scene *Scene, element *IElement) *AnimationLayer {
-	return nil
+	return &AnimationLayer{}
 }
 
 func (as *AnimationLayer) Type() Type {
@@ -29,9 +31,14 @@ func (as *AnimationLayer) Type() Type {
 }
 
 func (as *AnimationLayer) getCurveNodeIndex(index int) *AnimationCurveNode {
-	return 0
+	return as.curve_nodes[index]
 }
 
 func (as *AnimationLayer) getCurveNodeIndex(bone *Object, property string) *AnimationCurveNode {
-	return 0
+	for _, node := range as.curve_nodes {
+		if node.bone_link_property == prop && node.bone == &bone {
+			return node
+		}
+	}
+	return nil
 }
