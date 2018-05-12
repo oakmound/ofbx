@@ -1,13 +1,3 @@
-
-func fbxTimeToSeconds(value int64) float64{
-	return float64(value)/float64(46186158000)
-}
-func secondsToFbxTime(value float64) int64{
-	return int64(value /46186158000)
-}
-
-//-------------------------------------
-
 struct Header
 {
 	uint8 magic[21];
@@ -15,9 +5,7 @@ struct Header
 	uint32 version;
 };
 
-
 // We might care starting here... but probs not
-
 
 struct Cursor
 {
@@ -52,97 +40,8 @@ template <int SIZE> static bool copyString(char (&destination)[SIZE], const char
 	return *src == '\0';
 }
 
-struct Property;
 template <typename T> static bool parseArrayRaw(const Property& property, T* out, int max_size);
 template <typename T> static bool parseBinaryArray(const Property& property, std::vector<T>* out);
-
-
-struct Property : IElementProperty
-{
-	~Property() { delete next; }
-	Type getType() const override { return (Type)type; }
-	IElementProperty* getNext() const override { return next; }
-	DataView getValue() const override { return value; }
-	int getCount() const override
-	{
-		assert(type == ARRAY_DOUBLE || type == ARRAY_INT || type == ARRAY_FLOAT || type == ARRAY_LONG);
-		if (value.is_binary)
-		{
-			return int(*(uint32*)value.begin);
-		}
-		return count;
-	}
-
-	bool getValues(double* values, int max_size) const override { return parseArrayRaw(*this, values, max_size); }
-
-	bool getValues(float* values, int max_size) const override { return parseArrayRaw(*this, values, max_size); }
-
-	bool getValues(uint64* values, int max_size) const override { return parseArrayRaw(*this, values, max_size); }
-	
-	bool getValues(int64* values, int max_size) const override { return parseArrayRaw(*this, values, max_size); }
-
-	bool getValues(int* values, int max_size) const override { return parseArrayRaw(*this, values, max_size); }
-
-	int count;
-	uint8 type;
-	DataView value;
-	Property* next = nullptr;
-};
-
-
-struct Element : IElement
-{
-	IElement* getFirstChild() const override { return child; }
-	IElement* getSibling() const override { return sibling; }
-	DataView getID() const override { return id; }
-	IElementProperty* getFirstProperty() const override { return first_property; }
-	IElementProperty* getProperty(int idx) const
-	{
-		IElementProperty* prop = first_property;
-		for (int i = 0; i < idx; ++i)
-		{
-			if (prop == nullptr) return nullptr;
-			prop = prop.getNext();
-		}
-		return prop;
-	}
-
-	DataView id;
-	Element* child = nullptr;
-	Element* sibling = nullptr;
-	Property* first_property = nullptr;
-};
-
-
-static const Element* findChild(const Element& element, const char* id)
-{
-	Element* const* iter = &element.child;
-	while (*iter)
-	{
-		if ((*iter).id == id) return *iter;
-		iter = &(*iter).sibling;
-	}
-	return nullptr;
-}
-
-
-static IElement* resolveProperty(const Object& obj, const char* name)
-{
-	const Element* props = findChild((const Element&)obj.element, "Properties70");
-	if (!props) return nullptr;
-
-	Element* prop = props.child;
-	while (prop)
-	{
-		if (prop.first_property && prop.first_property.value == name)
-		{
-			return prop;
-		}
-		prop = prop.sibling;
-	}
-	return nullptr;
-}
-
 
 static int resolveEnumProperty(const Object& object, const char* name, int default_value)
 {
