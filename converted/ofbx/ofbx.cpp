@@ -89,31 +89,6 @@ struct Property : IElementProperty
 	Property* next = nullptr;
 };
 
-
-struct Element : IElement
-{
-	IElement* getFirstChild() const override { return child; }
-	IElement* getSibling() const override { return sibling; }
-	DataView getID() const override { return id; }
-	IElementProperty* getFirstProperty() const override { return first_property; }
-	IElementProperty* getProperty(int idx) const
-	{
-		IElementProperty* prop = first_property;
-		for (int i = 0; i < idx; ++i)
-		{
-			if (prop == nullptr) return nullptr;
-			prop = prop.getNext();
-		}
-		return prop;
-	}
-
-	DataView id;
-	Element* child = nullptr;
-	Element* sibling = nullptr;
-	Property* first_property = nullptr;
-};
-
-
 static const Element* findChild(const Element& element, const char* id)
 {
 	Element* const* iter = &element.child;
