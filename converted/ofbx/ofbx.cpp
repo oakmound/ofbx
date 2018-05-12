@@ -1,7 +1,4 @@
 
-
-
-
 func fbxTimeToSeconds(value int64) float64{
 	return float64(value)/float64(46186158000)
 }
@@ -9,85 +6,14 @@ func secondsToFbxTime(value float64) int64{
 	return int64(value /46186158000)
 }
 
-
-
-
-
-
-
-
-
-
-
 //-------------------------------------
 
-
-
-struct Error
-{
-	Error() {}
-	Error(const char* msg) { s_message = msg; }
-
-	static const char* s_message;
-};
-
-
-const char* Error::s_message = "";
-
-
-template <typename T> struct OptionalError
-{
-	OptionalError(Error error)
-		: is_error(true)
-	{
-	}
-
-
-	OptionalError(T _value)
-		: value(_value)
-		, is_error(false)
-	{
-	}
-
-
-	T getValue() const
-	{
-#ifdef _DEBUG
-		assert(error_checked);
-#endif
-		return value;
-	}
-
-
-	bool isError()
-	{
-#ifdef _DEBUG
-		error_checked = true;
-#endif
-		return is_error;
-	}
-
-
-private:
-	T value;
-	bool is_error;
-#ifdef _DEBUG
-	bool error_checked = false;
-#endif
-};
-
-
-#pragma pack(1)
 struct Header
 {
 	uint8 magic[21];
 	uint8 reserved[2];
 	uint32 version;
 };
-#pragma pack()
-
-
-
 
 
 // We might care starting here... but probs not
