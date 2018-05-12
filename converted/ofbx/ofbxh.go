@@ -6,27 +6,6 @@ type Color struct {
 	r, g, b float32
 }
 
-// http://docs.autodesk.com/FBX/2014/ENU/FBX-SDK-Documentation/index.html?url=cpp_ref/class_fbx_time.html,topicNumber=cpp_ref_class_fbx_time_html29087af6-8c2c-4e9d-aede-7dc5a1c2436c,hash=a837590fd5310ff5df56ffcf7c394787e
-type FrameRate int
-
-const (
-	FrameRate_DEFAULT         FrameRate = iota
-	FrameRate_120             FrameRate = iota
-	FrameRate_100             FrameRate = iota
-	FrameRate_60              FrameRate = iota
-	FrameRate_50              FrameRate = iota
-	FrameRate_48              FrameRate = iota
-	FrameRate_30              FrameRate = iota
-	FrameRate_30_DROP         FrameRate = iota
-	FrameRate_NTSC_DROP_FRAME FrameRate = iota
-	FrameRate_NTSC_FULL_FRAME FrameRate = iota
-	FrameRate_PAL             FrameRate = iota
-	FrameRate_CINEMA          FrameRate = iota
-	FrameRate_1000            FrameRate = iota
-	FrameRate_CINEMA_ND       FrameRate = iota
-	FrameRate_CUSTOM          FrameRate = iota
-)
-
 type Type int
 
 const (
