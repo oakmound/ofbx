@@ -885,15 +885,7 @@ static OptionalError<Object*> parseAnimationCurve(const Scene& scene, const Elem
 	return curve.release();
 }
 
-static int getTriCountFromPoly(const std::vector<int>& indices, int* idx) {
-	int count = 1;
-	while (indices[*idx + 1 + count] >= 0) {
-		++count;
-	}
 
-	*idx = *idx + 2 + count;
-	return count;
-}
 
 static bool parseConnections(const Element& root, Scene* scene) {
 	assert(scene);

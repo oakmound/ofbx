@@ -137,3 +137,13 @@ func getRotationMatrix(euler *Vec3, order RotationOrder) Matrix{
 		return rx.Mul(ry).Mul(rz)
 }
 
+
+
+func getTriCountFromPoly(indices []int, idx int) (int, int){
+	count := 1
+	for (indices[idx+1+count]>=0){
+		count++
+	}
+	return count, idx
+}
+

@@ -44,7 +44,7 @@ func (nv *NewVertex) ~NewVertex() {
 func add(nv *NewVertex, index int){
 	return nv.add(index)
 }
-func (nv *NewVertex){
+func (nv *NewVertex) add(index int){
 	if (vtx.index == -1){
 		 //TODO: change this cuz we aint implementing it this way. Really its checking if the newvertex exists...
 		vtx.index = index;
@@ -61,6 +61,10 @@ func (nv *NewVertex){
 
 
 func NewGeometry(scene *Scene, element *IElement) *Geometry {
+
+	g := NewObject(scene, element)
+	g.to_old_vertices = make([]int)
+
 	return nil
 }
 
@@ -108,6 +112,33 @@ func (g *Geometry) getMaterials() *int {
 }
 
 
+func (g *Geometry) triangulate(old_indices []int ) {
+	to_old_indices := make([]int)
+	in_polygon_idx := 0
+	for(i := 0; i < len(old_indices); ++i){
+		idx := old_indices[i] 
+		if(idx < 0){
+			idx = -idx - 1
+		}
+
+		if(in_polygon_idx <= 2){
+			geom.to_old_vertices = append(geom.to_old_vertices, idx)
+			to_old = append(to_old, i)
+		}else{
+				geom.to_old_vertices = append(geom.to_old_vertices, old_indices[i - in_polygon_idx])
+				to_old = append(to_old,i - in_polygon_idx)
+				geom.to_old_vertices = append(geom.to_old_vertices, old_indices[i - 1])
+				to_old = append(to_old, i - 1)
+				geom.to_old_vertices = append(geom.to_old_vertices, idx)
+				to_old = append(to_old, i)
+		}
+		in_polygon_idx++
+		if (old_indices[i] < 0)	{
+			in_polygon_idx = 0
+		}
+	}
+
+}
 
 
 //From CPP
@@ -133,12 +164,68 @@ func parseGeometry(scene *Scene, element *IElement) *Object, Error{
 		return nil, errors.New("Geometry Indicies missing")
 	}
 
-	geom.vertices = parseDoubleVecData(*vertices_element.first_property)
-	geom.polys_element = parseBinaryArray(*polys_element.first_property)
+	vertices = parseDoubleVecData(*vertices_element.first_property)
+	original_indices = parseBinaryArray(*polys_element.first_property)
 	
+	geom.triangulate(original_indices)
+	geom.vertices = make([]Vec3, len(geom.to_old_vertices))
+	
+	for(i, vIdx := range geom.to_old_vertices){
+		geom.vertices[i] = vertices[vIdx]
+	}
 
+	geom.to_new_vertices = make([]NewVertex, len(geom.vertices))
+
+	for (i := 0, i < len(geom.to_old_vertices); ++i){
+		old := to_old_vertices[i]
+		geom.to_new_vertices[old].add(i)
+	}
+	
+	layer_material_element :=  findChild(element, "LayerElementMaterial")
+	if(layer_material_element != nil){
+		mapping_element := findChild(*layer_material_element, "MappingInformationType")
+		reference_element := findChild(*layer_material_element, "ReferenceInformationType")
+		if (!mapping_element || !reference_element){
+			 return nil, errors.New("Invalid LayerElementMaterial")
+		}
+		tmp := make([]int)
+
+		if (mapping_element.first_property.value == "ByPolygon" &&	reference_element.first_property.value == "IndexToDirect"){
+			geom.materials = make([]int,len(geom.vertices)/3)
+			for(i:=0; i<len(geom.vertices)/3; i++){
+				geom.materials[i]=-1
+			}
+
+			indices_element := findChild(*layer_material_element, "Materials")
+			if (!indices_element || !indices_element.first_property) {
+				return nil, errors.New("Invalid LayerElementMaterial")
+			}
+
+			tmp := parseBinaryArray(*indices_element.first_property) //int
+
+			int tmp_i = 0;
+			for (poly := 0; poly < len(tmp); ++poly){
+				tri_count := getTriCountFromPoly(original_indices, &tmp_i);
+				for (int i = 0; i < tri_count; ++i)
+				{
+					geom.materials.push_back(tmp[poly]);
+				}
+			}
+
+
+		}else{
+			if (mapping_element.first_property.value != "AllSame"){
+				 return nil,  errors.New("Mapping not supported")
+			}
+		}
+
+
+	}
 
 }
+
+
+
 
 
 
@@ -147,64 +234,11 @@ static OptionalError<Object*> parseGeometry(const Scene& scene, const Element& e
 	
 
 	//here down
-	std::vector<Vec3> vertices;
-	if (!parseDoubleVecData(*vertices_element.first_property, &vertices)) return Error("Failed to parse vertices");
-	std::vector<int> original_indices;
-	if (!parseBinaryArray(*polys_element.first_property, &original_indices)) return Error("Failed to parse indices");
+	
 
-	std::vector<int> to_old_indices;
-	geom.triangulate(original_indices, &geom.to_old_vertices, &to_old_indices);
-	geom.vertices.resize(geom.to_old_vertices.size());
-
-	for (int i = 0, c = (int)geom.to_old_vertices.size(); i < c; ++i)
-	{
-		geom.vertices[i] = vertices[geom.to_old_vertices[i]];
-	}
-
-	geom.to_new_vertices.resize(vertices.size()); // some vertices can be unused, so this isn't necessarily the same size as to_old_vertices.
-	const int* to_old_vertices = geom.to_old_vertices.empty() ? nullptr : &geom.to_old_vertices[0];
-	for (int i = 0, c = (int)geom.to_old_vertices.size(); i < c; ++i)
-	{
-		int old = to_old_vertices[i];
-		add(geom.to_new_vertices[old], i);
-	}
 
 	const Element* layer_material_element = findChild(element, "LayerElementMaterial");
-	if (layer_material_element)
-	{
-		const Element* mapping_element = findChild(*layer_material_element, "MappingInformationType");
-		const Element* reference_element = findChild(*layer_material_element, "ReferenceInformationType");
-
-		std::vector<int> tmp;
-
-		if (!mapping_element || !reference_element) return Error("Invalid LayerElementMaterial");
-
-		if (mapping_element.first_property.value == "ByPolygon" &&
-			reference_element.first_property.value == "IndexToDirect")
-		{
-			geom.materials.reserve(geom.vertices.size() / 3);
-			for (int& i : geom.materials) i = -1;
-
-			const Element* indices_element = findChild(*layer_material_element, "Materials");
-			if (!indices_element || !indices_element.first_property) return Error("Invalid LayerElementMaterial");
-
-			if (!parseBinaryArray(*indices_element.first_property, &tmp)) return Error("Failed to parse material indices");
-
-			int tmp_i = 0;
-			for (int poly = 0, c = (int)tmp.size(); poly < c; ++poly)
-			{
-				int tri_count = getTriCountFromPoly(original_indices, &tmp_i);
-				for (int i = 0; i < tri_count; ++i)
-				{
-					geom.materials.push_back(tmp[poly]);
-				}
-			}
-		}
-		else
-		{
-			if (mapping_element.first_property.value != "AllSame") return Error("Mapping not supported");
-		}
-	}
+	
 
 	const Element* layer_uv_element = findChild(element, "LayerElementUV");
     while (layer_uv_element)
@@ -286,42 +320,5 @@ static OptionalError<Object*> parseGeometry(const Scene& scene, const Element& e
 
 
 
-struct GeometryImpl : Geometry
-{
-	
-	void triangulate(const std::vector<int>& old_indices, std::vector<int>* indices, std::vector<int>* to_old)	{
-		assert(indices);
-		assert(to_old);
 
-		auto getIdx = [&old_indices](int i) . int {
-			int idx = old_indices[i];
-			return idx < 0 ? -idx - 1 : idx;
-		};
-
-		int in_polygon_idx = 0;
-		for (int i = 0; i < old_indices.size(); ++i)
-		{
-			int idx = getIdx(i);
-			if (in_polygon_idx <= 2)
-			{
-				indices.push_back(idx);
-				to_old.push_back(i);
-			}
-			else
-			{
-				indices.push_back(old_indices[i - in_polygon_idx]);
-				to_old.push_back(i - in_polygon_idx);
-				indices.push_back(old_indices[i - 1]);
-				to_old.push_back(i - 1);
-				indices.push_back(idx);
-				to_old.push_back(i);
-			}
-			++in_polygon_idx;
-			if (old_indices[i] < 0)
-			{
-				in_polygon_idx = 0;
-			}
-		}
-	}
-};
 
