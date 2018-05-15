@@ -53,164 +53,247 @@ func parseMaterial(scene *Scene, element *Element) *Object {
 	return material
 }
 
-static OptionalError<Object*> parseAnimationCurve(const Scene& scene, const Element& element) {
-	std::unique_ptr<AnimationCurveImpl> curve = std::make_unique<AnimationCurveImpl>(scene, element);
+func parseAnimationCurve(scene *Scene, element *Element) (*Object, error) {
+	curve := &AnimationCurve{}
 
-	const Element* times = findChild(element, "KeyTime");
-	const Element* values = findChild(element, "KeyValueFloat");
+	times := findChild(element, "KeyTime")
+	values := findChild(element, "KeyValueFloat")
 
-	if (times && times.first_property) {
-		curve.times.resize(times.first_property.getCount());
-		if (!times.first_property.getValues(&curve.times[0], (int)curve.times.size() * sizeof(curve.times[0]))) {
-			return Error("Invalid animation curve");
+	if times != nil && times.first_property != nil {
+		curve.times = make([]int64, times.first_property.getCount())
+		if !times.first_property.getValues(&curve.times[0], (int)curve.times.size() * sizeof(curve.times[0])) {
+			return nil, errors.New("Invalid animation curve")
 		}
 	}
 
-	if (values && values.first_property) {
-		curve.values.resize(values.first_property.getCount());
-		if (!values.first_property.getValues(&curve.values[0], (int)curve.values.size() * sizeof(curve.values[0]))) {
-			return Error("Invalid animation curve");
+	if values != nil && values.first_property != nil {
+		curve.values = make([]float32, values.first_property.getCount())
+		if !values.first_property.getValues(&curve.values[0], (int)curve.values.size() * sizeof(curve.values[0])) {
+			return nil, errors.New("Invalid animation curve")
 		}
 	}
+	if curve.times.size() != curve.values.size() {
+		return nil, errors.New("Invalid animation curve")
+	}
 
-	if (curve.times.size() != curve.values.size()) return Error("Invalid animation curve");
-
-	return curve.release();
+	return curve
 }
 
-static bool parseConnections(const Element& root, Scene* scene) {
-	assert(scene);
+func parseConnection(root *Element, scene *Scene) (bool, error) {
+	connections := findChild(root, "Connections")
+	if connections == nil { 
+		return true, nil
+	}
 
-	const Element* connections = findChild(root, "Connections");
-	if (!connections) return true;
-
-	const Element* connection = connections.child;
-	while (connection) {
-		if (!isString(connection.first_property)
+	connection := connections.child
+	for connection != nil {
+		if !isString(connection.first_property)
 			|| !isLong(connection.first_property.next)
-			|| !isLong(connection.first_property.next.next)) {
-			Error::s_message = "Invalid connection";
-			return false;
+			|| !isLong(connection.first_property.next.next) {
+			return false, errors.New("Invalid connection")
 		}
 
-		Scene::Connection c;
-		c.from = connection.first_property.next.value.touint64();
-		c.to = connection.first_property.next.next.value.touint64();
-		if (connection.first_property.value == "OO") {
-			c.type = Scene::Connection::OBJECT_OBJECT;
+		var c Connection
+		c.from = connection.first_property.next.value.touint64()
+		c.to = connection.first_property.next.next.value.touint64()
+		if connection.first_property.value == "OO" {
+			c.type = OBJECT_OBJECT
 		}
-		else if (connection.first_property.value == "OP") {
-			c.type = Scene::Connection::OBJECT_PROPERTY;
-			if (!connection.first_property.next.next.next) {
-				Error::s_message = "Invalid connection";
-				return false;
+		else if connection.first_property.value == "OP" {
+			c.type = OBJECT_PROPERTY
+			if !connection.first_property.next.next.next {
+				return false, errors.New("Invalid connection")
 			}
-			c.property = connection.first_property.next.next.next.value;
+			c.property = connection.first_property.next.next.next.value
 		}
 		else {
-			assert(false);
-			Error::s_message = "Not supported";
-			return false;
+			return false, errors.New("Not supported")
 		}
-		scene.m_connections.push_back(c);
+		scene.m_connections.push_back(c)
 
-		connection = connection.sibling;
+		connection = connection.sibling
 	}
-	return true;
+	return true, nil
 }
 
-static bool parseTakes(Scene* scene) {
-	const Element* takes = findChild((const Element&)*scene.getRootElement(), "Takes");
-	if (!takes) return true;
-
-	const Element* object = takes.child;
-	while (object) {
-		if (object.id == "Take") {
-			if (!isString(object.first_property)) {
-				Error::s_message = "Invalid name in take";
-				return false;
-			}
-
-			TakeInfo take;
-			take.name = object.first_property.value;
-			const Element* filename = findChild(*object, "FileName");
-			if (filename) {
-				if (!isString(filename.first_property)) {
-					Error::s_message = "Invalid filename in take";
-					return false;
-				}
-				take.filename = filename.first_property.value;
-			}
-			const Element* local_time = findChild(*object, "LocalTime");
-			if (local_time) {
-				if (!isLong(local_time.first_property) || !isLong(local_time.first_property.next)) {
-					Error::s_message = "Invalid local time in take";
-					return false;
-				}
-
-				take.local_time_from = fbxTimeToSeconds(local_time.first_property.value.toint64());
-				take.local_time_to = fbxTimeToSeconds(local_time.first_property.next.value.toint64());
-			}
-			const Element* reference_time = findChild(*object, "ReferenceTime");
-			if (reference_time) {
-				if (!isLong(reference_time.first_property) || !isLong(reference_time.first_property.next)) {
-					Error::s_message = "Invalid reference time in take";
-					return false;
-				}
-
-				take.reference_time_from = fbxTimeToSeconds(reference_time.first_property.value.toint64());
-				take.reference_time_to = fbxTimeToSeconds(reference_time.first_property.next.value.toint64());
-			}
-
-			scene.m_take_infos.push_back(take);
-		}
-
-		object = object.sibling;
+func parseTakes(scene *Scene) (bool, error) {
+	takes := findChild((const Element&)*scene.getRootElement(), "Takes")
+	if takes == nil { 
+		return true
 	}
 
-	return true;
+	object := takes.child
+	for object != nil {
+		if object.id == "Take" {
+			if !isString(object.first_property) {
+				return false, errors.New("Invalid name in take")
+			}
+
+			TakeInfo take
+			take.name = object.first_property.value
+			filename := findChild(*object, "FileName")
+			if filename {
+				if !isString(filename.first_property) {
+					return false, errors.New("Invalid filename in take")
+				}
+				take.filename = filename.first_property.value
+			}
+			local_time := findChild(*object, "LocalTime")
+			if local_time {
+				if !isLong(local_time.first_property) || !isLong(local_time.first_property.next) {
+					return false, errors.New("Invalid local time in take")
+				}
+
+				take.local_time_from = fbxTimeToSeconds(local_time.first_property.value.toint64())
+				take.local_time_to = fbxTimeToSeconds(local_time.first_property.next.value.toint64())
+			}
+			reference_time := findChild(*object, "ReferenceTime")
+			if reference_time != nil {
+				if !isLong(reference_time.first_property) || !isLong(reference_time.first_property.next) {
+					return false, errors.New("Invalid reference time in take")
+				}
+
+				take.reference_time_from = fbxTimeToSeconds(reference_time.first_property.value.toint64())
+				take.reference_time_to = fbxTimeToSeconds(reference_time.first_property.next.value.toint64())
+			}
+
+			scene.m_take_infos.push_back(take)
+		}
+
+		object = object.sibling
+	}
+
+	return true, nil
 }
 
-static void parseGlobalSettings(const Element& root, Scene* scene) {
-	for (ofbx::Element* settings = root.child; settings; settings = settings.sibling) {
-		if (settings.id == "GlobalSettings") {
-			for (ofbx::Element* props70 = settings.child; props70; props70 = props70.sibling) {
-				if (props70.id == "Properties70") {
-					for (ofbx::Element* node = props70.child; node; node = node.sibling) {
-						if (!node.first_property)
-							continue;
-
-#define get_property(name, field, type) if(node.first_property.value == name) \ { \
-							ofbx::IElementProperty* prop = node.getProperty(4); \
-							if (prop) \ { \
-								ofbx::DataView value = prop.getValue(); \
-								scene.m_settings.field = *(type*)value.begin; \
-							} \
+func parseGlobalSettings(root *Element, scene *Scene) {
+	for settings := root.child; settings != nil; settings = settings.sibling {
+		if settings.id == "GlobalSettings" {
+			for props70 := settings.child; props70 != nil; props70 = props70.sibling){
+				if props70.id == "Properties70" {
+					for node := props70.child; node; node = node.sibling {
+						if !node.first_property {
+							continue
 						}
 
-						get_property("UpAxis", UpAxis, UpVector);
-						get_property("UpAxisSign", UpAxisSign, int);
-						get_property("FrontAxis", FrontAxis, FrontVector);
-						get_property("FrontAxisSign", FrontAxisSign, int);
-						get_property("CoordAxis", CoordAxis, CoordSystem);
-						get_property("CoordAxisSign", CoordAxisSign, int);
-						get_property("OriginalUpAxis", OriginalUpAxis, int);
-						get_property("OriginalUpAxisSign", OriginalUpAxisSign, int);
-						get_property("UnitScaleFactor", UnitScaleFactor, float);
-						get_property("OriginalUnitScaleFactor", OriginalUnitScaleFactor, float);
-						get_property("TimeSpanStart", TimeSpanStart, uint64);
-						get_property("TimeSpanStop", TimeSpanStop, uint64);
-						get_property("TimeMode", TimeMode, FrameRate);
-						get_property("CustomFrameRate", CustomFrameRate, float);
+						if(node.first_property.value == "UpAxis") {
+  							prop := node.getProperty(4)
+  							if prop != nil {
+  								value := prop.getValue()
+ 								scene.m_settings.UpAxis = value.begin.(UpVector)
+ 							}
+ 						}
 
-#undef get_property
+						if(node.first_property.value == "UpAxisSign") {
+  							prop := node.getProperty(4)
+  							if prop != nil {
+  								value := prop.getValue()
+ 								scene.m_settings.UpAxisSign = value.begin.(int)
+ 							}
+ 						}
 
-						scene.m_scene_frame_rate = getFramerateFromTimeMode(scene.m_settings.TimeMode, scene.m_settings.CustomFrameRate);
+						if(node.first_property.value == "FrontAxis") {
+  							prop := node.getProperty(4)
+  							if prop != nil {
+  								value := prop.getValue()
+ 								scene.m_settings.FrontAxis = value.begin.(FrontVector)
+ 							}
+ 						}
+
+						if(node.first_property.value == "FrontAxisSign") {
+  							prop := node.getProperty(4)
+  							if prop != nil {
+  								value := prop.getValue()
+ 								scene.m_settings.FrontAxisSign = value.begin.(int)
+ 							}
+ 						}
+
+						if(node.first_property.value == "CoordAxis") {
+  							prop := node.getProperty(4)
+  							if prop != nil {
+  								value := prop.getValue()
+ 								scene.m_settings.CoordAxis = value.begin.(CoordSystem)
+ 							}
+ 						}
+
+						if(node.first_property.value == "CoordAxisSign") {
+  							prop := node.getProperty(4)
+  							if prop != nil {
+  								value := prop.getValue()
+ 								scene.m_settings.CoordAxisSign = value.begin.(int)
+ 							}
+ 						}
+
+						if(node.first_property.value == "OriginalUpAxis") {
+  							prop := node.getProperty(4)
+  							if prop != nil {
+  								value := prop.getValue()
+ 								scene.m_settings.OriginalUpAxis = value.begin.(int)
+ 							}
+ 						}
+
+						if(node.first_property.value == "OriginalUpAxisSign") {
+  							prop := node.getProperty(4)
+  							if prop != nil {
+  								value := prop.getValue()
+ 								scene.m_settings.OriginalUpAxisSign = value.begin.(int)
+ 							}
+ 						}
+
+						if(node.first_property.value == "UnitScaleFactor") {
+  							prop := node.getProperty(4)
+  							if prop != nil {
+  								value := prop.getValue()
+ 								scene.m_settings.UnitScaleFactor = value.begin.(float)
+ 							}
+ 						}
+
+						if(node.first_property.value == "OriginalUnitScaleFactor") {
+  							prop := node.getProperty(4)
+  							if prop != nil {
+  								value := prop.getValue()
+ 								scene.m_settings.OriginalUnitScaleFactor = value.begin.(float)
+ 							}
+ 						}
+
+						if(node.first_property.value == "TimeSpanStart") {
+  							prop := node.getProperty(4)
+  							if prop != nil {
+  								value := prop.getValue()
+ 								scene.m_settings.TimeSpanStart = value.begin.(uint64)
+ 							}
+ 						}
+
+						if(node.first_property.value == "TimeSpanStop") {
+  							prop := node.getProperty(4)
+  							if prop != nil {
+  								value := prop.getValue()
+ 								scene.m_settings.TimeSpanStop = value.begin.(uint64)
+ 							}
+ 						}
+
+						if(node.first_property.value == "TimeMode") {
+  							prop := node.getProperty(4)
+  							if prop != nil {
+  								value := prop.getValue()
+ 								scene.m_settings.TimeMode = value.begin.(FrameRate)
+ 							}
+ 						}
+
+						if(node.first_property.value == "CustomFrameRate") {
+  							prop := node.getProperty(4)
+  							if prop != nil {
+  								value := prop.getValue()
+ 								scene.m_settings.CustomFrameRate = value.begin.(float)
+ 							}
+						}
+						
+						scene.m_scene_frame_rate = getFramerateFromTimeMode(scene.m_settings.TimeMode, scene.m_settings.CustomFrameRate)
 					}
-					break;
+					break
 				}
 			}
-			break;
+			break
 		}
 	}
 }
