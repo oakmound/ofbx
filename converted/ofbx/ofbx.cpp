@@ -713,6 +713,7 @@ template<typename T> static bool parseTextArrayRaw(const Property& property, T* 
 }
 
 template <typename T> static bool parseBinaryArray(const Property& property, std::vector<T>* out) {
+	//This should instead return a slice. 
 	assert(out);
 	if (property.value.is_binary) {
 		uint32 count = property.getCount();
@@ -736,6 +737,7 @@ template <typename T> static bool parseBinaryArray(const Property& property, std
 }
 
 template <typename T> static bool parseDoubleVecData(Property& property, std::vector<T>* out_vec) {
+		//This should instead return a slice. 
 	assert(out_vec);
 	if (!property.value.is_binary) {
 		parseTextArray(property, out_vec);
