@@ -148,7 +148,7 @@ func (g *Geometry) getType(){
 }
 
 
-func parseGeometry(scene *Scene, element *IElement) *Object, Error{
+func parseGeometry(scene *Scene, element *IElement) (*Object, Error){
 	if element.first_property == nil {
 		return nil, errors.New("Geometry invalid");
 	}
@@ -221,112 +221,63 @@ func parseGeometry(scene *Scene, element *IElement) *Object, Error{
 
 		layer_uv_element := findChild(element, "LayerElementUV")
 		for layer_uv_element != nil{
-			uv_index := layer_uv_element.first_property ? layer_uv_element.first_property.getValue().toInt() : 0
+			uv_index :=  0
+			if layer_uv_element.first_property !=nil{
+				uv_index = layer_uv_element.first_property.getValue().toInt()
+			}
 			if uv_index >= 0 && uv_index < geom.UVSMax(){
 				uvs := geom.uvs[uv_index]
-				parseVertexData()
+				//tmp []Vec2 			//tmp_indices []int		//mapping VertexDataMapping
+				tmp, tmp_indices, mapping := parseVertexData(*layer_uv_element, "UV", "UVIndex") 
+		
+				if tmp!= nil && len(tmp)>0{
+					geom.uvs := make([]Vec2) //resize(tmp_indices.empty() ? tmp.size() : tmp_indices.size());
+              	  splat(&uvs, mapping, tmp, tmp_indices, original_indices)
+               	 remap(&uvs, to_old_indices)
+				}
+			}	
+			layer_uv_element = layer_uv_element.sibling
+			for layer_uv_element && layer_uv_element.id != "LayerElementUV"{
+				layer_uv_element = layer_uv_element.sibling
+			}
+		
+		}
+
+		layer_tangent_element := findChild(element, "LayerElementTangents")
+		if(layer_tangent_element != nil){
+			tans := findChild(*layer_tangent_element, "Tangents")
+			if len(tans>0){
+				tmp, tmp_indices, mapping := parseVertexData(*layer_tangent_element, "Tangents", "TangentsIndex")
+			}else{
+				tmp, tmp_indices, mapping :=parseVertexData(*layer_tangent_element, "Tangent", "TangentIndex")
+			}
+			if tmp!=nil && len(tmp)>0	{
+				splat(&geom.tangents, mapping, tmp, tmp_indices, original_indices);
+				remap(&geom.tangents, to_old_indices);
 			}
 		}
 
 
+		layer_color_element := findChild(element, "LayerElementColor")
+		if layer_color_element!=nil{
+			tmp, tmp_indices, mapping :=parseVertexData(*layer_color_element, "Colors", "ColorIndex")
+			if tmp!=nil && len(tmp)>0{
+				splat(&geom.colors, mapping, tmp, tmp_indices, original_indices);
+				remap(&geom.colors, to_old_indices);
+			}
+		}
+
+		layer_normal_element := findChild(element, "LayerElementNormal")
+		if layer_normal_element != nil{
+			tmp, tmp_indices, mapping :=parseVertexData(*layer_normal_element, "Normals", "NormalsIndex")
+			if tmp!=nil && len(tmp)>0{
+				splat(&geom.normals, mapping, tmp, tmp_indices, original_indices);
+				remap(&geom.normals, to_old_indices)
+			}
+		}
 	}
 
 }
-
-
-
-
-
-
-
-static OptionalError<Object*> parseGeometry(const Scene& scene, const Element& element){
-	
-
-	//here down
-	
-    while (layer_uv_element)
-    {
-        const int uv_index = layer_uv_element.first_property ? layer_uv_element.first_property.getValue().toInt() : 0;
-        if (uv_index >= 0 && uv_index < Geometry::s_uvs_max)
-        {
-            std::vector<Vec2>& uvs = geom.uvs[uv_index];
-
-			//tmp []Vec2
-			//tmp_indices []int
-			//mapping VertexDataMapping
-			tmp, tmp_indices, mapping := parseVertexData(*layer_uv_element, "UV", "UVIndex") 
-
-
-        
-            GeometryImpl::VertexDataMapping mapping;
-            if (!parseVertexData(*layer_uv_element, "UV", "UVIndex", &tmp, &tmp_indices, &mapping)) return Error("Invalid UVs");
-            if (!tmp.empty())
-            {
-                uvs.resize(tmp_indices.empty() ? tmp.size() : tmp_indices.size());
-                splat(&uvs, mapping, tmp, tmp_indices, original_indices);
-                remap(&uvs, to_old_indices);
-            }
-        }
-
-        do
-        {
-            layer_uv_element = layer_uv_element.sibling;
-        } while (layer_uv_element && layer_uv_element.id != "LayerElementUV");
-    }
-
-	const Element* layer_tangent_element = findChild(element, "LayerElementTangents");
-	if (layer_tangent_element)
-	{
-		std::vector<Vec3> tmp;
-		std::vector<int> tmp_indices;
-		GeometryImpl::VertexDataMapping mapping;
-		if (findChild(*layer_tangent_element, "Tangents"))
-		{
-			if (!parseVertexData(*layer_tangent_element, "Tangents", "TangentsIndex", &tmp, &tmp_indices, &mapping)) return Error("Invalid tangets");
-		}
-		else
-		{
-			if (!parseVertexData(*layer_tangent_element, "Tangent", "TangentIndex", &tmp, &tmp_indices, &mapping))  return Error("Invalid tangets");
-		}
-		if (!tmp.empty())
-		{
-			splat(&geom.tangents, mapping, tmp, tmp_indices, original_indices);
-			remap(&geom.tangents, to_old_indices);
-		}
-	}
-
-	const Element* layer_color_element = findChild(element, "LayerElementColor");
-	if (layer_color_element)
-	{
-		std::vector<Vec4> tmp;
-		std::vector<int> tmp_indices;
-		GeometryImpl::VertexDataMapping mapping;
-		if (!parseVertexData(*layer_color_element, "Colors", "ColorIndex", &tmp, &tmp_indices, &mapping)) return Error("Invalid colors");
-		if (!tmp.empty())
-		{
-			splat(&geom.colors, mapping, tmp, tmp_indices, original_indices);
-			remap(&geom.colors, to_old_indices);
-		}
-	}
-
-	const Element* layer_normal_element = findChild(element, "LayerElementNormal");
-	if (layer_normal_element)
-	{
-		std::vector<Vec3> tmp;
-		std::vector<int> tmp_indices;
-		GeometryImpl::VertexDataMapping mapping;
-		if (!parseVertexData(*layer_normal_element, "Normals", "NormalsIndex", &tmp, &tmp_indices, &mapping)) return Error("Invalid normals");
-		if (!tmp.empty())
-		{
-			splat(&geom.normals, mapping, tmp, tmp_indices, original_indices);
-			remap(&geom.normals, to_old_indices);
-		}
-	}
-
-	return geom.release();
-}
-
-
 
 
 
