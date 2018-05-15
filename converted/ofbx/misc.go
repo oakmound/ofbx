@@ -32,33 +32,53 @@ Object::Object(const Scene& _scene, const IElement& _element)
 	}
 }
 
-struct LimbNodeImpl : Object {
-	LimbNodeImpl(const Scene& _scene, const IElement& _element)
-		: Object(_scene, _element) {
-		is_node = true;
-	}
-	Type getType() const override { return Type::LIMB_NODE; }
-};
+type LimbNode struct {
+	Object
+}
 
-struct NullImpl : Object {
-	NullImpl(const Scene& _scene, const IElement& _element)
-		: Object(_scene, _element) {
-		is_node = true;
-	}
-	Type getType() const override { return Type::NULL_NODE; }
-};
+func NewLimbNode(scene *Scene, element *Element) {
+	ln := &LimbNode{}
+	ln.Object = NewObject(scene, element)
+	ln.is_node = true
+	return ln
+}
 
-struct Root : Object {
-	Root(const Scene& _scene, const IElement& _element)
-		: Object(_scene, _element) {
-		copyString(name, "RootNode");
-		is_node = true;
-	}
-	Type getType() const override { return Type::ROOT; }
-};
+func (ln *LimbNode) getType() Type {
+	return LIMB_NODE
+}
+
+type Null struct {
+	Object
+}
+
+func NewNull(scene *Scene, element *Element) {
+	n := &Null{}
+	n.Object = NewObject(scene, element)
+	n.is_node = true
+	return ln
+}
+
+func (n *Null) getType() Type {
+	return NULL_NODE
+}
+
+type Root struct {
+	Object
+}
+
+func NewRoot(scene *Scene, element *Element) {
+	r := &Root{}
+	r.Object = NewObject(scene, element)
+	r.name = "RootNode" // might not need this
+	r.is_node = true
+	return ln
+}
+
+func (r *Root) getType() Type {
+	return Root_NODE
+}
 
 func splat(out []T, mapping VertexDataMapping, data []T, indices []int, original_indices []int) {
-
 	if mapping == BY_POLYGON_VERTEX {
 		if indices.empty() {
 			out = make([]T, len(data))
@@ -95,14 +115,19 @@ func splat(out []T, mapping VertexDataMapping, data []T, indices []int, original
 	}
 }
 
-template <typename T> static void remap(std::vector<T>* out, const std::vector<int>& map) {
-	if (out.empty()) return;
+func remap([]T out, []int m) {
+	if out.empty() {
+		return
+	}
 
-	std::vector<T> old;
-	old.swap(*out);
-	int old_size = (int)old.size();
-	for (int i = 0, c = (int)map.size(); i < c; ++i) {
-		if(map[i] < old_size) out.push_back(old[map[i]]);
-		else out.push_back(T());
+	old := make([]T, len(out))
+	copy(old, out)
+	for i := 0; i < len(m); i++ {
+		if m[i] < len(old)) {
+			out.push_back(old[m[i]])
+		}
+		else {
+			out.push_back(T())
+		}
 	}
 }
