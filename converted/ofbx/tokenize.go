@@ -6,6 +6,12 @@ struct Header {
 	version uint32
 }
 
+struct Cursor {
+	current *uint8
+	begin *uint8 
+	begin *uint8
+}
+
 template <typename T> static OptionalError<T> read(Cursor* cursor) {
 	if (cursor.current + sizeof(T) > cursor.end) return Error("Reading past the end");
 	T value = *(const T*)cursor.current;

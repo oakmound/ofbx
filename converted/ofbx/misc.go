@@ -1,10 +1,4 @@
-// We might care starting here... but probs not
-
-struct Cursor {
-	const uint8* current;
-	const uint8* begin;
-	const uint8* end;
-};
+package ofbx
 
 static int resolveEnumProperty(const Object& object, const char* name, int default_value) {
 	Element* element = (Element*)resolveProperty(object, name);
