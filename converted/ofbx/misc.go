@@ -57,46 +57,41 @@ struct Root : Object {
 	Type getType() const override { return Type::ROOT; }
 };
 
-template <typename T>
-static void splat(std::vector<T>* out,
-	GeometryImpl::VertexDataMapping mapping,
-	const std::vector<T>& data,
-	const std::vector<int>& indices,
-	const std::vector<int>& original_indices) {
-	assert(out);
-	assert(!data.empty());
+func splat(out []T, mapping VertexDataMapping, data []T, indices []int, original_indices []int) {
 
-	if (mapping == GeometryImpl::BY_POLYGON_VERTEX) {
-		if (indices.empty()) {
-			out.resize(data.size());
-			memcpy(&(*out)[0], &data[0], sizeof(data[0]) * data.size());
-		}
-		else {
-			out.resize(indices.size());
-			int data_size = (int)data.size();
-			for (int i = 0, c = (int)indices.size(); i < c; ++i) {
-				if(indices[i] < data_size) (*out)[i] = data[indices[i]];
-				else (*out)[i] = T();
+	if mapping == BY_POLYGON_VERTEX {
+		if indices.empty() {
+			out = make([]T, len(data))
+			memcpy(&(*out)[0], &data[0], sizeof(data[0]) * data.size())
+		} else {
+			out = make([]T, len(indices))
+			for i := 0; i < len(indices); i++ {
+				if indices[i] < len(data)) {
+					(*out)[i] = data[indices[i]]
+				} else {
+					(*out)[i] = T{}
+				}
 			}
 		}
-	}
-	else if (mapping == GeometryImpl::BY_VERTEX) {
+	} else if mapping == BY_VERTEX {
 		//  v0  v1 ...
 		// uv0 uv1 ...
-		assert(indices.empty());
 
-		out.resize(original_indices.size());
+		out := make([]T, len(original_indices))
 
-		int data_size = (int)data.size();
-		for (int i = 0, c = (int)original_indices.size(); i < c; ++i) {
-			int idx = original_indices[i];
-			if (idx < 0) idx = -idx - 1;
-			if(idx < data_size) (*out)[i] = data[idx];
-			else (*out)[i] = T();
+		for i := 0; i < len(original_indices); i++ {
+			idx := original_indices[i]
+			if idx < 0 {
+				idx = -idx - 1
+			}
+			if idx < len(data) {
+				(*out)[i] = data[idx]
+			} else { 
+				(*out)[i] = T{}
+			}
 		}
-	}
-	else {
-		assert(false);
+	} else {
+		panic()
 	}
 }
 
