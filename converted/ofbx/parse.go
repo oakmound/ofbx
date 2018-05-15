@@ -1,5 +1,145 @@
 package ofbx
 
+static void parseTemplates(const Element& root) {
+	const Element* defs = findChild(root, "Definitions");
+	if (!defs) return;
+
+	std::unordered_map<std::string, Element*> templates;
+	Element* def = defs.child;
+	while (def) {
+		if (def.id == "ObjectType") {
+			Element* subdef = def.child;
+			while (subdef) {
+				if (subdef.id == "PropertyTemplate") {
+					DataView prop1 = def.first_property.value;
+					DataView prop2 = subdef.first_property.value;
+					std::string key((const char*)prop1.begin, prop1.end - prop1.begin);
+					key += std::string((const char*)prop1.begin, prop1.end - prop1.begin);
+					templates[key] = subdef;
+				}
+				subdef = subdef.sibling;
+			}
+		}
+		def = def.sibling;
+	}
+	// TODO
+}
+
+template<typename T> static void parseTextArray(const Property& property, std::vector<T>* out) {
+	const uint8* iter = property.value.begin;
+	for(int i = 0; i < property.count; ++i) {
+		T val;
+		iter = (const uint8*)fromString<T>((const char*)iter, (const char*)property.value.end, &val);
+		out.push_back(val);
+	}
+}
+
+template<typename T> static bool parseTextArrayRaw(const Property& property, T* out_raw, int max_size) {
+	const uint8* iter = property.value.begin;
+	
+	T* out = out_raw;
+	while (iter < property.value.end) {
+		iter = (const uint8*)fromString<T>((const char*)iter, (const char*)property.value.end, out);
+		++out;
+		if (out - out_raw == max_size / sizeof(T)) return true;
+	}
+	return out - out_raw == max_size / sizeof(T);
+}
+
+template <typename T> static bool parseBinaryArray(const Property& property, std::vector<T>* out) {
+	//This should instead return a slice. 
+	assert(out);
+	if (property.value.is_binary) {
+		uint32 count = property.getCount();
+		int elem_size = 1;
+		switch (property.type) {
+			case 'd': elem_size = 8; break;
+			case 'f': elem_size = 4; break;
+			case 'i': elem_size = 4; break;
+			default: return false;
+		}
+		int elem_count = sizeof(T) / elem_size;
+		out.resize(count / elem_count);
+
+		if (count == 0) return true;
+		return parseArrayRaw(property, &(*out)[0], int(sizeof((*out)[0]) * out.size()));
+	}
+	else {
+		parseTextArray(property, out);
+		return true;
+	}
+}
+
+template <typename T> static bool parseDoubleVecData(Property& property, std::vector<T>* out_vec) {
+		//This should instead return a slice. 
+	assert(out_vec);
+	if (!property.value.is_binary) {
+		parseTextArray(property, out_vec);
+		return true;
+	}
+
+	if (property.type == 'd') {
+		return parseBinaryArray(property, out_vec);
+	}
+
+	assert(property.type == 'f');
+	assert(sizeof((*out_vec)[0].x) == sizeof(double));
+	std::vector<float> tmp;
+	if (!parseBinaryArray(property, &tmp)) return false;
+	int elem_count = sizeof((*out_vec)[0]) / sizeof((*out_vec)[0].x);
+	out_vec.resize(tmp.size() / elem_count);
+	double* out = &(*out_vec)[0].x;
+	for (int i = 0, c = (int)tmp.size(); i < c; ++i) {
+		out[i] = tmp[i];
+	}
+	return true;
+}
+
+template <typename T>
+static bool parseVertexData(const Element& element,
+	const char* name,
+	const char* index_name,
+	std::vector<T>* out,
+	std::vector<int>* out_indices,
+	GeometryImpl::VertexDataMapping* mapping) {
+	assert(out);
+	assert(mapping);
+	const Element* data_element = findChild(element, name);
+	if (!data_element || !data_element.first_property) 	return false;
+
+	const Element* mapping_element = findChild(element, "MappingInformationType");
+	const Element* reference_element = findChild(element, "ReferenceInformationType");
+
+	if (mapping_element && mapping_element.first_property) {
+		if (mapping_element.first_property.value == "ByPolygonVertex") {
+			*mapping = GeometryImpl::BY_POLYGON_VERTEX;
+		}
+		else if (mapping_element.first_property.value == "ByPolygon") {
+			*mapping = GeometryImpl::BY_POLYGON;
+		}
+		else if (mapping_element.first_property.value == "ByVertice" ||
+					mapping_element.first_property.value == "ByVertex") {
+			*mapping = GeometryImpl::BY_VERTEX;
+		}
+		else {
+			return false;
+		}
+	}
+	if (reference_element && reference_element.first_property) {
+		if (reference_element.first_property.value == "IndexToDirect") {
+			const Element* indices_element = findChild(element, index_name);
+			if (indices_element && indices_element.first_property) {
+				if (!parseBinaryArray(*indices_element.first_property, out_indices)) return false;
+			}
+		}
+		else if (reference_element.first_property.value != "Direct") {
+			return false;
+		}
+	}
+	return parseDoubleVecData(*data_element.first_property, out);
+}
+
+
 func parseTexture(scene *Scene, element *Element) *Object {
 	texture := NewTexture(scene, element)
 	texture_filename := findChild(element, "FileName")
