@@ -104,21 +104,21 @@ func (c *Cluster) clusterPostProcess(scene, element) {
 
 func parseCluster(scene *Scene, element *IElement) *Object, Error{
 	cluster := NewCLuster(scene, element)
-	cluster.transform_link = findChild(element, "TransformLink");
+	cluster.transform_link = findChild(element, "TransformLink")
 	if (transform_link !=nil && transform_link.first_property)
 	{
 		if (!parseArrayRaw(
 				*transform_link.first_property, &obj.transform_link_matrix, sizeof(obj.transform_link_matrix)))
 		{
-			return nil, errors.New("Failed to parse TransformLink");
+			return nil, errors.New("Failed to parse TransformLink")
 		}
 	}
-	cluster.transform = findChild(element, "Transform");
+	cluster.transform = findChild(element, "Transform")
 	if (transform!=nil && transform.first_property)
 	{
 		if (!parseArrayRaw(*transform.first_property, &obj.transform_matrix, sizeof(obj.transform_matrix)))
 		{
-			return nil, errors.New("Failed to parse Transform");
+			return nil, errors.New("Failed to parse Transform")
 
 		}
 	}	

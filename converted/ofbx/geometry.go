@@ -116,36 +116,37 @@ func (g *Geometry) getType(){
 	return g.Type()
 }
 
-static void add(GeometryImpl::NewVertex& vtx, int index)
-{
-	if (vtx.index == -1)
-	{
-		vtx.index = index;
+
+func parseGeometry(scene *Scene, element *IElement) *Object, Error{
+	if(element.first_property == nil){
+		return nil, errors.New("Geometry invalid");
 	}
-	else if (vtx.next)
-	{
-		add(*vtx.next, index);
+	geom := NewGeometry(scene, element)
+
+	vertices_element := findChild(element, "Vertices")
+	if (!vertices_element || !vertices_element.first_property){
+		return nil, errors.New("Geometry Vertices Missing")
 	}
-	else
-	{
-		vtx.next = new GeometryImpl::NewVertex;
-		vtx.next.index = index;
+
+	polys_element := findChild(element, "PolygonVertexIndex")
+	if (!polys_element || !polys_element.first_property){
+		return nil, errors.New("Geometry Indicies missing")
 	}
+
+	geom.vertices = parseDoubleVecData(*vertices_element.first_property)
+	geom.polys_element = parseBinaryArray(*polys_element.first_property)
+	
+
+
 }
 
 
-static OptionalError<Object*> parseGeometry(const Scene& scene, const Element& element)
-{
-	assert(element.first_property);
 
-	const Element* vertices_element = findChild(element, "Vertices");
-	if (!vertices_element || !vertices_element.first_property) return Error("Vertices missing");
 
-	const Element* polys_element = findChild(element, "PolygonVertexIndex");
-	if (!polys_element || !polys_element.first_property) return Error("Indices missing");
+static OptionalError<Object*> parseGeometry(const Scene& scene, const Element& element){
+	
 
-	std::unique_ptr<GeometryImpl> geom = std::make_unique<GeometryImpl>(scene, element);
-
+	//here down
 	std::vector<Vec3> vertices;
 	if (!parseDoubleVecData(*vertices_element.first_property, &vertices)) return Error("Failed to parse vertices");
 	std::vector<int> original_indices;
