@@ -53,6 +53,24 @@ func getError() string {
 	return ""
 }
 
+type GlobalSettings struct {
+	UpAxis                  UpVector
+	UpAxisSign              int
+	FrontAxis               FrontVector
+	FrontAxisSign           int
+	CoordAxis               CoordSystem
+	CoordAxisSign           int
+	OriginalUpAxis          int
+	OriginalUpAxisSign      int
+	UnitScaleFactor         float32
+	OriginalUnitScaleFactor float32
+	TimeSpanStart           uint64
+	TimeSpanStop            uint64
+	TimeMode                FrameRate
+	CustomFrameRate         float32
+}
+
+// Default Global Settings
 var (
 	UpAxis                  UpVector    = UpVector_AxisX
 	UpAxisSign              int         = 1
