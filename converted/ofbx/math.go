@@ -136,4 +136,3 @@ func getRotationMatrix(euler *Vec3, order RotationOrder) Matrix{
 	case RotationOrder::EULER_ZYX:
 		return rx.Mul(ry).Mul(rz)
 }
-
