@@ -10,8 +10,15 @@ type Object struct {
 	scene   *Scene
 }
 
-func NewObject(scene *Scene, element *IElement) *Object {
-	return Object{}
+func NewObject(scene *Scene, e *Element) *Object {
+	return Object{
+		scene: scene,
+		Element: e,
+		is_node: false,
+	}
+	if e.first_property && e.first_property.next {
+		o.Name = e.first_property.next.value.toString()
+	}
 }
 
 // We'll need to worry about how this is used:

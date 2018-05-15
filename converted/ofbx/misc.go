@@ -1,34 +1,32 @@
 package ofbx
 
-static int resolveEnumProperty(const Object& object, const char* name, int default_value) {
-	Element* element = (Element*)resolveProperty(object, name);
-	if (!element) return default_value;
-	Property* x = (Property*)element.getProperty(4);
-	if (!x) return default_value;
-
-	return x.value.toInt();
-}
-
-static Vec3 resolveVec3Property(const Object& object, const char* name, const Vec3& default_value) {
-	Element* element = (Element*)resolveProperty(object, name);
-	if (!element) return default_value;
-	Property* x = (Property*)element.getProperty(4);
-	if (!x || !x.next || !x.next.next) return default_value;
-
-	return {x.value.toDouble(), x.next.value.toDouble(), x.next.next.value.toDouble()};
-}
-
-Object::Object(const Scene& _scene, const IElement& _element)
-	: scene(_scene)
-	, element(_element)
-	, is_node(false)
-	, node_attribute(nullptr) {
-	auto& e = (Element&)_element;
-	if (e.first_property && e.first_property.next) {
-		e.first_property.next.value.toString(name);
+func resolveEnumProperty(object *Object name string, default_value int) int {
+	element := resolveProperty(object, name).(*Element)
+	if element == nil {
+		return default_value
 	}
-	else {
-		name[0] = '\0';
+	x := element.getProperty(4).(*Property)
+	if x == nil { 
+		return default_value
+	}
+
+	return x.value.toInt()
+}
+
+func resolveVec3Property(object *Object, name string, default_value *Vec3) Vec3 {
+	element := resolveProperty(object, name).(*Element)
+	if element == nil { 
+		return default_value
+	}
+	x := element.getProperty(4).(*Property)
+	if x == nil || x.next == nil || x.next.next == nil {
+		return default_value
+	}
+
+	return Vec3{
+		x.value.toDouble(), 
+		x.next.value.toDouble(), 
+		x.next.next.value.toDouble(),
 	}
 }
 
