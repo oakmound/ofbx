@@ -38,17 +38,17 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 		} else if iter.second.element.id == "Material" {
 			obj = parseMaterial(*scene, *iter.second.element)
 		} else if iter.second.element.id == "AnimationStack" {
-			obj = parse(*scene, *iter.second.element) //AnimationStack
+			obj = NewAnimationStack(*scene, *iter.second.element)
 			if !obj.isError() {
 				stack := obj.getValue().(*AnimationStackImpl)
 				scene.m_animation_stacks.push_back(stack)
 			}
 		} else if iter.second.element.id == "AnimationLayer" {
-			obj = parse(*scene, *iter.second.element) // AnimationLayer
+			obj = NewAnimationLayer(*scene, *iter.second.element)
 		} else if iter.second.element.id == "AnimationCurve" {
 			obj = parseAnimationCurve(*scene, *iter.second.element)
 		} else if iter.second.element.id == "AnimationCurveNode" {
-			obj = parse(*scene, *iter.second.element) //AnimationCurveNode
+			obj = NewAnimationCurveNode(*scene, *iter.second.element)
 		} else if iter.second.element.id == "Deformer" {
 			class_prop = iter.second.element.getProperty(2)
 			if class_prop != nil {
@@ -56,7 +56,7 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 				if v == "Cluster" {
 					obj = parseCluster(*scene, *iter.second.element)
 				} else if v == "Skin" {
-					obj = parse(*scene, *iter.second.element)
+					obj = NewSkin(*scene, *iter.second.element)
 				}
 			}
 		} else if iter.second.element.id == "NodeAttribute" {
@@ -75,7 +75,7 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 				} else if v == "LimbNode" {
 					obj = parseLimbNode(*scene, *iter.second.element)
 				} else if v == "Null" || v == "Root" {
-					obj = parse(*scene, *iter.second.element)
+					obj = NewNull(*scene, *iter.second.element)
 				} 
 			}
 		} else if (iter.second.element.id == "Texture") {

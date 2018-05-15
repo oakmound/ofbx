@@ -535,11 +535,6 @@ struct OptionalError<Object*> parseTexture(const Scene& scene, const Element& el
 	return texture;
 }
 
-template <typename T> static OptionalError<Object*> parse(const Scene& scene, const Element& element) {
-	T* obj = new T(scene, element);
-	return obj;
-}
-
 static OptionalError<Object*> parseLimbNode(const Scene& scene, const Element& element) {
 	if (!element.first_property
 		|| !element.first_property.next
