@@ -27,7 +27,7 @@ type Scene struct{
 	m_root *Root
 	m_scene_frame_rate float32 // = -1
 	m_settings GlobalSettings
-	m_object_map map[uint64]ObjectPair
+	m_object_map map[uint64]ObjectPair // Slice or map?
 	m_all_objects []*Object
 	m_meshes []*Mesh
 	m_animation_stacks []*AnimationStack
