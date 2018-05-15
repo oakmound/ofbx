@@ -95,6 +95,8 @@ template <typename T> static bool parseDoubleVecData(Property& property, std::ve
 	return true;
 }
 
+//parseVertexdata should return out and out_indicies. It should not take them in.
+// also should return the mapping
 template <typename T>
 static bool parseVertexData(const Element& element,
 	const char* name,
