@@ -149,18 +149,18 @@ func (g *Geometry) getType(){
 
 
 func parseGeometry(scene *Scene, element *IElement) *Object, Error{
-	if(element.first_property == nil){
+	if element.first_property == nil {
 		return nil, errors.New("Geometry invalid");
 	}
 	geom := NewGeometry(scene, element)
 
 	vertices_element := findChild(element, "Vertices")
-	if (!vertices_element || !vertices_element.first_property){
+	if !vertices_element || !vertices_element.first_property{
 		return nil, errors.New("Geometry Vertices Missing")
 	}
 
 	polys_element := findChild(element, "PolygonVertexIndex")
-	if (!polys_element || !polys_element.first_property){
+	if !polys_element || !polys_element.first_property {
 		return nil, errors.New("Geometry Indicies missing")
 	}
 
@@ -170,52 +170,61 @@ func parseGeometry(scene *Scene, element *IElement) *Object, Error{
 	geom.triangulate(original_indices)
 	geom.vertices = make([]Vec3, len(geom.to_old_vertices))
 	
-	for(i, vIdx := range geom.to_old_vertices){
+	for i, vIdx := range geom.to_old_vertices{
 		geom.vertices[i] = vertices[vIdx]
 	}
 
 	geom.to_new_vertices = make([]NewVertex, len(geom.vertices))
 
-	for (i := 0, i < len(geom.to_old_vertices); ++i){
+	for i := 0, i < len(geom.to_old_vertices); ++i{
 		old := to_old_vertices[i]
 		geom.to_new_vertices[old].add(i)
 	}
 	
 	layer_material_element :=  findChild(element, "LayerElementMaterial")
-	if(layer_material_element != nil){
+	if layer_material_element != nil{
 		mapping_element := findChild(*layer_material_element, "MappingInformationType")
 		reference_element := findChild(*layer_material_element, "ReferenceInformationType")
-		if (!mapping_element || !reference_element){
+		if !mapping_element || !reference_element{
 			 return nil, errors.New("Invalid LayerElementMaterial")
 		}
 		tmp := make([]int)
 
-		if (mapping_element.first_property.value == "ByPolygon" &&	reference_element.first_property.value == "IndexToDirect"){
+		if mapping_element.first_property.value == "ByPolygon" &&	reference_element.first_property.value == "IndexToDirect"{
 			geom.materials = make([]int,len(geom.vertices)/3)
 			for(i:=0; i<len(geom.vertices)/3; i++){
 				geom.materials[i]=-1
 			}
 
 			indices_element := findChild(*layer_material_element, "Materials")
-			if (!indices_element || !indices_element.first_property) {
+			if !indices_element || !indices_element.first_property {
 				return nil, errors.New("Invalid LayerElementMaterial")
 			}
 
 			tmp := parseBinaryArray(*indices_element.first_property) //int
 
-			int tmp_i = 0;
-			for (poly := 0; poly < len(tmp); ++poly){
-				tri_count := getTriCountFromPoly(original_indices, &tmp_i);
-				for (int i = 0; i < tri_count; ++i)
-				{
-					geom.materials.push_back(tmp[poly]);
+			tmp_i := 0
+			tri_count := 0
+			insertIdx := 0
+			for poly := 0; poly < len(tmp); ++poly{
+				tri_count, tmp_i = getTriCountFromPoly(original_indices, tmp_i);
+				for (int i = 0; i < tri_count; ++i)	{
+					geom.materials[insertIdx] = tmp[poly]
+					insertIdx++
 				}
 			}
-
-
 		}else{
-			if (mapping_element.first_property.value != "AllSame"){
+			if mapping_element.first_property.value != "AllSame"{
 				 return nil,  errors.New("Mapping not supported")
+			}
+		}
+
+		layer_uv_element := findChild(element, "LayerElementUV")
+		for layer_uv_element != nil{
+			uv_index := layer_uv_element.first_property ? layer_uv_element.first_property.getValue().toInt() : 0
+			if uv_index >= 0 && uv_index < geom.UVSMax(){
+				uvs := geom.uvs[uv_index]
+				parseVertexData()
 			}
 		}
 
@@ -235,12 +244,6 @@ static OptionalError<Object*> parseGeometry(const Scene& scene, const Element& e
 
 	//here down
 	
-
-
-	const Element* layer_material_element = findChild(element, "LayerElementMaterial");
-	
-
-	const Element* layer_uv_element = findChild(element, "LayerElementUV");
     while (layer_uv_element)
     {
         const int uv_index = layer_uv_element.first_property ? layer_uv_element.first_property.getValue().toInt() : 0;
@@ -248,8 +251,13 @@ static OptionalError<Object*> parseGeometry(const Scene& scene, const Element& e
         {
             std::vector<Vec2>& uvs = geom.uvs[uv_index];
 
-            std::vector<Vec2> tmp;
-            std::vector<int> tmp_indices;
+			//tmp []Vec2
+			//tmp_indices []int
+			//mapping VertexDataMapping
+			tmp, tmp_indices, mapping := parseVertexData(*layer_uv_element, "UV", "UVIndex") 
+
+
+        
             GeometryImpl::VertexDataMapping mapping;
             if (!parseVertexData(*layer_uv_element, "UV", "UVIndex", &tmp, &tmp_indices, &mapping)) return Error("Invalid UVs");
             if (!tmp.empty())
