@@ -1,72 +1,71 @@
 package ofbx
 
 
-template <> const char* fromString<int>(const char* str, const char* end, int* val) {
-	*val = atoi(str);
-	const char* iter = str;
-	while (iter < end && *iter != ',') ++iter;
-	if (iter < end) ++iter; // skip ','
-	return (const char*)iter;
+string intFromString(str, end string, int* val) string {
+	*val = atoi(str)
+	iter := str
+	for (iter < end && *iter != ',') ++iter
+	if (iter < end) ++iter // skip ','
+	return (string)iter
 }
 
-template <> const char* fromString<uint64>(const char* str, const char* end, uint64* val) {
-	*val = strtoull(str, nullptr, 10);
-	const char* iter = str;
-	while (iter < end && *iter != ',') ++iter;
-	if (iter < end) ++iter; // skip ','
-	return (const char*)iter;
+func uint64FromString(str, end string, uint64* val) string {
+	*val = strtoull(str, nullptr, 10)
+	iter := str
+	for (iter < end && *iter != ',') ++iter
+	if (iter < end) ++iter // skip ','
+	return (string)iter
 }
 
-template <> const char* fromString<int64>(const char* str, const char* end, int64* val) {
-	*val = atoll(str);
-	const char* iter = str;
-	while (iter < end && *iter != ',') ++iter;
-	if (iter < end) ++iter; // skip ','
-	return (const char*)iter;
+func int64FromString(str, end string, int64* val) string {
+	*val = atoll(str)
+	iter := str
+	for (iter < end && *iter != ',') ++iter
+	if (iter < end) ++iter // skip ','
+	return (string)iter
 }
 
-template <> const char* fromString<double>(const char* str, const char* end, double* val) {
-	*val = atof(str);
-	const char* iter = str;
-	while (iter < end && *iter != ',') ++iter;
-	if (iter < end) ++iter; // skip ','
-	return (const char*)iter;
+func doubleFromString(str, end string, val *double) string {
+	*val = atof(str)
+	iter := str
+	for (iter < end && *iter != ',') ++iter
+	if (iter < end) ++iter // skip ','
+	return (string)iter
 }
 
-template <> const char* fromString<float>(const char* str, const char* end, float* val) {
-	*val = (float)atof(str);
-	const char* iter = str;
-	while (iter < end && *iter != ',') ++iter;
-	if (iter < end) ++iter; // skip ','
-	return (const char*)iter;
+func floatFromString(str, end string, float* val) string {
+	*val = (float)atof(str)
+	iter := str
+	for (iter < end && *iter != ',') ++iter
+	if (iter < end) ++iter // skip ','
+	return (string)iter
 }
 
-const char* fromString(const char* str, const char* end, double* val, int count) {
-	const char* iter = str;
-	for (int i = 0; i < count; ++i) {
-		*val = atof(iter);
-		++val;
-		while (iter < end && *iter != ',') ++iter;
-		if (iter < end) ++iter; // skip ','
+func fromString(str, end string, double* val, int count) string {
+	iter := str
+	for i := 0; i < count; i++ {
+		*val = atof(iter)
+		++val
+		for (iter < end && *iter != ',') ++iter
+		if (iter < end) ++iter // skip ','
 
-		if (iter == end) return iter;
-
+		if (iter == end) return iter
 	}
-	return (const char*)iter;
+	return (string)iter
 }
 
-template <> const char* fromString<Vec2>(const char* str, const char* end, Vec2* val) {
-	return fromString(str, end, &val.x, 2);
+func vec2FromString(string str, string end, Vec2* val) string {
+	return fromString(str, end, &val.x, 2)
 }
 
-template <> const char* fromString<Vec3>(const char* str, const char* end, Vec3* val) {
-	return fromString(str, end, &val.x, 3);
+func vec3FromString(string str, string end, Vec3* val) string {
+	return fromString(str, end, &val.x, 3)
 }
 
-template <> const char* fromString<Vec4>(const char* str, const char* end, Vec4* val) {
-	return fromString(str, end, &val.x, 4);
+func vec4FromString(string str, string end, Vec4* val) string {
+	return fromString(str, end, &val.x, 4)
 }
 
-template <> const char* fromString<Matrix>(const char* str, const char* end, Matrix* val) {
-	return fromString(str, end, &val.m[0], 16);
+func matrixFromString(string str, string end, Matrix* val) string {
+	return fromString(str, end, &val.m[0], 16)
 }
