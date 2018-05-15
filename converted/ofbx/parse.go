@@ -53,6 +53,168 @@ func parseMaterial(scene *Scene, element *Element) *Object {
 	return material
 }
 
+static OptionalError<Object*> parseAnimationCurve(const Scene& scene, const Element& element) {
+	std::unique_ptr<AnimationCurveImpl> curve = std::make_unique<AnimationCurveImpl>(scene, element);
+
+	const Element* times = findChild(element, "KeyTime");
+	const Element* values = findChild(element, "KeyValueFloat");
+
+	if (times && times.first_property) {
+		curve.times.resize(times.first_property.getCount());
+		if (!times.first_property.getValues(&curve.times[0], (int)curve.times.size() * sizeof(curve.times[0]))) {
+			return Error("Invalid animation curve");
+		}
+	}
+
+	if (values && values.first_property) {
+		curve.values.resize(values.first_property.getCount());
+		if (!values.first_property.getValues(&curve.values[0], (int)curve.values.size() * sizeof(curve.values[0]))) {
+			return Error("Invalid animation curve");
+		}
+	}
+
+	if (curve.times.size() != curve.values.size()) return Error("Invalid animation curve");
+
+	return curve.release();
+}
+
+static bool parseConnections(const Element& root, Scene* scene) {
+	assert(scene);
+
+	const Element* connections = findChild(root, "Connections");
+	if (!connections) return true;
+
+	const Element* connection = connections.child;
+	while (connection) {
+		if (!isString(connection.first_property)
+			|| !isLong(connection.first_property.next)
+			|| !isLong(connection.first_property.next.next)) {
+			Error::s_message = "Invalid connection";
+			return false;
+		}
+
+		Scene::Connection c;
+		c.from = connection.first_property.next.value.touint64();
+		c.to = connection.first_property.next.next.value.touint64();
+		if (connection.first_property.value == "OO") {
+			c.type = Scene::Connection::OBJECT_OBJECT;
+		}
+		else if (connection.first_property.value == "OP") {
+			c.type = Scene::Connection::OBJECT_PROPERTY;
+			if (!connection.first_property.next.next.next) {
+				Error::s_message = "Invalid connection";
+				return false;
+			}
+			c.property = connection.first_property.next.next.next.value;
+		}
+		else {
+			assert(false);
+			Error::s_message = "Not supported";
+			return false;
+		}
+		scene.m_connections.push_back(c);
+
+		connection = connection.sibling;
+	}
+	return true;
+}
+
+static bool parseTakes(Scene* scene) {
+	const Element* takes = findChild((const Element&)*scene.getRootElement(), "Takes");
+	if (!takes) return true;
+
+	const Element* object = takes.child;
+	while (object) {
+		if (object.id == "Take") {
+			if (!isString(object.first_property)) {
+				Error::s_message = "Invalid name in take";
+				return false;
+			}
+
+			TakeInfo take;
+			take.name = object.first_property.value;
+			const Element* filename = findChild(*object, "FileName");
+			if (filename) {
+				if (!isString(filename.first_property)) {
+					Error::s_message = "Invalid filename in take";
+					return false;
+				}
+				take.filename = filename.first_property.value;
+			}
+			const Element* local_time = findChild(*object, "LocalTime");
+			if (local_time) {
+				if (!isLong(local_time.first_property) || !isLong(local_time.first_property.next)) {
+					Error::s_message = "Invalid local time in take";
+					return false;
+				}
+
+				take.local_time_from = fbxTimeToSeconds(local_time.first_property.value.toint64());
+				take.local_time_to = fbxTimeToSeconds(local_time.first_property.next.value.toint64());
+			}
+			const Element* reference_time = findChild(*object, "ReferenceTime");
+			if (reference_time) {
+				if (!isLong(reference_time.first_property) || !isLong(reference_time.first_property.next)) {
+					Error::s_message = "Invalid reference time in take";
+					return false;
+				}
+
+				take.reference_time_from = fbxTimeToSeconds(reference_time.first_property.value.toint64());
+				take.reference_time_to = fbxTimeToSeconds(reference_time.first_property.next.value.toint64());
+			}
+
+			scene.m_take_infos.push_back(take);
+		}
+
+		object = object.sibling;
+	}
+
+	return true;
+}
+
+static void parseGlobalSettings(const Element& root, Scene* scene) {
+	for (ofbx::Element* settings = root.child; settings; settings = settings.sibling) {
+		if (settings.id == "GlobalSettings") {
+			for (ofbx::Element* props70 = settings.child; props70; props70 = props70.sibling) {
+				if (props70.id == "Properties70") {
+					for (ofbx::Element* node = props70.child; node; node = node.sibling) {
+						if (!node.first_property)
+							continue;
+
+#define get_property(name, field, type) if(node.first_property.value == name) \ { \
+							ofbx::IElementProperty* prop = node.getProperty(4); \
+							if (prop) \ { \
+								ofbx::DataView value = prop.getValue(); \
+								scene.m_settings.field = *(type*)value.begin; \
+							} \
+						}
+
+						get_property("UpAxis", UpAxis, UpVector);
+						get_property("UpAxisSign", UpAxisSign, int);
+						get_property("FrontAxis", FrontAxis, FrontVector);
+						get_property("FrontAxisSign", FrontAxisSign, int);
+						get_property("CoordAxis", CoordAxis, CoordSystem);
+						get_property("CoordAxisSign", CoordAxisSign, int);
+						get_property("OriginalUpAxis", OriginalUpAxis, int);
+						get_property("OriginalUpAxisSign", OriginalUpAxisSign, int);
+						get_property("UnitScaleFactor", UnitScaleFactor, float);
+						get_property("OriginalUnitScaleFactor", OriginalUnitScaleFactor, float);
+						get_property("TimeSpanStart", TimeSpanStart, uint64);
+						get_property("TimeSpanStop", TimeSpanStop, uint64);
+						get_property("TimeMode", TimeMode, FrameRate);
+						get_property("CustomFrameRate", CustomFrameRate, float);
+
+#undef get_property
+
+						scene.m_scene_frame_rate = getFramerateFromTimeMode(scene.m_settings.TimeMode, scene.m_settings.CustomFrameRate);
+					}
+					break;
+				}
+			}
+			break;
+		}
+	}
+}
+
 func parseObjects(root *Element, scene *Scene) (bool, error) {
 	objs := findChild(root, "Objects")
 	if objs == nil {
