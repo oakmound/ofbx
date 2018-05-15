@@ -117,13 +117,3 @@ template <typename T> static void remap(std::vector<T>* out, const std::vector<i
 		else out.push_back(T());
 	}
 }
-
-static int getTriCountFromPoly(const std::vector<int>& indices, int* idx) {
-	int count = 1;
-	while (indices[*idx + 1 + count] >= 0) {
-		++count;
-	}
-
-	*idx = *idx + 2 + count;
-	return count;
-}
