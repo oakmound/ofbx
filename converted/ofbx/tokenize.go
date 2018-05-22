@@ -2,6 +2,10 @@ package ofbx
 
 import (
 	"encoding/binary"
+<<<<<<< HEAD
+=======
+	"bufio"
+>>>>>>> 6a01121979ddd318acbcf6d871e82bd6207b945a
 )
 
 type Header struct {
@@ -21,10 +25,9 @@ type Cursor io.Reader
 
 
 const(
-
-	UINT8_BYTES = 4
-	UINT32_BYTES = 32
-
+	UINT8_BYTES = 1
+	UINT32_BYTES = 4
+	HEADER_BYTES = (21 + 2 + 1) * 4
 )
 
 
@@ -58,7 +61,7 @@ func (c *Cursor) isEndLine() bool {
 }
 //TODO: Make a isspace for bytes not unicode
 func (c *Cursor) skipInsignificantWhitespaces(){
-	for (c.cur < len(c.data) && unicode.IsSpace(c.data[c.cur]) && c.isEndLine()){
+	for (c.cur < len(c.data) && unicode.IsSpace(c.data[c.cur]) && !c.isEndLine()){
 		c.cur++
 	}
 }
@@ -381,63 +384,49 @@ static OptionalError<Element*> readTextElement(Cursor* cursor) {
 	return element;
 }
 
-static OptionalError<Element*> tokenizeText(const uint8* data, size_t size) {
-	Cursor cursor;
-	cursor.begin = data;
-	cursor.current = data;
-	cursor.end = data + size;
-
-	Element* root = new Element();
-	root.first_property = nullptr;
-	root.id.begin = nullptr;
-	root.id.end = nullptr;
-	root.child = nullptr;
-	root.sibling = nullptr;
-
-	Element** element = &root.child;
-	while (cursor.current < cursor.end) {
-		if (*cursor.current == ';' || *cursor.current == '\r' || *cursor.current == '\n') {
-			skipLine(&cursor);
-		}
-		else {
-			OptionalError<Element*> child = readTextElement(&cursor);
-			if (child.isError()) {
-				deleteElement(root);
-				return Error();
+func tokenizeText(data []byte, size int) (*Element, error) {
+	cursor := NewCursor(data[:size])
+	root := &Element{}
+	element := &root.child
+	for cursor.cur < len(cursor.data) {
+		v := cursor.data[cursor.cur]
+		if (v == ';' || v == '\r' || v == '\n') {
+			skipLine(cursor)
+		} else {
+			child, err := readTextElement(cursor)
+			if err != nil {
+				deleteElement(root)
+				return nil, err
 			}
-			*element = child.getValue();
-			if (!*element) return root;
-			element = &(*element).sibling;
+			*element = child.getValue()
+			if element == nil {
+				return root, nil
+			}
+			element = element.sibling
 		}
 	}
-
-	return root;
+	return root, nil
 }
 
-
-
-
-
-
 func tokenize(data []byte) *Element, errors.Error{
-	cursor := NewCursor(data )
+	cursor := NewCursor(data)
 
-	//Get header here for the current thing
-
+	var header Header
+	binary.Read(bytes.NewReader(data), binary.BigEndian, &header)
+	cursor.cur += HEADER_BYTES
+	
 	root := &Element{}
 	element := &root.child
 	for true {
-		child, err  := readElement(&cursor, header.version)
+		child, err := readElement(&cursor, header.version)
 		if err != nil {
 			deleteElement(root)
 			return err
 		}
-		element = child
+		*element = child
 		if element == nil{
 			return root
 		}
 		element = element.sibling
 	}
 }
-
-
