@@ -5,7 +5,7 @@ type TextureType int
 const (
 	DIFFUSE TextureType = iota
 	NORMAL  TextureType = iota
-	COUNT   TextureType = iota
+	TextureCOUNT   TextureType = iota
 )
 
 type Texture struct {
