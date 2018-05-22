@@ -83,7 +83,7 @@ func (o *Object) resolveObjectLinkReverse(typ Type) *Object {
 		if connection.to == id && connection.from != 0 {
 			obj := scene.m_object_map[connection.to].second.object
 			
-			if obj != nil && obj.getType() == type { 
+			if obj != nil && obj.getType() == typ { 
 				return obj
 			}
 		}
@@ -96,8 +96,7 @@ func (o *Object) getParent() *Object{
 		if con.from == o.id {
 			obj := scene.m_object_map[con.to].second.object
 			
-			if (obj && obj.is_node) 
-			{
+			if obj && obj.is_node {
 				return obj
 			}
 		}
@@ -106,43 +105,43 @@ func (o *Object) getParent() *Object{
 }
 
 func (o *Object) getRotationOrder() RotationOrder {
-	return RotationOrder(resolveEnumProperty(*this, "RotationOrder", (int) RotationOrder::EULER_XYZ))
+	return RotationOrder(resolveEnumProperty(*this, "RotationOrder", EULER_XYZ))
 }
 
 func (o *Object) getRotationOffset() Vec3 {
-	return resolveVec3Property(*this, "RotationOffset", {0, 0, 0})
+	return resolveVec3Property(*this, "RotationOffset", &Vec3{})
 }
 
 func (o *Object) getRotationPivot() Vec3 {
-	return resolveVec3Property(*this, "RotationPivot", {0, 0, 0})
+	return resolveVec3Property(*this, "RotationPivot", &Vec3{})
 }
 
 func (o *Object) getPostRotation() Vec3 {
-	return resolveVec3Property(*this, "PostRotation", {0, 0, 0})
+	return resolveVec3Property(*this, "PostRotation", &Vec3{})
 }
 
 func (o *Object) getScalingOffset() Vec3 {
-	return resolveVec3Property(*this, "ScalingOffset", {0, 0, 0})
+	return resolveVec3Property(*this, "ScalingOffset", &Vec3{})
 }
 
 func (o *Object) getScalingPivot() Vec3 {
-	return resolveVec3Property(*this, "ScalingPivot", {0, 0, 0})
+	return resolveVec3Property(*this, "ScalingPivot", &Vec3{})
 }
 
 func (o *Object) getPreRotation() Vec3 {
-	return resolveVec3Property(*this, "PreRotation", {0, 0, 0})
+	return resolveVec3Property(*this, "PreRotation", &Vec3{})
 }
 
 func (o *Object) getLocalTranslation() Vec3 {
-	return resolveVec3Property(*this, "Lcl Translation", {0, 0, 0})
+	return resolveVec3Property(*this, "Lcl Translation", &Vec3{})
 }
 
 func (o *Object) getLocalRotation() Vec3 {
-	return resolveVec3Property(*this, "Lcl Rotation", {0, 0, 0})
+	return resolveVec3Property(*this, "Lcl Rotation", &Vec3{})
 }
 
 func (o *Object) getLocalScaling() Vec3 {
-	return resolveVec3Property(*this, "Lcl Scaling", {1, 1, 1})
+	return resolveVec3Property(*this, "Lcl Scaling", &Vec3{1, 1, 1})
 }
 
 func (o *Object) getGlobalTransform() Matrix {
@@ -176,8 +175,8 @@ func (o *Object) evalLocalScaling(translation, rotation, scaling *Vec3) Matrix {
 	setTranslation(translation, &t)
 
 	r := getRotationMatrix(rotation, rotation_order)
-	r_pre := getRotationMatrix(getPreRotation(), RotationOrder::EULER_XYZ)
-	r_post_inv := getRotationMatrix(-getPostRotation(), RotationOrder::EULER_ZYX)
+	r_pre := getRotationMatrix(getPreRotation(), EULER_XYZ)
+	r_post_inv := getRotationMatrix(-getPostRotation(), EULER_ZYX)
 
 	r_off := makeIdentity()
 	setTranslation(getRotationOffset(), &r_off)
