@@ -3,9 +3,9 @@ package ofbx
 type TextureType int
 
 const (
-	DIFFUSE TextureType = iota
-	NORMAL  TextureType = iota
-	TextureCOUNT   TextureType = iota
+	DIFFUSE      TextureType = iota
+	NORMAL       TextureType = iota
+	TextureCOUNT TextureType = iota
 )
 
 type Texture struct {
@@ -16,10 +16,8 @@ type Texture struct {
 
 func NewTexture(scene *Scene, element *IElement) *Texture {
 	//TODO: Shoulduse NewObject here
-	t := {
-		NewObject(scene, element),
-		nil,
-		nil
+	t := &Texture{
+		Object: NewObject(scene, element),
 	}
 	return t
 }
