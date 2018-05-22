@@ -3,10 +3,11 @@ package ofbx
 type Material struct {
 	Object
 	diffuse_color Color
-	textures [TextureCOUNT]*Texture
+	textures      [TextureCOUNT]*Texture
 }
 
 func NewMaterial(scene *Scene, element *Element) *Material {
+	m := &Material{}
 	m.Object = NewObject(scene, element)
 	return m
 }

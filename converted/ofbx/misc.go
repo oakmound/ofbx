@@ -1,12 +1,12 @@
 package ofbx
 
-func resolveEnumProperty(object *Object name string, default_value int) int {
+func resolveEnumProperty(object *Object, name string, default_value int) int {
 	element := resolveProperty(object, name).(*Element)
 	if element == nil {
 		return default_value
 	}
 	x := element.getProperty(4).(*Property)
-	if x == nil { 
+	if x == nil {
 		return default_value
 	}
 
@@ -15,7 +15,7 @@ func resolveEnumProperty(object *Object name string, default_value int) int {
 
 func resolveVec3Property(object *Object, name string, default_value *Vec3) Vec3 {
 	element := resolveProperty(object, name).(*Element)
-	if element == nil { 
+	if element == nil {
 		return default_value
 	}
 	x := element.getProperty(4).(*Property)
@@ -24,8 +24,8 @@ func resolveVec3Property(object *Object, name string, default_value *Vec3) Vec3 
 	}
 
 	return Vec3{
-		x.value.toDouble(), 
-		x.next.value.toDouble(), 
+		x.value.toDouble(),
+		x.next.value.toDouble(),
 		x.next.next.value.toDouble(),
 	}
 }
@@ -80,11 +80,11 @@ func splat(out []T, mapping VertexDataMapping, data []T, indices []int, original
 	if mapping == BY_POLYGON_VERTEX {
 		if indices.empty() {
 			out = make([]T, len(data))
-			memcpy(&(*out)[0], &data[0], sizeof(data[0]) * data.size())
+			memcpy(&(*out)[0], &data[0], sizeof(data[0])*data.size())
 		} else {
 			out = make([]T, len(indices))
 			for i := 0; i < len(indices); i++ {
-				if indices[i] < len(data)) {
+				if indices[i] < len(data) {
 					(*out)[i] = data[indices[i]]
 				} else {
 					(*out)[i] = T{}
@@ -104,7 +104,7 @@ func splat(out []T, mapping VertexDataMapping, data []T, indices []int, original
 			}
 			if idx < len(data) {
 				(*out)[i] = data[idx]
-			} else { 
+			} else {
 				(*out)[i] = T{}
 			}
 		}
@@ -113,7 +113,7 @@ func splat(out []T, mapping VertexDataMapping, data []T, indices []int, original
 	}
 }
 
-func remap([]T out, []int m) {
+func remap(out []T, m []int) {
 	if out.empty() {
 		return
 	}
@@ -121,10 +121,9 @@ func remap([]T out, []int m) {
 	old := make([]T, len(out))
 	copy(old, out)
 	for i := 0; i < len(m); i++ {
-		if m[i] < len(old)) {
+		if m[i] < len(old) {
 			out.push_back(old[m[i]])
-		}
-		else {
+		} else {
 			out.push_back(T())
 		}
 	}
