@@ -1,50 +1,124 @@
 package ofbx
 
-struct Header {
-	magic [21]uint8
-	reserved [2]uint8
-	version uint32
+type Header struct {
+	magic [21]int
+	reserved [2]int
+	version int
 }
 
-struct Cursor {
-	current *uint8
-	begin *uint8 
-	begin *uint8
+// type Cursor struct{
+// 	current *int
+// 	begin *int 
+// 	end *int
+// }
+
+
+type Cursor struct{
+	cur int
+	data []byte
 }
 
-template <typename T> static OptionalError<T> read(Cursor* cursor) {
-	if (cursor.current + sizeof(T) > cursor.end) return Error("Reading past the end");
-	T value = *(const T*)cursor.current;
-	cursor.current += sizeof(T);
-	return value;
+
+const(
+
+	UINT8_BYTES = 4
+	UINT32_BYTES = 32
+
+)
+
+func (c *Cursor ) readShortString() []byte{
+	
+	c.cur += UINT8_BYTES
+	if c.cur > len(data){
+		errors.NewError("Reading past the end")
+	}
+	return c.data[c.cur-UINT8_BYTES: c.cur]
+}
+func (c *Cursor ) readLongString() []byte{
+	
+	c.cur += UINT32_BYTES
+	if c.cur > len(data){
+		errors.NewError("Reading past the end")
+	}
+	return c.data[c.cur-UINT32_BYTES: c.cur]
 }
 
-static OptionalError<DataView> readShortString(Cursor* cursor) {
-	DataView value;
-	OptionalError<uint8> length = read<uint8>(cursor);
-	if (length.isError()) return Error();
 
-	if (cursor.current + length.getValue() > cursor.end) return Error("Reading past the end");
-	value.begin = cursor.current;
-	cursor.current += length.getValue();
-
-	value.end = cursor.current;
-
-	return value;
+func deleteElement(e *Element){
+	return
 }
 
-static OptionalError<DataView> readLongString(Cursor* cursor) {
-	DataView value;
-	OptionalError<uint32> length = read<uint32>(cursor);
-	if (length.isError()) return Error();
+func (c *Cursor) isEndLine() bool {
+	return c.data[c.cur] == '\n'
+}
+//TODO: Make a isspace for bytes not unicode
+func (c *Cursor) skipInsignificantWhitespaces(){
+	for (c.cur < len(c.data) && unicode.IsSpace(c.data[c.cur]) && c.isEndLine()){
+		c.cur++
+	}
+}
 
-	if (cursor.current + length.getValue() > cursor.end) return Error("Reading past the end");
-	value.begin = cursor.current;
-	cursor.current += length.getValue();
+func (c *Cursor) skipLine(){
+	for c.cur < len(c.data) && !c.isEndLine{
+		c.cur++
+	}
+	if (c.cur < len(c.data)){
+		c.cur++
+	}
+	c.skipInsignificantWhitespaces()
+}
 
-	value.end = cursor.current;
+func (c *Cursor) skipWhitespaces(){
+	for c.cur < len(c.data) && unicode.IsSpace(c.data[c.cur]){
+		c.cur++
+	}
+	for c.cur < len(c.data) && c.data[c.cur] == ';'{
+		c.skipLine()
+	}
+}
 
-	return value;
+func (c *Cursor) isTextToken(){
+	isTextTokenChar(c.data[c.cur])
+}
+
+func isTextTokenChar(char c) {
+	return unicode.IsDigit(c) || unicode.IsLetter(c) ||  c == '_'
+}
+
+
+func (c *Cursor) readTextToken(){
+	start := c.cur
+	for c.cur < len(c.data) && c.isTextToken(){
+		c.cur++
+	}
+	return c.data[start: c.cur]
+}
+
+
+func (c *Cursor) readElementOffset(version int) int64{
+	if version >= 7500{
+			return 64
+	}
+	return 32
+}
+
+func (c *Cursor) readProperty() *Property{
+	if c.cur > len(c.data){
+		return errors.NewError("Reading Past End")
+	}
+		prop := Property{}
+		prop.typ = c.data[c.cur]
+		c.cur++
+
+		switch(prop.typ){
+		case 'S':
+			val = c.readLongString()
+			if val != nil {return errors.NewError("")}
+		
+
+		}
+
+	
 }
 
 static OptionalError<Property*> readProperty(Cursor* cursor) {
@@ -95,31 +169,7 @@ static OptionalError<Property*> readProperty(Cursor* cursor) {
 	return prop.release();
 }
 
-static void deleteElement(Element* el) {
-	if (!el) return;
 
-	delete el.first_property;
-	deleteElement(el.child);
-	Element* iter = el;
-	// do not use recursion to avoid stack overflow
-	do {
-		Element* next = iter.sibling;
-		delete iter;
-		iter = next;
-	} while (iter);
-}
-
-static OptionalError<uint64> readElementOffset(Cursor* cursor, uint16 version) {
-	if (version >= 7500) {
-		OptionalError<uint64> tmp = read<uint64>(cursor);
-		if (tmp.isError()) return Error();
-		return tmp.getValue();
-	}
-
-	OptionalError<uint32> tmp = read<uint32>(cursor);
-	if (tmp.isError()) return Error();
-	return tmp.getValue();
-}
 
 static OptionalError<Element*> readElement(Cursor* cursor, uint32 version) {
 	OptionalError<uint64> end_offset = readElementOffset(cursor, version);
@@ -177,45 +227,6 @@ static OptionalError<Element*> readElement(Cursor* cursor, uint32 version) {
 
 	cursor.current += BLOCK_SENTINEL_LENGTH;
 	return element;
-}
-
-static bool isEndLine(const Cursor& cursor) {
-	return *cursor.current == '\n';
-}
-
-static void skipInsignificantWhitespaces(Cursor* cursor) {
-	while (cursor.current < cursor.end && isspace(*cursor.current) && *cursor.current != '\n') {
-		++cursor.current;
-	}
-}
-
-static void skipLine(Cursor* cursor) {
-	while (cursor.current < cursor.end && !isEndLine(*cursor)) {
-		++cursor.current;
-	}
-	if (cursor.current < cursor.end) ++cursor.current;
-	skipInsignificantWhitespaces(cursor);
-}
-
-static void skipWhitespaces(Cursor* cursor) {
-	while (cursor.current < cursor.end && isspace(*cursor.current)) {
-		++cursor.current;
-	}
-	while (cursor.current < cursor.end && *cursor.current == ';') skipLine(cursor);
-}
-
-static bool isTextTokenChar(char c) {
-	return isalnum(c) || c == '_';
-}
-
-static DataView readTextToken(Cursor* cursor) {
-	DataView ret;
-	ret.begin = cursor.current;
-	while (cursor.current < cursor.end && isTextTokenChar(*cursor.current)) {
-		++cursor.current;
-	}
-	ret.end = cursor.current;
-	return ret;
 }
 
 static OptionalError<Property*> readTextProperty(Cursor* cursor) {
@@ -383,31 +394,30 @@ static OptionalError<Element*> tokenizeText(const uint8* data, size_t size) {
 	return root;
 }
 
-static OptionalError<Element*> tokenize(const uint8* data, size_t size) {
-	Cursor cursor;
-	cursor.begin = data;
-	cursor.current = data;
-	cursor.end = data + size;
 
-	const Header* header = (const Header*)cursor.current;
-	cursor.current += sizeof(*header);
 
-	Element* root = new Element();
-	root.first_property = nullptr;
-	root.id.begin = nullptr;
-	root.id.end = nullptr;
-	root.child = nullptr;
-	root.sibling = nullptr;
 
-	Element** element = &root.child;
-	for (;;) {
-		OptionalError<Element*> child = readElement(&cursor, header.version);
-		if (child.isError()) {
-			deleteElement(root);
-			return Error();
+
+
+func tokenize(data []byte) *Element, errors.Error{
+	cursor := NewCursor(data )
+
+	//Get header here for the current thing
+
+	root := &Element{}
+	element := &root.child
+	for true {
+		child, err  := readElement(&cursor, header.version)
+		if err != nil {
+			deleteElement(root)
+			return err
 		}
-		*element = child.getValue();
-		if (!*element) return root;
-		element = &(*element).sibling;
+		element = child
+		if element == nil{
+			return root
+		}
+		element = element.sibling
 	}
 }
+
+
