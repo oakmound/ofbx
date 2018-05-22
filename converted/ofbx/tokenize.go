@@ -20,10 +20,8 @@ type Cursor struct{
 
 
 const(
-
-	UINT8_BYTES = 4
-	UINT32_BYTES = 32
-
+	UINT8_BYTES = 1
+	UINT32_BYTES = 4
 )
 
 func (c *Cursor ) readShortString() []byte{
@@ -361,43 +359,32 @@ static OptionalError<Element*> readTextElement(Cursor* cursor) {
 	return element;
 }
 
-static OptionalError<Element*> tokenizeText(const uint8* data, size_t size) {
-	Cursor cursor;
-	cursor.begin = data;
-	cursor.current = data;
-	cursor.end = data + size;
+func tokenizeText(data []byte, size int) (*Element, error) {
+	cursor := &Cursor{}
+	cursor.data = data
 
-	Element* root = new Element();
-	root.first_property = nullptr;
-	root.id.begin = nullptr;
-	root.id.end = nullptr;
-	root.child = nullptr;
-	root.sibling = nullptr;
+	root := NewElement()
 
-	Element** element = &root.child;
-	while (cursor.current < cursor.end) {
-		if (*cursor.current == ';' || *cursor.current == '\r' || *cursor.current == '\n') {
-			skipLine(&cursor);
-		}
-		else {
-			OptionalError<Element*> child = readTextElement(&cursor);
-			if (child.isError()) {
-				deleteElement(root);
-				return Error();
+	element := &root.child
+	for cursor.cur < len(cursor.data) {
+		v := cursor.data[cursor.cur]
+		if (v == ';' || v == '\r' || v == '\n') {
+			skipLine(cursor)
+		} else {
+			child, err := readTextElement(cursor)
+			if err != nil {
+				deleteElement(root)
+				return nil, err
 			}
-			*element = child.getValue();
-			if (!*element) return root;
-			element = &(*element).sibling;
+			*element = child.getValue()
+			if element == nil {
+				return root, nil
+			}
+			element = element.sibling
 		}
 	}
-
-	return root;
+	return root, nil
 }
-
-
-
-
-
 
 func tokenize(data []byte) *Element, errors.Error{
 	cursor := NewCursor(data )
