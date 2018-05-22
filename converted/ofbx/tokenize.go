@@ -1,5 +1,10 @@
 package ofbx
 
+import (
+	"encoding/binary"
+	"bufio"
+)
+
 type Header struct {
 	magic [21]int
 	reserved [2]int
@@ -22,6 +27,7 @@ type Cursor struct{
 const(
 	UINT8_BYTES = 1
 	UINT32_BYTES = 4
+	HEADER_BYTES = (21 + 2 + 1) * 4
 )
 
 func (c *Cursor ) readShortString() []byte{
@@ -51,7 +57,7 @@ func (c *Cursor) isEndLine() bool {
 }
 //TODO: Make a isspace for bytes not unicode
 func (c *Cursor) skipInsignificantWhitespaces(){
-	for (c.cur < len(c.data) && unicode.IsSpace(c.data[c.cur]) && c.isEndLine()){
+	for (c.cur < len(c.data) && unicode.IsSpace(c.data[c.cur]) && !c.isEndLine()){
 		c.cur++
 	}
 }
@@ -360,11 +366,8 @@ static OptionalError<Element*> readTextElement(Cursor* cursor) {
 }
 
 func tokenizeText(data []byte, size int) (*Element, error) {
-	cursor := &Cursor{}
-	cursor.data = data
-
-	root := NewElement()
-
+	cursor := NewCursor(data[:size])
+	root := &Element{}
 	element := &root.child
 	for cursor.cur < len(cursor.data) {
 		v := cursor.data[cursor.cur]
@@ -387,24 +390,24 @@ func tokenizeText(data []byte, size int) (*Element, error) {
 }
 
 func tokenize(data []byte) *Element, errors.Error{
-	cursor := NewCursor(data )
+	cursor := NewCursor(data)
 
-	//Get header here for the current thing
-
+	var header Header
+	binary.Read(bytes.NewReader(data), binary.BigEndian, &header)
+	cursor.cur += HEADER_BYTES
+	
 	root := &Element{}
 	element := &root.child
 	for true {
-		child, err  := readElement(&cursor, header.version)
+		child, err := readElement(&cursor, header.version)
 		if err != nil {
 			deleteElement(root)
 			return err
 		}
-		element = child
+		*element = child
 		if element == nil{
 			return root
 		}
 		element = element.sibling
 	}
 }
-
-
