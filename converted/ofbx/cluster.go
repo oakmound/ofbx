@@ -64,14 +64,14 @@ func (c *Cluster) clusterPostProcess(scene, element) {
 	old_indices := []int{}
 	indexes := findChild(element, "Indexes")
 	if indexes != nil && indexes.first_property {
-		if !parseBinaryArray(*indexes.first_property, &old_indices) {
+		if !parseBinaryArrayInt(*indexes.first_property, &old_indices) {
 			return false
 		}
 	}
 	old_weights := []float64{}
 	weights_el := findChild(element, "Weights")
 	if weights_el != nil && weights_el.first_property {
-		if !parseBinaryArray(*weights_el.first_property, &old_weights) {
+		if !parseBinaryArrayFloat64(*weights_el.first_property, &old_weights) {
 			return false
 		}
 	}

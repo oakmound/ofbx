@@ -153,8 +153,8 @@ func parseGeometry(scene *Scene, element *IElement) (*Object, Error) {
 		return nil, errors.New("Geometry Indicies missing")
 	}
 
-	vertices = parseDoubleVecData(*vertices_element.first_property)
-	original_indices = parseBinaryArray(*polys_element.first_property)
+	vertices := parseDoubleVecData(*vertices_element.first_property)
+	original_indices := parseBinaryArrayInt(*polys_element.first_property)
 
 	geom.triangulate(original_indices)
 	geom.vertices = make([]Vec3, len(geom.to_old_vertices))
@@ -191,7 +191,8 @@ func parseGeometry(scene *Scene, element *IElement) (*Object, Error) {
 				return nil, errors.New("Invalid LayerElementMaterial")
 			}
 
-			tmp := parseBinaryArray(*indices_element.first_property) //int
+			var tmp []int
+			parseBinaryArrayInt(*indices_element.first_property) //int
 
 			tmp_i := 0
 			tri_count := 0
@@ -220,7 +221,7 @@ func parseGeometry(scene *Scene, element *IElement) (*Object, Error) {
 			if uv_index >= 0 && uv_index < geom.UVSMax() {
 				uvs := geom.uvs[uv_index]
 				//tmp []Vec2 			//tmp_indices []int		//mapping VertexDataMapping
-				tmp, tmp_indices, mapping := parseVertexData(*layer_uv_element, "UV", "UVIndex")
+				tmp, tmp_indices, mapping := parseVertexDataVec2(*layer_uv_element, "UV", "UVIndex")
 
 				if tmp != nil && len(tmp) > 0 {
 					geom.uvs = make([]Vec2) //resize(tmp_indices.empty() ? tmp.size() : tmp_indices.size());
@@ -239,9 +240,9 @@ func parseGeometry(scene *Scene, element *IElement) (*Object, Error) {
 		if layer_tangent_element != nil {
 			tans := findChild(*layer_tangent_element, "Tangents")
 			if len(tans > 0) {
-				tmp, tmp_indices, mapping := parseVertexData(*layer_tangent_element, "Tangents", "TangentsIndex")
+				tmp, tmp_indices, mapping := parseVertexDataVec3(*layer_tangent_element, "Tangents", "TangentsIndex")
 			} else {
-				tmp, tmp_indices, mapping := parseVertexData(*layer_tangent_element, "Tangent", "TangentIndex")
+				tmp, tmp_indices, mapping := parseVertexDataVec3(*layer_tangent_element, "Tangent", "TangentIndex")
 			}
 			if tmp != nil && len(tmp) > 0 {
 				splat(&geom.tangents, mapping, tmp, tmp_indices, original_indices)
@@ -251,7 +252,7 @@ func parseGeometry(scene *Scene, element *IElement) (*Object, Error) {
 
 		layer_color_element := findChild(element, "LayerElementColor")
 		if layer_color_element != nil {
-			tmp, tmp_indices, mapping := parseVertexData(*layer_color_element, "Colors", "ColorIndex")
+			tmp, tmp_indices, mapping := parseVertexDataVec4(*layer_color_element, "Colors", "ColorIndex")
 			if tmp != nil && len(tmp) > 0 {
 				splat(&geom.colors, mapping, tmp, tmp_indices, original_indices)
 				remap(&geom.colors, to_old_indices)
@@ -260,7 +261,7 @@ func parseGeometry(scene *Scene, element *IElement) (*Object, Error) {
 
 		layer_normal_element := findChild(element, "LayerElementNormal")
 		if layer_normal_element != nil {
-			tmp, tmp_indices, mapping := parseVertexData(*layer_normal_element, "Normals", "NormalsIndex")
+			tmp, tmp_indices, mapping := parseVertexDataVec3(*layer_normal_element, "Normals", "NormalsIndex")
 			if tmp != nil && len(tmp) > 0 {
 				splat(&geom.normals, mapping, tmp, tmp_indices, original_indices)
 				remap(&geom.normals, to_old_indices)
