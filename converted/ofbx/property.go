@@ -16,9 +16,9 @@ const (
 
 type Property struct {
 	count int
-	typ uint8
+	typ   uint8
 	value DataView
-	next *Property
+	next  *Property
 }
 
 func (p *Property) getType() Type {
@@ -60,7 +60,7 @@ func (p *Property) getValuesInt64(values []int64, max_size int) bool {
 func findChild(element *Element, id string) *Element {
 	iter := element.child
 	for iter != nil {
-		if iter.id == id { 
+		if iter.id == id {
 			return iter
 		}
 		iter = iter.sibling
@@ -68,11 +68,11 @@ func findChild(element *Element, id string) *Element {
 	return nil
 }
 
-func resolveProperty(const Object& obj, const char* name) *IElement {
+func resolveProperty(obj *Object, name string) *Element {
 	props := findChild(obj.element, "Properties70")
 	if props == nil {
 		return nil
-	} 
+	}
 
 	prop := props.child
 	for prop != nil {
@@ -88,13 +88,12 @@ func isString(prop *Property) bool {
 	if prop == nil {
 		return false
 	}
-	return prop.getType() == Property::STRING
+	return prop.getType() == STRING
 }
-
 
 func isLong(prop *Property) bool {
 	if prop == nil {
 		return false
 	}
-	return prop.getType() == Property::LONG
+	return prop.getType() == LONG
 }
