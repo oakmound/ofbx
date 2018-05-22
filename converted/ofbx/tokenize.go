@@ -1,5 +1,9 @@
 package ofbx
 
+import (
+	"encoding/binary"
+)
+
 type Header struct {
 	magic [21]int
 	reserved [2]int
@@ -13,10 +17,7 @@ type Header struct {
 // }
 
 
-type Cursor struct{
-	cur int
-	data []byte
-}
+type Cursor io.Reader
 
 
 const(
@@ -25,6 +26,10 @@ const(
 	UINT32_BYTES = 32
 
 )
+
+
+
+
 
 func (c *Cursor ) readShortString() []byte{
 	
@@ -114,10 +119,40 @@ func (c *Cursor) readProperty() *Property{
 		case 'S':
 			val = c.readLongString()
 			if val != nil {return errors.NewError("")}
+			prop.value = val.getValue()//TODO: get value from the thing
 		
 
+		case 'Y': 
+		c.cur += 2
+		case 'C': 
+		c.cur  += 1
+		case 'I': 
+		c.cur  += 4
+		case 'F': 
+		c.cur  += 4
+		case 'D': 
+		c.cur  += 8
+		case 'L': 
+		c.cur  += 8
+		case 'R':
+		 length := UINT32_BYTES
+	
+		if c.cur  + length  > len(c.data){
+			errors.NewError("Reading past the end")
+		} 
+		c.cur  += len.getValue();
+		case 'b'||'f'||'d'||'l'||'i':
+			length := UINT32_BYTES
+			OptionalError<uint32> length = read<uint32>(cursor);
+			OptionalError<uint32> encoding = read<uint32>(cursor);
+			OptionalError<uint32> comp_len = read<uint32>(cursor);
+			if (length.isError() | encoding.isError() | comp_len.isError()) return Error();
+			if (cursor.current + comp_len.getValue() > cursor.end) return Error("Reading past the end");
+			cursor.current += comp_len.getValue();
+			break;
+		default:
+			errors.NewError("Did not know this property")
 		}
-
 	
 }
 
@@ -131,18 +166,7 @@ static OptionalError<Property*> readProperty(Cursor* cursor) {
 	prop.value.begin = cursor.current;
 
 	switch (prop.type) {
-		case 'S': {
-			OptionalError<DataView> val = readLongString(cursor);
-			if (val.isError()) return Error();
-			prop.value = val.getValue();
-			break;
-		}
-		case 'Y': cursor.current += 2; break;
-		case 'C': cursor.current += 1; break;
-		case 'I': cursor.current += 4; break;
-		case 'F': cursor.current += 4; break;
-		case 'D': cursor.current += 8; break;
-		case 'L': cursor.current += 8; break;
+		
 		case 'R': {
 			OptionalError<uint32> len = read<uint32>(cursor);
 			if (len.isError()) return Error();
@@ -150,10 +174,6 @@ static OptionalError<Property*> readProperty(Cursor* cursor) {
 			cursor.current += len.getValue();
 			break;
 		}
-		case 'b':
-		case 'f':
-		case 'd':
-		case 'l':
 		case 'i': {
 			OptionalError<uint32> length = read<uint32>(cursor);
 			OptionalError<uint32> encoding = read<uint32>(cursor);
