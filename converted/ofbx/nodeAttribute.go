@@ -17,16 +17,16 @@ func (na NodeAttribute) getAttributeType() DataView {
 	return na.attribute_type
 }
 
-func parseNodeAttribute(scene *Scene, element *IElement) *NodeAttribute, Error{
+func parseNodeAttribute(scene *Scene, element *IElement) (*NodeAttribute, error) {
 	na := NewNodeAttribute(scene, element)
 	type_flags := findChild(element, "TypeFlags")
-	if (type_flags != nil  && type_flags.first_property)	{
-		na.attribute_type = type_flags.first_property.value;
+	if type_flags != nil && type_flags.first_property {
+		na.attribute_type = type_flags.first_property.value
 	}
 	return na, nil
 }
 
 // From CPP
-func (na *NodeAttribute) getType() Type{
+func (na *NodeAttribute) getType() Type {
 	return na.Type()
 }
