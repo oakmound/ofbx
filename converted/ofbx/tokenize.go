@@ -230,53 +230,95 @@ func (c *Cursor) readTextProperty() (*Property, error) {
 		return nil, err
 	}
 	if r == '"' {
-		prop.type = 'S'
-		val := []byte{}
+		prop.typ = 'S'
+		val := bytes.NewBuffer([]byte{})
 		for {
-			
+			r, _, err := cursor.ReadRune()
+			if err != nil {
+				if err == io.EOF {
+					break //?
+				 }
+				 return nil, err
+			}
+			if r == '"' {
+				break
+			}
+			val.WriteRune(r)
 		}
-		while (cursor.current < cursor.end && *cursor.current != '"') {
-			++cursor.current;
-		}
-		prop.value.end = cursor.current;
-		if (cursor.current < cursor.end) ++cursor.current; // skip '"'
 		return prop
 	}
 	
-	if (isdigit(*cursor.current) || *cursor.current == '-') {
-		prop.type = 'L';
-		prop.value.begin = cursor.current;
-		if (*cursor.current == '-') ++cursor.current;
-		while (cursor.current < cursor.end && isdigit(*cursor.current)) {
-			++cursor.current;
+	if unicode.IsDigit(r) || r == '-' {
+		prop.typ = 'L'
+		if r != '-' {
+			cursor.UnreadRune()
 		}
-		prop.value.end = cursor.current;
-
-		if (cursor.current < cursor.end && *cursor.current == '.') {
-			prop.type = 'D';
-			++cursor.current;
-			while (cursor.current < cursor.end && isdigit(*cursor.current)) {
-				++cursor.current;
+		prop.value = bytes.NewBuffer([]byte{})
+		for {
+			r, _, err := cursor.ReadRune()
+			if err != nil {
+				if err == io.EOF {
+					break //?
+				 }
+				 return nil, err
 			}
-			if (cursor.current < cursor.end && (*cursor.current == 'e' || *cursor.current == 'E')) {
+			if !unicode.IsDigit(r) {
+				break
+			}
+			prop.value.WriteRune(r)
+		}
+
+		r, _, err = cursor.ReadRune()
+		
+		if err == nil && r == '.' {
+			prop.typ = 'D'
+			prop.value.WriteRune(r)
+			for {
+				r, _, err := cursor.ReadRune()
+				if err != nil {
+					if err == io.EOF {
+						break //?
+					}
+					return nil, err
+				}
+				if !unicode.IsDigit(r) {
+					break
+				}
+				prop.value.WriteRune(r)
+			}
+			r, _, err = cursor.ReadRune()
+			if err == nil && r == 'e' || r == 'E' {
 				// 10.5e-013
-				++cursor.current;
-				if (cursor.current < cursor.end && *cursor.current == '-') ++cursor.current;
-				while (cursor.current < cursor.end && isdigit(*cursor.current)) ++cursor.current;
+				prop.value.WriteRune(r)
+				r, _, err = cursor.ReadRune()
+				if r != "-" || !unicode.IsDigit(r) {
+					return nil, errors.New("malformed floating point with exponent")
+				}
+				prop.value.WriteRune(r)
+				for {
+					r, _, err := cursor.ReadRune()
+					if err != nil {
+						if err == io.EOF {
+							break //?
+						}
+						return nil, err
+					}
+					if !unicode.IsDigit(r) {
+						break
+					}
+					prop.value.WriteRune(r)
+				}
 			}
-
-			prop.value.end = cursor.current;
-		}
-		return prop.release();
+		}	
+		return prop, nil
 	}
 	
-	if (*cursor.current == 'T' || *cursor.current == 'Y') {
+	if r == 'T' | r == 'Y' {
 		// WTF is this
-		prop.type = *cursor.current;
-		prop.value.begin = cursor.current;
-		++cursor.current;
-		prop.value.end = cursor.current;
-		return prop.release();
+		prop.typ = r 
+		b, err = cursor.ReadByte()
+		prop.value = bytes.NewBuffer([]byte{b})
+		return prop, err
 	}
 
 	if (*cursor.current == '*') {
