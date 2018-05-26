@@ -179,98 +179,47 @@ func (c *Cursor) readProperty() *Property{
 		return &prop
 }
 
-
-static OptionalError<Property*> readProperty(Cursor* cursor) {
-	if (cursor.current == cursor.end) return Error("Reading past the end");
-
-	std::unique_ptr<Property> prop = std::make_unique<Property>();
-	prop.next = nullptr;
-	prop.type = *cursor.current;
-	++cursor.current;
-	prop.value.begin = cursor.current;
-
-	switch (prop.type) {
-		
-		case 'R': {
-			OptionalError<uint32> len = read<uint32>(cursor);
-			if (len.isError()) return Error();
-			if (cursor.current + len.getValue() > cursor.end) return Error("Reading past the end");
-			cursor.current += len.getValue();
-			break;
-		}
-		case 'i': {
-			OptionalError<uint32> length = read<uint32>(cursor);
-			OptionalError<uint32> encoding = read<uint32>(cursor);
-			OptionalError<uint32> comp_len = read<uint32>(cursor);
-			if (length.isError() | encoding.isError() | comp_len.isError()) return Error();
-			if (cursor.current + comp_len.getValue() > cursor.end) return Error("Reading past the end");
-			cursor.current += comp_len.getValue();
-			break;
-		}
-		default: return Error("Unknown property type");
+func (c *Cursor) readElement(version int){
+	initial
+	end_offset := c.readElementOffset(version)
+	if end_offset == 0{
+		return nil
 	}
-	prop.value.end = cursor.current;
-	return prop.release();
-}
+	prop_count := c.readElementOffset(version)
+	prop_length := c.readElementOffset(version)
+	id := c.readShortString()
 
+	element := Element{}
+	element.id = id
 
-
-static OptionalError<Element*> readElement(Cursor* cursor, uint32 version) {
-	OptionalError<uint64> end_offset = readElementOffset(cursor, version);
-	if (end_offset.isError()) return Error();
-	if (end_offset.getValue() == 0) return nullptr;
-
-	OptionalError<uint64> prop_count = readElementOffset(cursor, version);
-	OptionalError<uint64> prop_length = readElementOffset(cursor, version);
-	if (prop_count.isError() || prop_length.isError()) return Error();
-
-	const char* sbeg = 0;
-	const char* send = 0;
-	OptionalError<DataView> id = readShortString(cursor);
-	if (id.isError()) return Error();
-
-	Element* element = new Element();
-	element.first_property = nullptr;
-	element.id = id.getValue();
-
-	element.child = nullptr; 
-	element.sibling = nullptr;
-
-	Property** prop_link = &element.first_property;
-	for (uint32 i = 0; i < prop_count.getValue(); ++i) {
-		OptionalError<Property*> prop = readProperty(cursor);
-		if (prop.isError()) {
-			deleteElement(element);
-			return Error();
-		}
-
-		*prop_link = prop.getValue();
-		prop_link = &(*prop_link).next;
+	oldProp := *element.first_property
+	
+	for i := 0 ; i < prop_count; i++{
+		prop := c.readProperty()
+		oldProp.next = prop
+		oldProp = prop
 	}
 
-	if (cursor.current - cursor.begin >= (ptrdiff_t)end_offset.getValue()) return element;
+	if initial_size -c.Buffered() >- end_offset{
+		return element
+	}
+	BLOCK_SENTINEL_LENGTH = 13
+	if version >= 7500{
+		BLOCK_SENTINEL_LENGTH = 25
+	}
 
-	int BLOCK_SENTINEL_LENGTH = version >= 7500 ? 25 : 13;
+	link := &element.child
 
-	Element** link = &element.child;
-	while (cursor.current - cursor.begin < ((ptrdiff_t)end_offset.getValue() - BLOCK_SENTINEL_LENGTH)) {
-		OptionalError<Element*> child = readElement(cursor, version);
-		if (child.isError()) {
-			deleteElement(element);
-			return Error();
+	for initial_size- c.buffered() < end_offset -BLOCK_SENTINEL_LENGTH {
+		child := c.readElement(version)
+		if child==nil{
+			fmt.Println(errors.NewError("ReadingChild element failed"))
 		}
-
-		*link = child.getValue();
-		link = &(*link).sibling;
+		*link = child
+		link = &(*link).sibling
 	}
-
-	if (cursor.current + BLOCK_SENTINEL_LENGTH > cursor.end) {
-		deleteElement(element); 
-		return Error("Reading past the end");
-	}
-
-	cursor.current += BLOCK_SENTINEL_LENGTH;
-	return element;
+	c.Discard(BLOCK_SENTINEL_LENGTH)
+	return element
 }
 
 func (c *Cursor) readTextProperty() (*Property, error) {
