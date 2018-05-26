@@ -179,42 +179,6 @@ func (c *Cursor) readProperty() *Property{
 		return &prop
 }
 
-
-static OptionalError<Property*> readProperty(Cursor* cursor) {
-	if (cursor.current == cursor.end) return Error("Reading past the end");
-
-	std::unique_ptr<Property> prop = std::make_unique<Property>();
-	prop.next = nullptr;
-	prop.type = *cursor.current;
-	++cursor.current;
-	prop.value.begin = cursor.current;
-
-	switch (prop.type) {
-		
-		case 'R': {
-			OptionalError<uint32> len = read<uint32>(cursor);
-			if (len.isError()) return Error();
-			if (cursor.current + len.getValue() > cursor.end) return Error("Reading past the end");
-			cursor.current += len.getValue();
-			break;
-		}
-		case 'i': {
-			OptionalError<uint32> length = read<uint32>(cursor);
-			OptionalError<uint32> encoding = read<uint32>(cursor);
-			OptionalError<uint32> comp_len = read<uint32>(cursor);
-			if (length.isError() | encoding.isError() | comp_len.isError()) return Error();
-			if (cursor.current + comp_len.getValue() > cursor.end) return Error("Reading past the end");
-			cursor.current += comp_len.getValue();
-			break;
-		}
-		default: return Error("Unknown property type");
-	}
-	prop.value.end = cursor.current;
-	return prop.release();
-}
-
-
-
 static OptionalError<Element*> readElement(Cursor* cursor, uint32 version) {
 	OptionalError<uint64> end_offset = readElementOffset(cursor, version);
 	if (end_offset.isError()) return Error();
