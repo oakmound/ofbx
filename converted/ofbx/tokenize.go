@@ -71,7 +71,7 @@ func (c *Cursor) skipLine(){
 	c.ReadLine()
 }
 
-func (c *Cursor) skipWhitespaces(){
+func (c *Cursor) skipWhitespaces() error {
 	for {
 		by, _, err := c.ReadRune()
 		if err != nil {
@@ -102,12 +102,12 @@ func isTextTokenChar(c rune) {
 }
 
 
-func (c *Cursor) readTextToken() DataView {
+func (c *Cursor) readTextToken() (DataView, error) {
 	out := bytes.NewBuffer([]byte{})
 	for {
 		r, _, err := c.ReadRune()
 		if err != nil {
-			fmt.Println(err)
+			return nil, err
 		}
 		if isTextTokenChar(r) {
 			out.WriteRune(r)
@@ -115,7 +115,7 @@ func (c *Cursor) readTextToken() DataView {
 		}
 		c.UnreadRune()
 	}
-	return DataView(out)
+	return DataView(out), nil
 }
 
 
@@ -356,53 +356,90 @@ static OptionalError<Property*> readTextProperty(Cursor* cursor) {
 	return Error("TODO");
 }
 
-static OptionalError<Element*> readTextElement(Cursor* cursor) {
-	DataView id = readTextToken(cursor);
-	if (cursor.current == cursor.end) return Error("Unexpected end of file");
-	if(*cursor.current != ':') return Error("Unexpected end of file");
-	++cursor.current;
+func (c *Cursor) readTextElement() (*Element, error) {
+	id, err := cursor.readTextToken()
+	if err != nil {
+		return nil, err
+	}
+	r, _, err := cursor.readRune()
+	if err != nil {
+		return nil, err
+	}
+	if r != ':' {
+		return nil, errors.New("unexpected end of file")
+	}
 
-	skipWhitespaces(cursor);
-	if (cursor.current == cursor.end) return Error("Unexpected end of file");
+	if err = cursor.skipWhitespaces(); err != nil {
+		return nil, err
+	}
 
-	Element* element = new Element;
-	element.id = id;
+	element := &Element{}
+	element.id = id
 
-	Property** prop_link = &element.first_property;
-	while (cursor.current < cursor.end && *cursor.current != '\n' && *cursor.current != '{') {
-		OptionalError<Property*> prop = readTextProperty(cursor);
-		if (prop.isError()) {
-			deleteElement(element);
-			return Error();
+	prop_link := &element.first_property
+	for {
+		by, err := cursor.Peek(1)
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, err
 		}
-		if (cursor.current < cursor.end && *cursor.current == ',') {
-			++cursor.current;
-			skipWhitespaces(cursor);
+		if by[0] == '\n' || by[0] == '{' {
+			break
 		}
-		skipInsignificantWhitespaces(cursor);
+		prop, err = readTextProperty(cursor)
+		if err != nil {
+			return nil, err
+		}
+		by, err := cursor.Peek(1)
+		if err != io.EOF {
+			if err != nil {
+				return nil, err
+			}
+			if by[0] == ',' {
+				cursor.Discard(1)
+				cursor.skipWhitespaces()
+			}
+		}
+		cursor.skipInsignificantWhitespaces()
 
-		*prop_link = prop.getValue();
-		prop_link = &(*prop_link).next;
+		*prop_link = prop.getValue()
+		prop_link = prop_link.next
 	}
 	
-	Element** link = &element.child;
-	if (*cursor.current == '{') {
-		++cursor.current;
-		skipWhitespaces(cursor);
-		while (cursor.current < cursor.end && *cursor.current != '}') {
-			OptionalError<Element*> child = readTextElement(cursor);
-			if (child.isError()) {
-				deleteElement(element);
-				return Error();
+	link := &element.child
+	r, _, err := cursor.ReadRune()
+	if err != nil {
+		return nil, err
+	} 
+	if r == '{' {
+		cursor.skipWhitespaces()
+		for {
+			by, err := cursor.Peek()
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				return nil, err
 			}
-			skipWhitespaces(cursor);
+			if by[0] == "}" {
+				cursor.Discard(1)
+				break
+			}
+			child, err := readTextElement(cursor)
+			if err != nil  {
+				return nil, err
+			}
+			cursor.skipWhitespaces()
 
-			*link = child.getValue();
-			link = &(*link).sibling;
+			*link = child.getValue()
+			link = link.sibling
 		}
-		if (cursor.current < cursor.end) ++cursor.current; // skip '}'
+	} else {
+		cursor.UnreadRune()
 	}
-	return element;
+	return element
 }
 
 func tokenizeText(data []byte) (*Element, error) {
