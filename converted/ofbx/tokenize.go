@@ -2,10 +2,7 @@ package ofbx
 
 import (
 	"encoding/binary"
-<<<<<<< HEAD
-=======
 	"bufio"
->>>>>>> 6a01121979ddd318acbcf6d871e82bd6207b945a
 )
 
 type Header struct {
@@ -14,15 +11,7 @@ type Header struct {
 	version int
 }
 
-// type Cursor struct{
-// 	current *int
-// 	begin *int 
-// 	end *int
-// }
-
-
-type Cursor io.Reader
-
+type Cursor *bufio.Reader
 
 const(
 	UINT8_BYTES = 1
@@ -30,84 +19,115 @@ const(
 	HEADER_BYTES = (21 + 2 + 1) * 4
 )
 
-
-
-
-
-func (c *Cursor ) readShortString() []byte{
-	
-	c.cur += UINT8_BYTES
-	if c.cur > len(data){
-		errors.NewError("Reading past the end")
+func (c *Cursor) readShortString() (string, error) {
+	length, err := c.ReadByte()
+	if err != nil {
+		return nil, err
 	}
-	return c.data[c.cur-UINT8_BYTES: c.cur]
+	byt := make([]byte, int(length))
+	_, err = c.Read(byt)
+	if err != nil {
+		return nil, err
+	} 
+	return string(byt), nil
 }
-func (c *Cursor ) readLongString() []byte{
-	
-	c.cur += UINT32_BYTES
-	if c.cur > len(data){
-		errors.NewError("Reading past the end")
+func (c *Cursor ) readLongString() (string, error) {
+	var length uint32
+	err := binary.Read(c, binary.BigEndian, &length)
+	if err != nil {
+		return "", err
 	}
-	return c.data[c.cur-UINT32_BYTES: c.cur]
-}
-
-
-func deleteElement(e *Element){
-	return
+	byt := make([]byte, length)
+	_, err = c.Read(byt)
+	if err != nil {
+		return "", err
+	} 
+	return string(byt), nil
 }
 
 func (c *Cursor) isEndLine() bool {
-	return c.data[c.cur] == '\n'
+	by, err := c.Peek(1)
+	if err != nil {
+		fmt.Println(err)
+	}
+	return by[0] == '\n'
 }
 //TODO: Make a isspace for bytes not unicode
-func (c *Cursor) skipInsignificantWhitespaces(){
-	for (c.cur < len(c.data) && unicode.IsSpace(c.data[c.cur]) && !c.isEndLine()){
-		c.cur++
+func (c *Cursor) skipInsignificantWhitespaces() error {
+	for {
+		by, _, err := c.ReadRune()
+		if err != nil {
+			return err
+		}
+		if unicode.IsSpace(by[0]) && by[0] != '\n' {
+			continue
+		}
+		c.UnreadRune()
+		break
 	}
 }
 
 func (c *Cursor) skipLine(){
-	for c.cur < len(c.data) && !c.isEndLine{
-		c.cur++
-	}
-	if (c.cur < len(c.data)){
-		c.cur++
-	}
-	c.skipInsignificantWhitespaces()
+	c.ReadLine()
 }
 
 func (c *Cursor) skipWhitespaces(){
-	for c.cur < len(c.data) && unicode.IsSpace(c.data[c.cur]){
-		c.cur++
+	for {
+		by, _, err := c.ReadRune()
+		if err != nil {
+			return err
+		}
+		if unicode.IsSpace(by[0]) {
+			continue
+		}
+		c.UnreadRune()
+		break
 	}
-	for c.cur < len(c.data) && c.data[c.cur] == ';'{
-		c.skipLine()
+	for {
+		by, _, err := c.ReadRune()
+		if err != nil {
+			return err
+		}
+		if by[0] == ';' {
+			c.skipLine()
+			continue
+		}
+		c.UnreadRune()
+		break
 	}
 }
 
-func (c *Cursor) isTextToken(){
-	isTextTokenChar(c.data[c.cur])
-}
-
-func isTextTokenChar(char c) {
+func isTextTokenChar(c rune) {
 	return unicode.IsDigit(c) || unicode.IsLetter(c) ||  c == '_'
 }
 
 
-func (c *Cursor) readTextToken(){
-	start := c.cur
-	for c.cur < len(c.data) && c.isTextToken(){
-		c.cur++
+func (c *Cursor) readTextToken() DataView {
+	out := bytes.NewBuffer([]byte{})
+	for {
+		r, _, err := c.ReadRune()
+		if err != nil {
+			fmt.Println(err)
+		}
+		if isTextTokenChar(r) {
+			out.WriteRune(r)
+			continue
+		}
+		c.UnreadRune()
 	}
-	return c.data[start: c.cur]
+	return DataView(out)
 }
 
 
-func (c *Cursor) readElementOffset(version int) int64{
+func (c *Cursor) readElementOffset(version uint16) (uint64, error) {
 	if version >= 7500{
-			return 64
+		var i uint64 
+		err := binary.Read(c, binary.BigEndian, &i)
+		return i, err
 	}
-	return 32
+	var i uint32 
+	err := binary.Read(c, binary.BigEndian, &i)
+	return uint64(i), err
 }
 
 func (c *Cursor) readProperty() *Property{
