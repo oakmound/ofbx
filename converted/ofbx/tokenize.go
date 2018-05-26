@@ -405,8 +405,8 @@ static OptionalError<Element*> readTextElement(Cursor* cursor) {
 	return element;
 }
 
-func tokenizeText(data []byte, size int) (*Element, error) {
-	cursor := Cursor(bufio.NewReader(data[:size]))
+func tokenizeText(data []byte) (*Element, error) {
+	cursor := Cursor(bufio.NewReader(data))
 	root := &Element{}
 	element := &root.child
 	for _, err := cursor.Peek(1); err != io.EOF {
