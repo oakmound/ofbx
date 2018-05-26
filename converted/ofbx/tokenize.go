@@ -135,48 +135,45 @@ func (c *Cursor) readProperty() *Property{
 		return errors.NewError("Reading Past End")
 	}
 		prop := Property{}
-		prop.typ = c.data[c.cur]
-		c.cur++
-
+		typ, _, err := c.ReadRune()
+		if err !=nil{
+			fmt.Println(err)
+		}
+		prop.typ = typ
 		switch(prop.typ){
 		case 'S':
-			val = c.readLongString()
-			if val != nil {return errors.NewError("")}
-			prop.value = val.getValue()//TODO: get value from the thing
-		
-
+			prop.value, err = c.readLongString()
 		case 'Y': 
-		c.cur += 2
+		c.Discard(2)
 		case 'C': 
-		c.cur  += 1
+		c.Discard(1)
 		case 'I': 
-		c.cur  += 4
+		c.Discard(4)
 		case 'F': 
-		c.cur  += 4
+		c.Discard(4)
 		case 'D': 
-		c.cur  += 8
+		c.Discard(8)
 		case 'L': 
-		c.cur  += 8
+		c.Discard(8)
 		case 'R':
-		 length := UINT32_BYTES
-	
-		if c.cur  + length  > len(c.data){
-			errors.NewError("Reading past the end")
-		} 
-		c.cur  += len.getValue();
+			tempArr := make([]byte, 4)
+		 	_, err := c.Read(tempArr)
+			len :=  binary.BigEndian.Uint32(tempArr)
+			c.Discard(len)
 		case 'b'||'f'||'d'||'l'||'i':
-			length := UINT32_BYTES
-			OptionalError<uint32> length = read<uint32>(cursor);
-			OptionalError<uint32> encoding = read<uint32>(cursor);
-			OptionalError<uint32> comp_len = read<uint32>(cursor);
-			if (length.isError() | encoding.isError() | comp_len.isError()) return Error();
-			if (cursor.current + comp_len.getValue() > cursor.end) return Error("Reading past the end");
-			cursor.current += comp_len.getValue();
-			break;
+
+			tempArr := make([]byte, 4)
+			_, err := c.Read(tempArr)
+			_, err := c.Read(tempArr)
+			_, err := c.Read(tempArr)
+			len :=  binary.BigEndian.Uint32(tempArr)
+			c.Discard(len)
 		default:
 			errors.NewError("Did not know this property")
 		}
-	
+		if err != nil{
+			fmt.Println(err)
+		}
 }
 
 static OptionalError<Property*> readProperty(Cursor* cursor) {
