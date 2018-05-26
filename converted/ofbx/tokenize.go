@@ -279,15 +279,43 @@ func (c *Cursor) readTextProperty() (*Property, error) {
 		return prop.release();
 	}
 
-	if (*cursor.current == '*') {
-		prop.type = 'l';
-		++cursor.current;
-		// Vertices: *10740 { a: 14.2760353088379,... }
-		while (cursor.current < cursor.end && *cursor.current != ':') {
-			++cursor.current;
+	if r == '*'{
+		prop.type = 'l'
+		// Vertices: *10740 { a: 14.2760353088379,... } //Pulled from original...
+		pBytes = []Rune{}
+		r2, _, _ := c.ReadRune()
+		pBytes = 
+		for c.Buffered() > 0 && r2 != ':'{
+			r2 , _, _ = c.ReadRune()
 		}
-		if (cursor.current < cursor.end) ++cursor.current; // skip ':'
-		skipInsignificantWhitespaces(cursor);
+		c.skipInsignificantWhitespaces()
+		prop.count=0
+		
+		is_any := false
+		for c.Buffered() > 0 && r2 != '}'{
+			if r2 == ','{
+				if is_any{
+					prop.count++
+				}
+				is_any=false
+			}else if 	!unicode.IsSpace(r2) && r2 != '\n'{
+				is_any = true
+			}
+			if r2 =='.'{
+				prop.type='d'
+			}
+		}
+		if is_any{
+			prop.count++
+		}
+
+
+
+
+	}
+	if (*cursor.current == '*') {
+		
+		
 		prop.value.begin = cursor.current;
 		prop.count = 0;
 		bool is_any = false;
