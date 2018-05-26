@@ -179,62 +179,47 @@ func (c *Cursor) readProperty() *Property{
 		return &prop
 }
 
-static OptionalError<Element*> readElement(Cursor* cursor, uint32 version) {
-	OptionalError<uint64> end_offset = readElementOffset(cursor, version);
-	if (end_offset.isError()) return Error();
-	if (end_offset.getValue() == 0) return nullptr;
+func (c *Cursor) readElement(version int){
+	initial
+	end_offset := c.readElementOffset(version)
+	if end_offset == 0{
+		return nil
+	}
+	prop_count := c.readElementOffset(version)
+	prop_length := c.readElementOffset(version)
+	id := c.readShortString()
 
-	OptionalError<uint64> prop_count = readElementOffset(cursor, version);
-	OptionalError<uint64> prop_length = readElementOffset(cursor, version);
-	if (prop_count.isError() || prop_length.isError()) return Error();
+	element := Element{}
+	element.id = id
 
-	const char* sbeg = 0;
-	const char* send = 0;
-	OptionalError<DataView> id = readShortString(cursor);
-	if (id.isError()) return Error();
+	oldProp := *element.first_property
+	
+	for i := 0 ; i < prop_count; i++{
+		prop := c.readProperty()
+		oldProp.next = prop
+		oldProp = prop
+	}
 
-	Element* element = new Element();
-	element.first_property = nullptr;
-	element.id = id.getValue();
+	if initial_size -c.Buffered() >- end_offset{
+		return element
+	}
+	BLOCK_SENTINEL_LENGTH = 13
+	if version >= 7500{
+		BLOCK_SENTINEL_LENGTH = 25
+	}
 
-	element.child = nullptr; 
-	element.sibling = nullptr;
+	link := &element.child
 
-	Property** prop_link = &element.first_property;
-	for (uint32 i = 0; i < prop_count.getValue(); ++i) {
-		OptionalError<Property*> prop = readProperty(cursor);
-		if (prop.isError()) {
-			deleteElement(element);
-			return Error();
+	for initial_size- c.buffered() < end_offset -BLOCK_SENTINEL_LENGTH {
+		child := c.readElement(version)
+		if child==nil{
+			fmt.Println(errors.NewError("ReadingChild element failed"))
 		}
-
-		*prop_link = prop.getValue();
-		prop_link = &(*prop_link).next;
+		*link = child
+		link = &(*link).sibling
 	}
-
-	if (cursor.current - cursor.begin >= (ptrdiff_t)end_offset.getValue()) return element;
-
-	int BLOCK_SENTINEL_LENGTH = version >= 7500 ? 25 : 13;
-
-	Element** link = &element.child;
-	while (cursor.current - cursor.begin < ((ptrdiff_t)end_offset.getValue() - BLOCK_SENTINEL_LENGTH)) {
-		OptionalError<Element*> child = readElement(cursor, version);
-		if (child.isError()) {
-			deleteElement(element);
-			return Error();
-		}
-
-		*link = child.getValue();
-		link = &(*link).sibling;
-	}
-
-	if (cursor.current + BLOCK_SENTINEL_LENGTH > cursor.end) {
-		deleteElement(element); 
-		return Error("Reading past the end");
-	}
-
-	cursor.current += BLOCK_SENTINEL_LENGTH;
-	return element;
+	c.Discard(BLOCK_SENTINEL_LENGTH)
+	return element
 }
 
 static OptionalError<Property*> readTextProperty(Cursor* cursor) {
