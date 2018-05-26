@@ -320,17 +320,19 @@ func (c *Cursor) readTextProperty() (*Property, error) {
 		prop.value = bytes.NewBuffer([]byte{b})
 		return prop, err
 	}
-
 	if r == '*'{
-		prop.type = 'l'
+		prop.typ = 'l'
 		// Vertices: *10740 { a: 14.2760353088379,... } //Pulled from original...
-		pBytes = []Rune{}
+		pBytes := []byte{}
 		r2, _, _ := c.ReadRune()
-		pBytes = 
+		pBytes.WriteRune(r2)
 		for c.Buffered() > 0 && r2 != ':'{
 			r2 , _, _ = c.ReadRune()
+			pBytes.WriteRune(r2)
 		}
-		c.skipInsignificantWhitespaces()
+
+		c.skipInsignificantWhitespaces() //We assume it is insignificat so dont add to buff
+
 		prop.count=0
 		
 		is_any := false
@@ -344,38 +346,15 @@ func (c *Cursor) readTextProperty() (*Property, error) {
 				is_any = true
 			}
 			if r2 =='.'{
-				prop.type='d'
+				prop.typ ='d'
 			}
+			r2 , _, _ = c.ReadRune()
+			pBytes.WriteRune(r2)
 		}
 		if is_any{
 			prop.count++
 		}
-
-
-
-
 	}
-	if (*cursor.current == '*') {
-		
-		
-		prop.value.begin = cursor.current;
-		prop.count = 0;
-		bool is_any = false;
-		while (cursor.current < cursor.end && *cursor.current != '}') {
-			if (*cursor.current == ',') {
-				if (is_any) ++prop.count;
-				is_any = false;
-			}
-			else if (!isspace(*cursor.current) && *cursor.current != '\n') is_any = true;
-			if (*cursor.current == '.') prop.type = 'd';
-			++cursor.current;
-		}
-		if (is_any) ++prop.count;
-		prop.value.end = cursor.current;
-		if (cursor.current < cursor.end) ++cursor.current; // skip '}'
-		return prop.release();
-	}
-
 	return nil, errors.New("TODO")
 }
 
