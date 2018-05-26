@@ -354,6 +354,8 @@ func (c *Cursor) readTextProperty() (*Property, error) {
 		if is_any{
 			prop.count++
 		}
+		prop.value = pBytes
+		return prop, err
 	}
 	return nil, errors.New("TODO")
 }
