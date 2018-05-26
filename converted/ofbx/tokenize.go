@@ -130,6 +130,12 @@ func (c *Cursor) readElementOffset(version uint16) (uint64, error) {
 	return uint64(i), err
 }
 
+func (c *Curesor) readBytes(len int) []byte{
+	tempArr := make([]byte, len)
+	_, err := c.Read(tempArr)
+	return tempArr
+}
+
 func (c *Cursor) readProperty() *Property{
 	if c.cur > len(c.data){
 		return errors.NewError("Reading Past End")
@@ -144,37 +150,35 @@ func (c *Cursor) readProperty() *Property{
 		case 'S':
 			prop.value, err = c.readLongString()
 		case 'Y': 
-		c.Discard(2)
+			prop.value = c.readBytes(2)
 		case 'C': 
-		c.Discard(1)
+		prop.value =c.readBytes(1)
 		case 'I': 
-		c.Discard(4)
+		prop.value =c.readBytes(4)
 		case 'F': 
-		c.Discard(4)
+		prop.value =c.readBytes(4)
 		case 'D': 
-		c.Discard(8)
+		prop.value =c.readBytes(8)
 		case 'L': 
-		c.Discard(8)
+		prop.value =c.readBytes(8)
 		case 'R':
-			tempArr := make([]byte, 4)
-		 	_, err := c.Read(tempArr)
-			len :=  binary.BigEndian.Uint32(tempArr)
-			c.Discard(len)
+		 	tmp := c.readBytes(4)
+			length :=  binary.BigEndian.Uint32(tmp)
+			prop.value = append(tmp,c.readBytes(length)...)
 		case 'b'||'f'||'d'||'l'||'i':
-
-			tempArr := make([]byte, 4)
-			_, err := c.Read(tempArr)
-			_, err := c.Read(tempArr)
-			_, err := c.Read(tempArr)
-			len :=  binary.BigEndian.Uint32(tempArr)
-			c.Discard(len)
+			temp := c.readBytes(8)
+			tempArr := c.readBytes(4)
+			length :=  binary.BigEndian.Uint32(tempArr)
+			prop.value = append(append(temp, tempArr...),c.readBytes(length)...)
 		default:
 			errors.NewError("Did not know this property")
 		}
 		if err != nil{
 			fmt.Println(err)
 		}
+		return &prop
 }
+
 
 static OptionalError<Property*> readProperty(Cursor* cursor) {
 	if (cursor.current == cursor.end) return Error("Reading past the end");
