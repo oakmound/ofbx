@@ -231,7 +231,7 @@ func (c *Cursor) readTextProperty() (*Property, error) {
 	}
 	if r == '"' {
 		prop.typ = 'S'
-		val := bytes.NewBuffer([]byte{})
+		prop.value = bytes.NewBuffer([]byte{})
 		for {
 			r, _, err := cursor.ReadRune()
 			if err != nil {
@@ -243,7 +243,7 @@ func (c *Cursor) readTextProperty() (*Property, error) {
 			if r == '"' {
 				break
 			}
-			val.WriteRune(r)
+			prop.value.WriteRune(r)
 		}
 		return prop
 	}
