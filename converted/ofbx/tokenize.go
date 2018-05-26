@@ -273,20 +273,25 @@ static OptionalError<Element*> readElement(Cursor* cursor, uint32 version) {
 	return element;
 }
 
-static OptionalError<Property*> readTextProperty(Cursor* cursor) {
-	std::unique_ptr<Property> prop = std::make_unique<Property>();
-	prop.value.is_binary = false;
-	prop.next = nullptr;
-	if (*cursor.current == '"') {
-		prop.type = 'S';
-		++cursor.current;
-		prop.value.begin = cursor.current;
+func (c *Cursor) readTextProperty() (*Property, error) {
+	prop = &Property{}
+
+	r, _, err := cursor.ReadRune()
+	if err != nil {
+		return nil, err
+	}
+	if r == '"' {
+		prop.type = 'S'
+		val := []byte{}
+		for {
+			
+		}
 		while (cursor.current < cursor.end && *cursor.current != '"') {
 			++cursor.current;
 		}
 		prop.value.end = cursor.current;
 		if (cursor.current < cursor.end) ++cursor.current; // skip '"'
-		return prop.release();
+		return prop
 	}
 	
 	if (isdigit(*cursor.current) || *cursor.current == '-') {
@@ -352,8 +357,7 @@ static OptionalError<Property*> readTextProperty(Cursor* cursor) {
 		return prop.release();
 	}
 
-	assert(false);
-	return Error("TODO");
+	return nil, errors.New("TODO")
 }
 
 func (c *Cursor) readTextElement() (*Element, error) {
