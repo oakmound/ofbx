@@ -402,17 +402,19 @@ static OptionalError<Element*> readTextElement(Cursor* cursor) {
 }
 
 func tokenizeText(data []byte, size int) (*Element, error) {
-	cursor := NewCursor(data[:size])
+	cursor := Cursor(bufio.NewReader(data[:size]))
 	root := &Element{}
 	element := &root.child
-	for cursor.cur < len(cursor.data) {
-		v := cursor.data[cursor.cur]
+	for _, err := cursor.Peek(1); err != io.EOF {
+		v, _, err := cursor.ReadRune()
+		if err != nil {
+			return nil, err
+		}
 		if (v == ';' || v == '\r' || v == '\n') {
 			skipLine(cursor)
 		} else {
-			child, err := readTextElement(cursor)
+			child, err := cursor.readTextElement()
 			if err != nil {
-				deleteElement(root)
 				return nil, err
 			}
 			*element = child.getValue()
@@ -425,24 +427,25 @@ func tokenizeText(data []byte, size int) (*Element, error) {
 	return root, nil
 }
 
-func tokenize(data []byte) *Element, errors.Error{
-	cursor := NewCursor(data)
+func tokenize(data []byte) (*Element, error) {
+	cursor := Cursor(bufio.NewReader(data))
 
 	var header Header
-	binary.Read(bytes.NewReader(data), binary.BigEndian, &header)
-	cursor.cur += HEADER_BYTES
+	err := binary.Read(cursor, binary.BigEndian, &header)
+	if err != nil {
+		return nil, err
+	}
 	
 	root := &Element{}
 	element := &root.child
 	for true {
 		child, err := readElement(&cursor, header.version)
 		if err != nil {
-			deleteElement(root)
-			return err
+			return nil, err
 		}
 		*element = child
 		if element == nil{
-			return root
+			return root, nil
 		}
 		element = element.sibling
 	}
