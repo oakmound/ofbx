@@ -10,8 +10,8 @@ const (
 
 type Texture struct {
 	Object
-	filename          DataView
-	relative_filename DataView
+	filename          *DataView
+	relative_filename *DataView
 }
 
 func NewTexture(scene *Scene, element *Element) *Texture {
@@ -26,11 +26,11 @@ func (t *Texture) Type() Type {
 	return TEXTURE
 }
 
-func (t *Texture) getFileName() DataView {
+func (t *Texture) getFileName() *DataView {
 	return filename
 }
 
-func (t *Texture) getRelativeFileName() DataView {
+func (t *Texture) getRelativeFileName() *DataView {
 	return relative_filename
 }
 

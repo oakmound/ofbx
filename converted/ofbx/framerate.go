@@ -52,7 +52,7 @@ func GetFramerateFromTimeMode(f FrameRate, custom float32) float32 {
 	case FrameRate_CINEMA_ND:
 		return 23.976
 	case FrameRate_CUSTOM:
-		return custom_frame_rate
+		return custom
 	}
 	return -1
 }

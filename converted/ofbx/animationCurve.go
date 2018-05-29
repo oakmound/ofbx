@@ -34,7 +34,7 @@ type AnimationCurveNode struct {
 	Object
 	curves             [3]Curve
 	bone               *Object
-	bone_link_property DataView
+	bone_link_property string
 	mode               CurveMode
 }
 
@@ -67,7 +67,7 @@ func (acn *AnimationCurveNode) getNodeLocalTransform(time float64) Vec3 {
 		}
 		for i := 1; i < count; i++ {
 			if times[i] >= fbx_time {
-				t := float(float64(fbx_time-times[i-1]) / float64(times[i]-times[i-1]))
+				t := float32(float64(fbx_time-times[i-1]) / float64(times[i]-times[i-1]))
 				return values[i-1]*(1-t) + values[i]*t
 			}
 		}
@@ -75,9 +75,9 @@ func (acn *AnimationCurveNode) getNodeLocalTransform(time float64) Vec3 {
 	}
 
 	return Vec3{
-		getCoord(acn.curves[0], fbx_time),
-		getCoord(acn.curves[1], fbx_time),
-		getCoord(acn.curves[2], fbx_time),
+		float64(getCoord(&acn.curves[0], fbx_time)),
+		float64(getCoord(&acn.curves[1], fbx_time)),
+		float64(getCoord(&acn.curves[2], fbx_time)),
 	}
 }
 

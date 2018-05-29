@@ -1,7 +1,7 @@
 package ofbx
 
 type Element struct {
-	id             DataView
+	id             *DataView
 	child          *Element
 	sibling        *Element
 	first_property *Property
@@ -13,7 +13,7 @@ func (e *Element) getFirstChild() *Element {
 func (e *Element) getSibling() *Element {
 	return e.sibling
 }
-func (e *Element) getID() DataView {
+func (e *Element) getID() *DataView {
 	return e.id
 }
 func (e *Element) getFirstProperty() *Property {

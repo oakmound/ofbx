@@ -10,15 +10,15 @@ import (
 )
 
 func parseTemplates(root *Element) {
-	const Element *defs = findChild(root, "Definitions")
+	defs := findChild(root, "Definitions")
 	if defs == nil {
 		return
 	}
 
-	templates := make(mao[string] * Element)
-	Element * def = defs.child
+	templates := make(map[string]*Element)
+	def := defs.child
 	for def != nil {
-		if def.id == "ObjectType" {
+		if def.id.String() == "ObjectType" {
 			prop1 := def.first_property.value
 			prop1Data, err := ioutil.ReadAll(prop1)
 			if err != nil && err != io.EOF {
@@ -26,9 +26,9 @@ func parseTemplates(root *Element) {
 				def = def.sibling
 				continue
 			}
-			Element * subdef = def.child
+			subdef := def.child
 			for subdef != nil {
-				if subdef.id == "PropertyTemplate" {
+				if subdef.id.String() == "PropertyTemplate" {
 					prop2 := subdef.first_property.value
 					prop2Data, err := ioutil.ReadAll(prop2)
 					if err != nil && err != io.EOF {
@@ -59,11 +59,12 @@ func parseBinaryArrayInt(property *Property) ([]int, error) {
 	case 'i':
 		elem_size = 4
 	default:
-		return nil, false
+		return nil, errors.New("Invalid type")
 	}
 	elem_count := 4 / elem_size
 	return parseArrayRawInt(property, count/elem_count)
 }
+
 func parseBinaryArrayFloat64(property *Property) ([]float64, error) {
 	count := property.getCount()
 	if count == 0 {
@@ -78,10 +79,62 @@ func parseBinaryArrayFloat64(property *Property) ([]float64, error) {
 	case 'i':
 		elem_size = 4
 	default:
-		return nil, false
+		return nil, errors.New("invalid type")
 	}
 	elem_count := 4 / elem_size
 	return parseArrayRawFloat64(property, count/elem_count)
+}
+
+// This might not work??
+func parseBinaryArrayFloat32(property *Property) ([]float32, error) {
+	f64s, err := parseBinaryArrayFloat64(property)
+	if err != nil {
+		return nil, err
+	}
+	f32s := make([]float32, len(f64s))
+	for i, f64 := range f64s {
+		f32s[i] = float32(f64)
+	}
+	return f32s, nil
+}
+func parseBinaryArrayVec2(property *Property) ([]Vec2, error) {
+	f64s, err := parseBinaryArrayFloat64(property)
+	if err != nil {
+		return nil, err
+	}
+	vs := make([]Vec2, len(f64s)/2)
+	for i := 0; i < len(f64s); i += 2 {
+		vs[i/2].X = f64s[i]
+		vs[i/2].Y = f64s[i+1]
+	}
+	return vs, nil
+}
+func parseBinaryArrayVec3(property *Property) ([]Vec3, error) {
+	f64s, err := parseBinaryArrayFloat64(property)
+	if err != nil {
+		return nil, err
+	}
+	vs := make([]Vec3, len(f64s)/3)
+	for i := 0; i < len(f64s); i += 3 {
+		vs[i/3].X = f64s[i]
+		vs[i/3].Y = f64s[i+1]
+		vs[i/3].Z = f64s[i+2]
+	}
+	return vs, nil
+}
+func parseBinaryArrayVec4(property *Property) ([]Vec4, error) {
+	f64s, err := parseBinaryArrayFloat64(property)
+	if err != nil {
+		return nil, err
+	}
+	vs := make([]Vec4, len(f64s)/4)
+	for i := 0; i < len(f64s); i += 4 {
+		vs[i/4].X = f64s[i]
+		vs[i/4].Y = f64s[i+1]
+		vs[i/4].Z = f64s[i+2]
+		vs[i/4].w = f64s[i+3]
+	}
+	return vs, nil
 }
 
 func parseArrayRawInt(property *Property, max_size int) ([]int, error) {
@@ -99,18 +152,20 @@ func parseArrayRawInt(property *Property, max_size int) ([]int, error) {
 	binary.Read(property.value, binary.BigEndian, &ln)
 
 	if enc == 0 {
-		if ln > max_size {
+		if ln > uint32(max_size*elem_size) {
 			return nil, errors.New("Max size too small for array")
 		}
 		return parseArrayRawIntEnd(property.value, ln, elem_size), nil
 	} else if enc == 1 {
-		if ln > max_size {
+		if count*elem_size > max_size*elem_size {
 			return nil, errors.New("Max size too small for array")
 		}
-		zr := zip.NewReader(property.value, elem_size*count)
-		defer zr.Close()
+		zr, err := zip.NewReader(property.value.Reader(), int64(elem_size*count))
+		if err != nil {
+			return nil, err
+		}
 		// Assuming right now that zips only have one file to read
-		fr, err := zr.Files[0].Open()
+		fr, err := zr.File[0].Open()
 		if err != nil {
 			return nil, err
 		}
@@ -120,18 +175,18 @@ func parseArrayRawInt(property *Property, max_size int) ([]int, error) {
 	return nil, errors.New("Invalid encoding")
 }
 
-func parseArrayRawIntEnd(r io.Reader, ln, elem_size int) []int {
-	out := make([]int, ln/elem_size)
+func parseArrayRawIntEnd(r io.Reader, ln uint32, elem_size int) []int {
+	out := make([]int, int(ln)/elem_size)
 	if elem_size == 4 {
 		for i := 0; i < len(out); i++ {
 			var v int
-			binary.Read(property.value, binary.BigEndian, &v)
+			binary.Read(r, binary.BigEndian, &v)
 			out[i] = v
 		}
 	} else {
 		for i := 0; i < len(out); i++ {
 			var v int64
-			binary.Read(property.value, binary.BigEndian, &v)
+			binary.Read(r, binary.BigEndian, &v)
 			out[i] = int(v)
 		}
 	}
@@ -153,18 +208,21 @@ func parseArrayRawFloat64(property *Property, max_size int) ([]float64, error) {
 	binary.Read(property.value, binary.BigEndian, &ln)
 
 	if enc == 0 {
-		if ln > max_size {
+		// Assuming ln is size in bytes
+		if ln > uint32(max_size*elem_size) {
 			return nil, errors.New("Max size too small for array")
 		}
 		return parseArrayRawFloat64End(property.value, ln, elem_size), nil
 	} else if enc == 1 {
-		if ln > max_size {
+		if count*elem_size > max_size*elem_size {
 			return nil, errors.New("Max size too small for array")
 		}
-		zr := zip.NewReader(property.value, elem_size*count)
-		defer zr.Close()
+		zr, err := zip.NewReader(property.value.Reader(), int64(elem_size*count))
+		if err != nil {
+			return nil, err
+		}
 		// Assuming right now that zips only have one file to read
-		fr, err := zr.Files[0].Open()
+		fr, err := zr.File[0].Open()
 		if err != nil {
 			return nil, err
 		}
@@ -174,18 +232,18 @@ func parseArrayRawFloat64(property *Property, max_size int) ([]float64, error) {
 	return nil, errors.New("Invalid encoding")
 }
 
-func parseArrayRawFloat64End(r io.Reader, ln, elem_size int) []float64 {
-	out := make([]int, ln/elem_size)
+func parseArrayRawFloat64End(r io.Reader, ln uint32, elem_size int) []float64 {
+	out := make([]float64, int(ln)/elem_size)
 	if elem_size == 4 {
 		for i := 0; i < len(out); i++ {
 			var v float32
-			binary.Read(property.value, binary.BigEndian, &v)
+			binary.Read(r, binary.BigEndian, &v)
 			out[i] = float64(v)
 		}
 	} else {
 		for i := 0; i < len(out); i++ {
 			var v float64
-			binary.Read(property.value, binary.BigEndian, &v)
+			binary.Read(r, binary.BigEndian, &v)
 			out[i] = v
 		}
 	}
@@ -194,7 +252,7 @@ func parseArrayRawFloat64End(r io.Reader, ln, elem_size int) []float64 {
 
 func parseDoubleVecDataVec2(property *Property) ([]Vec2, error) {
 	if property.typ == 'd' {
-		return parseBinaryArrayVec2(property, out_vec)
+		return parseBinaryArrayVec2(property)
 	}
 	tmp, err := parseBinaryArrayFloat32(property)
 	if err != nil {
@@ -212,7 +270,7 @@ func parseDoubleVecDataVec2(property *Property) ([]Vec2, error) {
 
 func parseDoubleVecDataVec3(property *Property) ([]Vec3, error) {
 	if property.typ == 'd' {
-		return parseBinaryArrayVec3(property, out_vec)
+		return parseBinaryArrayVec3(property)
 	}
 	tmp, err := parseBinaryArrayFloat32(property)
 	if err != nil {
@@ -231,7 +289,7 @@ func parseDoubleVecDataVec3(property *Property) ([]Vec3, error) {
 
 func parseDoubleVecDataVec4(property *Property) ([]Vec4, error) {
 	if property.typ == 'd' {
-		return parseBinaryArrayVec4(property, out_vec)
+		return parseBinaryArrayVec4(property)
 	}
 	tmp, err := parseBinaryArrayFloat32(property)
 	if err != nil {
@@ -244,7 +302,7 @@ func parseDoubleVecDataVec4(property *Property) ([]Vec4, error) {
 		out_vec[j].X = float64(tmp[i])
 		out_vec[j].Y = float64(tmp[i+1])
 		out_vec[j].Z = float64(tmp[i+2])
-		out_vec[j].W = float64(tmp[i+3])
+		out_vec[j].w = float64(tmp[i+3])
 	}
 	return out_vec, nil
 }
@@ -255,27 +313,27 @@ func parseVertexDataVec2(element *Element, name, index_name string) ([]Vec2, []i
 		return nil, nil, 0, errors.New("Invalid data element")
 	}
 	idxs, mapping, err := parseVertexDataInner(element, name, index_name)
-	vcs, err := parseDoubleVecDataVec2(*data_element.first_property)
+	vcs, err := parseDoubleVecDataVec2(data_element.first_property)
 	return vcs, idxs, mapping, err
 }
 
-func parseVertexDataVec3(element *Element, name, index_name string) ([]Vec2, []int, VertexDataMapping, error) {
+func parseVertexDataVec3(element *Element, name, index_name string) ([]Vec3, []int, VertexDataMapping, error) {
 	data_element := findChild(element, name)
 	if data_element == nil || data_element.first_property == nil {
 		return nil, nil, 0, errors.New("Invalid data element")
 	}
 	idxs, mapping, err := parseVertexDataInner(element, name, index_name)
-	vcs, err := parseDoubleVecDataVec3(*data_element.first_property)
+	vcs, err := parseDoubleVecDataVec3(data_element.first_property)
 	return vcs, idxs, mapping, err
 }
 
-func parseVertexDataVec4(element *Element, name, index_name string) ([]Vec2, []int, VertexDataMapping, error) {
+func parseVertexDataVec4(element *Element, name, index_name string) ([]Vec4, []int, VertexDataMapping, error) {
 	data_element := findChild(element, name)
 	if data_element == nil || data_element.first_property == nil {
 		return nil, nil, 0, errors.New("Invalid data element")
 	}
 	idxs, mapping, err := parseVertexDataInner(element, name, index_name)
-	vcs, err := parseDoubleVecDataVec4(*data_element.first_property)
+	vcs, err := parseDoubleVecDataVec4(data_element.first_property)
 	return vcs, idxs, mapping, err
 }
 
@@ -283,69 +341,71 @@ func parseVertexDataInner(element *Element, name, index_name string) ([]int, Ver
 	mapping_element := findChild(element, "MappingInformationType")
 	reference_element := findChild(element, "ReferenceInformationType")
 
+	var idxs []int
 	var mapping VertexDataMapping
 	var err error
 
 	if mapping_element != nil && mapping_element.first_property != nil {
-		if mapping_element.first_property.value == "ByPolygonVertex" {
+		s := mapping_element.first_property.value.String()
+		if s == "ByPolygonVertex" {
 			mapping = BY_POLYGON_VERTEX
-		} else if mapping_element.first_property.value == "ByPolygon" {
+		} else if s == "ByPolygon" {
 			mapping = BY_POLYGON
-		} else if mapping_element.first_property.value == "ByVertice" || mapping_element.first_property.value == "ByVertex" {
+		} else if s == "ByVertice" || s == "ByVertex" {
 			mapping = BY_VERTEX
 		} else {
 			return nil, 0, errors.New("Unable to parse mapping")
 		}
 	}
-	if reference_element && reference_element.first_property {
-		if reference_element.first_property.value == "IndexToDirect" {
+	if reference_element != nil && reference_element.first_property != nil {
+		if reference_element.first_property.value.String() == "IndexToDirect" {
 			indices_element := findChild(element, index_name)
-			if indices_element && indices_element.first_property {
-				if idxs, err = parseBinaryArrayInt(*indices_element.first_property); err != nil {
+			if indices_element != nil && indices_element.first_property != nil {
+				if idxs, err = parseBinaryArrayInt(indices_element.first_property); err != nil {
 					return nil, 0, errors.New("Unable to parse indices")
 				}
 			}
-		} else if reference_element.first_property.value != "Direct" {
+		} else if reference_element.first_property.value.String() != "Direct" {
 			return nil, 0, errors.New("Invalid properties")
 		}
 	}
 	return idxs, mapping, nil
 }
 
-func parseTexture(scene *Scene, element *Element) *Object {
+func parseTexture(scene *Scene, element *Element) *Texture {
 	texture := NewTexture(scene, element)
 	texture_filename := findChild(element, "FileName")
-	if texture_filename && texture_filename.first_property {
+	if texture_filename != nil && texture_filename.first_property != nil {
 		texture.filename = texture_filename.first_property.value
 	}
 	texture_relative_filename := findChild(element, "RelativeFilename")
-	if texture_relative_filename && texture_relative_filename.first_property {
+	if texture_relative_filename != nil && texture_relative_filename.first_property != nil {
 		texture.relative_filename = texture_relative_filename.first_property.value
 	}
 	return texture
 }
 
-func parseLimbNode(scene *Scene, element *Element) (*Object, error) {
+func parseLimbNode(scene *Scene, element *Element) (*LimbNode, error) {
 	if element.first_property == nil ||
 		element.first_property.next == nil ||
 		element.first_property.next.next == nil ||
-		element.first_property.next.next.value != "LimbNode" {
+		element.first_property.next.next.value.String() != "LimbNode" {
 		return nil, errors.New("Invalid limb node")
 	}
-	return NewLimpNode(scene, element)
+	return NewLimbNode(scene, element), nil
 }
 
-func parseMesh(scene *Scene, element *Element) (*Object, error) {
+func parseMesh(scene *Scene, element *Element) (*Mesh, error) {
 	if element.first_property == nil ||
 		element.first_property.next == nil ||
 		element.first_property.next.next == nil ||
-		element.first_property.next.next.value != "Mesh" {
+		element.first_property.next.next.value.String() != "Mesh" {
 		return nil, errors.New("Invalid mesh")
 	}
-	return NewMesh(scene, element)
+	return NewMesh(scene, element), nil
 }
 
-func parseMaterial(scene *Scene, element *Element) *Object {
+func parseMaterial(scene *Scene, element *Element) *Material {
 	material := NewMaterial(scene, element)
 	prop := findChild(element, "Properties70")
 	material.diffuse_color = Color{1, 1, 1}
@@ -353,8 +413,8 @@ func parseMaterial(scene *Scene, element *Element) *Object {
 		prop = prop.child
 	}
 	for prop != nil {
-		if prop.id == "P" && prop.first_property {
-			if prop.first_property.value == "DiffuseColor" {
+		if prop.id.String() == "P" && prop.first_property != nil {
+			if prop.first_property.value.String() == "DiffuseColor" {
 				material.diffuse_color.r = float32(prop.getProperty(4).getValue().toDouble())
 				material.diffuse_color.g = float32(prop.getProperty(5).getValue().toDouble())
 				material.diffuse_color.b = float32(prop.getProperty(6).getValue().toDouble())
@@ -814,7 +874,7 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 			continue
 		}
 		if obj.getType() == CLUSTER {
-			if !iter.second.object.(*ClusterImpl).postprocess() {
+			if !iter.second.object.(*Cluster).postProcess() {
 				return false, errors.New("Failed to postprocess cluster")
 			}
 		}

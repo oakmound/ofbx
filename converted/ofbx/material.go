@@ -8,7 +8,7 @@ type Material struct {
 
 func NewMaterial(scene *Scene, element *Element) *Material {
 	m := &Material{}
-	m.Object = NewObject(scene, element)
+	m.Object = *NewObject(scene, element)
 	return m
 }
 

@@ -1,6 +1,6 @@
 package ofbx
 
-import "errors"
+import "github.com/pkg/errors"
 
 type Cluster struct {
 	Object
@@ -14,13 +14,9 @@ type Cluster struct {
 }
 
 func NewCluster(scene *Scene, element *Element) *Cluster {
-	c := NewObject(scene, element)
-	if c.clusterPostProcess(scene, element) {
-		return c
-
-	}
-	errors.New("I think this is an error now")
-	return nil
+	c := Cluster{}
+	c.Object = *NewObject(scene, element)
+	return &c
 }
 
 func (c *Cluster) Type() Type {
@@ -32,10 +28,10 @@ func (c *Cluster) getIndices() []int {
 
 }
 func (c *Cluster) getIndicesCount() int {
-	return len(getIndices)
+	return len(c.indices)
 }
 
-func (c *Cluster) getWeights() *float64 {
+func (c *Cluster) getWeights() []float64 {
 	return c.weights
 }
 func (c *Cluster) getWeightsCount() int {
@@ -54,24 +50,25 @@ func (c *Cluster) getLink() *Object {
 	return c.link
 }
 
-// clusterPostProcess adds the additional fields that clusters have over just object fields.
+// postProcess adds the additional fields that clusters have over just object fields.
 // In this case its setting up indicies and weights
-func (c *Cluster) clusterPostProcess(scene *Scene, element *Element) {
-	geom := (*GeometryImpl).skin.resolveObjectLinkReverse(GEOMETRY)
+func (c *Cluster) postProcess(scene *Scene, element *Element) bool {
+	geom := c.skin.resolveObjectLinkReverse(GEOMETRY).(*Geometry)
 	if geom == nil {
 		return false
 	}
-	old_indices := []int{}
+	var old_indices []int
+	var err error
 	indexes := findChild(element, "Indexes")
-	if indexes != nil && indexes.first_property {
-		if !parseBinaryArrayInt(*indexes.first_property, &old_indices) {
+	if indexes != nil && indexes.first_property != nil {
+		if old_indices, err = parseBinaryArrayInt(indexes.first_property); err != nil {
 			return false
 		}
 	}
-	old_weights := []float64{}
+	var old_weights []float64
 	weights_el := findChild(element, "Weights")
-	if weights_el != nil && weights_el.first_property {
-		if !parseBinaryArrayFloat64(*weights_el.first_property, &old_weights) {
+	if weights_el != nil && weights_el.first_property != nil {
+		if old_weights, err = parseBinaryArrayFloat64(weights_el.first_property); err != nil {
 			return false
 		}
 	}
@@ -81,18 +78,17 @@ func (c *Cluster) clusterPostProcess(scene *Scene, element *Element) {
 		return false
 	}
 
-	c.weights = make([]float64)
-	c.indices = make([]int)
+	c.weights = make([]float64, 0, iLen)
+	c.indices = make([]int, 0, iLen)
 
 	for i := 0; i < iLen; i++ {
-		n := &geom.to_new_vertices[old_idx] //was a geometryimpl NewVertex
+		n := &geom.to_new_vertices[old_indices[i]] //was a geometryimpl NewVertex
 		if n.index == -1 {
 			continue // skip vertices which aren't indexed.
 		}
 		for n != nil {
-			c.indices[i]
-			c.indices = c.indices.append(n.index)
-			c.weights = c.weights.append(w)
+			c.indices = append(c.indices, n.index)
+			c.weights = append(c.weights, old_weights[i])
 			n = n.next
 		}
 	}
@@ -100,22 +96,31 @@ func (c *Cluster) clusterPostProcess(scene *Scene, element *Element) {
 
 }
 
-func parseCluster(scene *Scene, element *Element) (*Object, error) {
-	cluster := NewCLuster(scene, element)
-	cluster.transform_link = findChild(element, "TransformLink")
-	if transform_link != nil && transform_link.first_property {
-		if !parseArrayRaw(*transform_link.first_property, &obj.transform_link_matrix, sizeof(obj.transform_link_matrix)) {
-			return nil, errors.New("Failed to parse TransformLink")
+func parseCluster(scene *Scene, element *Element) (*Cluster, error) {
+	obj := NewCluster(scene, element)
+	transform_link := findChild(element, "TransformLink")
+	if transform_link != nil && transform_link.first_property != nil {
+		mx, err := parseArrayRawFloat64(transform_link.first_property, 16)
+		if err != nil {
+			return nil, errors.Wrap(err, "Failed to parse TransformLink")
+		}
+		obj.transform_link_matrix, err = matrixFromSlice(mx)
+		if err != nil {
+			return nil, errors.Wrap(err, "Failed to parse TransformLink")
 		}
 	}
-	cluster.transform = findChild(element, "Transform")
-	if transform != nil && transform.first_property {
-		if !parseArrayRaw(*transform.first_property, &obj.transform_matrix, sizeof(obj.transform_matrix)) {
-			return nil, errors.New("Failed to parse Transform")
-
+	transform := findChild(element, "Transform")
+	if transform != nil && transform.first_property != nil {
+		mx, err := parseArrayRawFloat64(transform.first_property, 16)
+		if err != nil {
+			return nil, errors.Wrap(err, "Failed to parse TransformLink")
+		}
+		obj.transform_matrix, err = matrixFromSlice(mx)
+		if err != nil {
+			return nil, errors.Wrap(err, "Failed to parse TransformLink")
 		}
 	}
-	return cluster, nil
+	return obj, nil
 }
 
 //from cpp

@@ -9,7 +9,7 @@ type Mesh struct {
 
 func NewMesh(scene *Scene, element *Element) *Mesh {
 	m := &Mesh{}
-	m.Object = NewObject(scene, element)
+	m.Object = *NewObject(scene, element)
 	m.Object.is_node = true
 	return m
 }
@@ -23,20 +23,20 @@ func (m *Mesh) getGeometry() *Geometry {
 }
 
 func (m *Mesh) getGeometricMatrix() Matrix {
-	translation := resolveVec3Property(*m, "GeometricTranslation", &Vec3{0, 0, 0})
-	rotation := resolveVec3Property(*m, "GeometricRotation", &Vec3{0, 0, 0})
-	scale := resolveVec3Property(*m, "GeometricScaling", &Vec3{1, 1, 1})
+	translation := resolveVec3Property(&m.Object, "GeometricTranslation", Vec3{0, 0, 0})
+	rotation := resolveVec3Property(&m.Object, "GeometricRotation", Vec3{0, 0, 0})
+	scale := resolveVec3Property(&m.Object, "GeometricScaling", Vec3{1, 1, 1})
 
-	scale_mtx := m.makeIdentity()
-	scale_mtx.m[0] = float32(scale.x)
-	scale_mtx.m[5] = float32(scale.y)
-	scale_mtx.m[10] = float32(scale.z)
-	mtx := m.getRotationMatrix(rotation, EULER_XYZ)
+	scale_mtx := makeIdentity()
+	scale_mtx.m[0] = scale.X
+	scale_mtx.m[5] = scale.Y
+	scale_mtx.m[10] = scale.Z
+	mtx := getRotationMatrix(&rotation, EULER_XYZ)
 	setTranslation(translation, &mtx)
 
 	return scale_mtx.Mul(mtx)
 }
 
-func (m *Mesh) getMaterial(idx int) []Material {
+func (m *Mesh) getMaterial(idx int) *Material {
 	return m.materials[idx]
 }

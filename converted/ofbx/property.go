@@ -17,7 +17,7 @@ const (
 type Property struct {
 	count int
 	typ   uint8
-	value DataView
+	value *DataView
 	next  *Property
 }
 
@@ -29,7 +29,7 @@ func (p *Property) getNext() *Property {
 	return p.next
 }
 
-func (p *Property) getValue() DataView {
+func (p *Property) getValue() *DataView {
 	return p.value
 }
 

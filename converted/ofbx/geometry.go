@@ -19,44 +19,39 @@ type Geometry struct {
 
 	vertices, normals, tangents []Vec3
 
-	uvs                        [s_uvs_max]Vec2
+	uvs                        [s_uvs_max][]Vec2
 	colors                     []Vec4
 	materials, to_old_vertices []int
-	to_new_vertices            []NewVertex
+	to_new_vertices            []Vertex
 }
 
 //Hey its a linked list of indices!.....
-type NewVertex struct {
+type Vertex struct {
 	index int //should start as -1
-	next  *NewVertex
+	next  *Vertex
 }
 
-func (nv *NewVertex) delete() {
-	if next != nil {
-		next.delete()
-	}
+func add(nv *Vertex, index int) {
+	nv.add(index)
 }
-func add(nv *NewVertex, index int) {
-	return nv.add(index)
-}
-func (nv *NewVertex) add(index int) {
-	if vtx.index == -1 {
+
+func (nv *Vertex) add(index int) {
+	if nv.index == -1 {
 		//TODO: change this cuz we aint implementing it this way. Really its checking if the newvertex exists...
-		vtx.index = index
-	} else if vtx.next != nil {
-		add(*vtx.next, index)
+		nv.index = index
+	} else if nv.next != nil {
+		nv.next.add(index)
 	} else {
-		vtx.next = NewVertex{-1, nil}
-		vtx.next.index = index
+		nv.next = &Vertex{-1, nil}
+		nv.next.index = index
 	}
 }
 
 func NewGeometry(scene *Scene, element *Element) *Geometry {
-
-	g := NewObject(scene, element)
-	g.to_old_vertices = make([]int)
-
-	return nil
+	g := &Geometry{}
+	g.Object = *NewObject(scene, element)
+	g.to_old_vertices = make([]int, 0)
+	return g
 }
 
 func (g *Geometry) Type() Type {
@@ -74,26 +69,26 @@ func (g *Geometry) getVertexCount() int {
 	return len(g.vertices)
 }
 
-func (g *Geometry) getNormals() *Vec3 {
+func (g *Geometry) getNormals() []Vec3 {
 	return g.normals
 }
 
-func (g *Geometry) getUVs() *Vec2 {
-	return g.getUVs(0)
+func (g *Geometry) getUVs() []Vec2 {
+	return g.getUVsIndex(0)
 }
 
-func (g *Geometry) getUVsIndex(index int) *Vec2 {
+func (g *Geometry) getUVsIndex(index int) []Vec2 {
 	if index < 0 || index > len(g.uvs) {
 		return nil
 	}
 	return g.uvs[index]
 }
 
-func (g *Geometry) getColors() *Vec4 {
+func (g *Geometry) getColors() []Vec4 {
 	return g.colors
 }
 
-func (g *Geometry) getTangents() *Vec3 {
+func (g *Geometry) getTangents() []Vec3 {
 	return g.tangents
 }
 
@@ -101,29 +96,28 @@ func (g *Geometry) getSkin() *Skin {
 	return g.skin
 }
 
-func (g *Geometry) getMaterials() *int {
+func (g *Geometry) getMaterials() []int {
 	return g.materials
 }
 
-func (g *Geometry) triangulate(old_indices []int) {
-	to_old_indices := make([]int)
+func (g *Geometry) triangulate(old_indices []int) []int {
+	to_old := make([]int, 0)
 	in_polygon_idx := 0
-	for i := 0; i < len(old_indices); {
-		i++
+	for i := 0; i < len(old_indices); i++ {
 		idx := old_indices[i]
 		if idx < 0 {
 			idx = -idx - 1
 		}
 
 		if in_polygon_idx <= 2 {
-			geom.to_old_vertices = append(geom.to_old_vertices, idx)
+			g.to_old_vertices = append(g.to_old_vertices, idx)
 			to_old = append(to_old, i)
 		} else {
-			geom.to_old_vertices = append(geom.to_old_vertices, old_indices[i-in_polygon_idx])
+			g.to_old_vertices = append(g.to_old_vertices, old_indices[i-in_polygon_idx])
 			to_old = append(to_old, i-in_polygon_idx)
-			geom.to_old_vertices = append(geom.to_old_vertices, old_indices[i-1])
+			g.to_old_vertices = append(g.to_old_vertices, old_indices[i-1])
 			to_old = append(to_old, i-1)
-			geom.to_old_vertices = append(geom.to_old_vertices, idx)
+			g.to_old_vertices = append(g.to_old_vertices, idx)
 			to_old = append(to_old, i)
 		}
 		in_polygon_idx++
@@ -131,71 +125,79 @@ func (g *Geometry) triangulate(old_indices []int) {
 			in_polygon_idx = 0
 		}
 	}
-
+	return to_old
 }
 
 //From CPP
 
-func (g *Geometry) getType() {
+func (g *Geometry) getType() Type {
 	return g.Type()
 }
 
-func parseGeometry(scene *Scene, element *Element) (*Object, error) {
+func parseGeometry(scene *Scene, element *Element) (*Geometry, error) {
 	if element.first_property == nil {
 		return nil, errors.New("Geometry invalid")
 	}
 	geom := NewGeometry(scene, element)
 
 	vertices_element := findChild(element, "Vertices")
-	if !vertices_element || !vertices_element.first_property {
+	if vertices_element == nil || vertices_element.first_property == nil {
 		return nil, errors.New("Geometry Vertices Missing")
 	}
 
 	polys_element := findChild(element, "PolygonVertexIndex")
-	if !polys_element || !polys_element.first_property {
+	if polys_element == nil || polys_element.first_property == nil {
 		return nil, errors.New("Geometry Indicies missing")
 	}
 
-	vertices := parseDoubleVecData(*vertices_element.first_property)
-	original_indices := parseBinaryArrayInt(*polys_element.first_property)
+	vertices, err := parseDoubleVecDataVec3(vertices_element.first_property)
+	if err != nil {
+		return nil, err
+	}
+	original_indices, err := parseBinaryArrayInt(polys_element.first_property)
+	if err != nil {
+		return nil, err
+	}
 
-	geom.triangulate(original_indices)
+	to_old_indices := geom.triangulate(original_indices)
 	geom.vertices = make([]Vec3, len(geom.to_old_vertices))
 
 	for i, vIdx := range geom.to_old_vertices {
 		geom.vertices[i] = vertices[vIdx]
 	}
 
-	geom.to_new_vertices = make([]NewVertex, len(geom.vertices))
+	geom.to_new_vertices = make([]Vertex, len(geom.vertices))
 
-	for i := 0; i < len(geom.to_old_vertices); {
-		i++
-		old := to_old_vertices[i]
+	for i := 0; i < len(geom.to_old_vertices); i++ {
+		old := geom.to_old_vertices[i]
 		geom.to_new_vertices[old].add(i)
 	}
 
 	layer_material_element := findChild(element, "LayerElementMaterial")
 	if layer_material_element != nil {
-		mapping_element := findChild(*layer_material_element, "MappingInformationType")
-		reference_element := findChild(*layer_material_element, "ReferenceInformationType")
-		if !mapping_element || !reference_element {
+		mapping_element := findChild(layer_material_element, "MappingInformationType")
+		reference_element := findChild(layer_material_element, "ReferenceInformationType")
+		if mapping_element == nil || reference_element == nil {
 			return nil, errors.New("Invalid LayerElementMaterial")
 		}
-		tmp := make([]int)
+		tmp := make([]int, 0)
 
-		if mapping_element.first_property.value == "ByPolygon" && reference_element.first_property.value == "IndexToDirect" {
+		if mapping_element.first_property.value.String() == "ByPolygon" &&
+			reference_element.first_property.value.String() == "IndexToDirect" {
 			geom.materials = make([]int, len(geom.vertices)/3)
 			for i := 0; i < len(geom.vertices)/3; i++ {
 				geom.materials[i] = -1
 			}
 
-			indices_element := findChild(*layer_material_element, "Materials")
-			if !indices_element || !indices_element.first_property {
+			indices_element := findChild(layer_material_element, "Materials")
+			if indices_element == nil || indices_element.first_property == nil {
 				return nil, errors.New("Invalid LayerElementMaterial")
 			}
 
-			var tmp []int
-			parseBinaryArrayInt(*indices_element.first_property) //int
+			tmp, err := parseBinaryArrayInt(indices_element.first_property)
+			if err != nil {
+				return nil, err
+			}
 
 			tmp_i := 0
 			tri_count := 0
@@ -203,14 +205,13 @@ func parseGeometry(scene *Scene, element *Element) (*Object, error) {
 			for poly := 0; poly < len(tmp); {
 				poly++
 				tri_count, tmp_i = getTriCountFromPoly(original_indices, tmp_i)
-				for i := 0; i < tri_count; {
-					i++
+				for i := 0; i < tri_count; i++ {
 					geom.materials[insertIdx] = tmp[poly]
 					insertIdx++
 				}
 			}
 		} else {
-			if mapping_element.first_property.value != "AllSame" {
+			if mapping_element.first_property.value.String() != "AllSame" {
 				return nil, errors.New("Mapping not supported")
 			}
 		}
@@ -222,18 +223,18 @@ func parseGeometry(scene *Scene, element *Element) (*Object, error) {
 				uv_index = layer_uv_element.first_property.getValue().toInt()
 			}
 			if uv_index >= 0 && uv_index < geom.UVSMax() {
-				uvs := geom.uvs[uv_index]
-				//tmp []Vec2 			//tmp_indices []int		//mapping VertexDataMapping
-				tmp, tmp_indices, mapping := parseVertexDataVec2(*layer_uv_element, "UV", "UVIndex")
-
+				tmp, tmp_indices, mapping, err := parseVertexDataVec2(layer_uv_element, "UV", "UVIndex")
+				if err != nil {
+					return nil, err
+				}
 				if tmp != nil && len(tmp) > 0 {
-					geom.uvs = make([]Vec2) //resize(tmp_indices.empty() ? tmp.size() : tmp_indices.size());
-					splat(&uvs, mapping, tmp, tmp_indices, original_indices)
-					remap(&uvs, to_old_indices)
+					//uvs = [4]Vec2{} //resize(tmp_indices.empty() ? tmp.size() : tmp_indices.size());
+					geom.uvs[uv_index] = splatVec2(mapping, tmp, tmp_indices, original_indices)
+					remapVec2(&geom.uvs[uv_index], to_old_indices)
 				}
 			}
 			layer_uv_element = layer_uv_element.sibling
-			for layer_uv_element && layer_uv_element.id != "LayerElementUV" {
+			for layer_uv_element != nil && layer_uv_element.id.String() != "LayerElementUV" {
 				layer_uv_element = layer_uv_element.sibling
 			}
 
@@ -241,35 +242,48 @@ func parseGeometry(scene *Scene, element *Element) (*Object, error) {
 
 		layer_tangent_element := findChild(element, "LayerElementTangents")
 		if layer_tangent_element != nil {
-			tans := findChild(*layer_tangent_element, "Tangents")
-			if len(tans > 0) {
-				tmp, tmp_indices, mapping := parseVertexDataVec3(*layer_tangent_element, "Tangents", "TangentsIndex")
+			tans := findChild(layer_tangent_element, "Tangents")
+			var tmp []Vec3
+			var tmp_indices []int
+			var mapping VertexDataMapping
+			var err error
+			if tans != nil {
+				tmp, tmp_indices, mapping, err = parseVertexDataVec3(layer_tangent_element, "Tangents", "TangentsIndex")
 			} else {
-				tmp, tmp_indices, mapping := parseVertexDataVec3(*layer_tangent_element, "Tangent", "TangentIndex")
+				tmp, tmp_indices, mapping, err = parseVertexDataVec3(layer_tangent_element, "Tangent", "TangentIndex")
+			}
+			if err != nil {
+				return nil, err
 			}
 			if tmp != nil && len(tmp) > 0 {
-				splat(&geom.tangents, mapping, tmp, tmp_indices, original_indices)
-				remap(&geom.tangents, to_old_indices)
+				geom.tangents = splatVec3(mapping, tmp, tmp_indices, original_indices)
+				remapVec3(&geom.tangents, to_old_indices)
 			}
 		}
 
 		layer_color_element := findChild(element, "LayerElementColor")
 		if layer_color_element != nil {
-			tmp, tmp_indices, mapping := parseVertexDataVec4(*layer_color_element, "Colors", "ColorIndex")
-			if tmp != nil && len(tmp) > 0 {
-				splat(&geom.colors, mapping, tmp, tmp_indices, original_indices)
-				remap(&geom.colors, to_old_indices)
+			tmp, tmp_indices, mapping, err := parseVertexDataVec4(layer_color_element, "Colors", "ColorIndex")
+			if err != nil {
+				return nil, err
+			}
+			if len(tmp) > 0 {
+				geom.colors = splatVec4(mapping, tmp, tmp_indices, original_indices)
+				remapVec4(&geom.colors, to_old_indices)
 			}
 		}
 
 		layer_normal_element := findChild(element, "LayerElementNormal")
 		if layer_normal_element != nil {
-			tmp, tmp_indices, mapping := parseVertexDataVec3(*layer_normal_element, "Normals", "NormalsIndex")
-			if tmp != nil && len(tmp) > 0 {
-				splat(&geom.normals, mapping, tmp, tmp_indices, original_indices)
-				remap(&geom.normals, to_old_indices)
+			tmp, tmp_indices, mapping, err := parseVertexDataVec3(layer_normal_element, "Normals", "NormalsIndex")
+			if err != nil {
+				return nil, err
+			}
+			if len(tmp) > 0 {
+				geom.normals = splatVec3(mapping, tmp, tmp_indices, original_indices)
+				remapVec3(&geom.normals, to_old_indices)
 			}
 		}
 	}
-
+	return geom, nil
 }

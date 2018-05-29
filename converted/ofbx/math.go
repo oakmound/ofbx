@@ -1,5 +1,10 @@
 package ofbx
 
+import (
+	"fmt"
+	"math"
+)
+
 type UpVector int
 
 // Specifies which canonical axis represents up in the system (typically Y or Z).
@@ -41,56 +46,68 @@ type Matrix struct {
 	m [16]float64 // last 4 are translation
 }
 
+func matrixFromSlice(fs []float64) (Matrix, error) {
+	if len(fs) != 16 {
+		return Matrix{}, fmt.Errorf("Expected 16 values, got %d", len(fs))
+	}
+	var a [16]float64
+	copy(a[:], fs)
+	return Matrix{a}, nil
+}
+
 type Quat struct {
 	X, Y, Z, w float64
 }
 
-
-func (v *Vec3) Minus() *Vec3{
-	return Vec3{-v.X, -v.Y, -v.Z}
+func (v *Vec3) Minus() *Vec3 {
+	return &Vec3{-v.X, -v.Y, -v.Z}
 }
 
-func (v *Vec3) Mul(f float64){
-	return NewVec3(v.X * f, v.Y * f, v.Z * f)
+func (v *Vec3) Mul(f float64) *Vec3 {
+	return &Vec3{v.X * f, v.Y * f, v.Z * f}
 }
 
-
-func (v *Vec3) Add(v2 *Vec3){
-	return NewVec3(v.X + v2.X, v.Y + v2.Y, v.Z + v2.Z)
+func (v *Vec3) Add(v2 *Vec3) *Vec3 {
+	return &Vec3{v.X + v2.X, v.Y + v2.Y, v.Z + v2.Z}
 }
 
-
-func (m1 *Matrix) Mul(m2 *Matrix){
-	result := make{[]float64, 16}
-	for j := 0; j < 4; j++	{
-		for  i := 0; i < 4; i++{
+func (m1 Matrix) Mul(m2 Matrix) Matrix {
+	res := [16]float64{}
+	for j := 0; j < 4; j++ {
+		for i := 0; i < 4; i++ {
 			tmp := 0.0
-			for k := 0; k < 4; k++{
-				tmp += m1.m[i + k * 4] * m2.m[k + j * 4]
+			for k := 0; k < 4; k++ {
+				tmp += m1.m[i+k*4] * m2.m[k+j*4]
 			}
-			res.m[i + j * 4] = tmp
+			res[i+j*4] = tmp
 		}
 	}
-	return res
+	return Matrix{res}
 }
 
-func makeIdentity() Matrix {  
-	return Matrix{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}	
+func setTranslation(v Vec3, m *Matrix) {
+	m.m[12] = v.X
+	m.m[13] = v.Y
+	m.m[14] = v.Z
 }
 
-func (m *Matrix) rotationX(angle float64){
+func makeIdentity() Matrix {
+	return Matrix{[16]float64{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}}
+}
+
+func rotationX(angle float64) Matrix {
 	m2 := makeIdentity()
 	//radian
 	c := math.Cos(angle)
 	s := math.Sin(angle)
 	m2.m[5] = c
 	m2.m[10] = c
-	 m2.m[9] = -s
+	m2.m[9] = -s
 	m2.m[6] = s
 	return m2
 }
 
-func (m *Matrix) rotationY(angle float64){
+func rotationY(angle float64) Matrix {
 	m2 := makeIdentity()
 	//radian
 	c := math.Cos(angle)
@@ -102,51 +119,47 @@ func (m *Matrix) rotationY(angle float64){
 	return m2
 }
 
-func (m *Matrix) rotationZ(angle float64){
+func rotationZ(angle float64) Matrix {
 	m2 := makeIdentity()
 	//radian
 	c := math.Cos(angle)
 	s := math.Sin(angle)
-	m2.m[0] =c
+	m2.m[0] = c
 	m2.m[5] = c
 	m2.m[4] = -s
 	m2.m[1] = s
 	return m2
 }
 
-func getTriCountFromPoly(indices []int, idx int) (int, int){
+func getTriCountFromPoly(indices []int, idx int) (int, int) {
 	count := 1
-	for (indices[idx+1+count]>=0){
+	for indices[idx+1+count] >= 0 {
 		count++
 	}
 	return count, idx
 }
 
-
-func getRotationMatrix(euler *Vec3, order RotationOrder) Matrix{
-	TO_RAD :=  3.1415926535897932384626433832795028 / 180.0 //TODO: Update this
-	rx = rotationX(euler.X * TO_RAD)
-	ry = rotationY(euler.Y * TO_RAD)
-	rz = rotationZ(euler.Z * TO_RAD)
-	switch (order) {
+func getRotationMatrix(euler *Vec3, order RotationOrder) Matrix {
+	TO_RAD := 3.1415926535897932384626433832795028 / 180.0 //TODO: Update this
+	rx := rotationX(euler.X * TO_RAD)
+	ry := rotationY(euler.Y * TO_RAD)
+	rz := rotationZ(euler.Z * TO_RAD)
+	switch order {
 	default:
 	case SPHERIC_XYZ:
-		errors.NewError("This should not happen")
+		panic("This should not happen")
 	case EULER_XYZ:
 		return rz.Mul(ry).Mul(rx)
 	case EULER_XZY:
 		return ry.Mul(rz).Mul(rx)
 	case EULER_YXZ:
-		return rz.Mul(rx).Mul( ry)
+		return rz.Mul(rx).Mul(ry)
 	case EULER_YZX:
 		return rx.Mul(rz).Mul(ry)
 	case EULER_ZXY:
 		return ry.Mul(rx).Mul(rz)
 	case EULER_ZYX:
 		return rx.Mul(ry).Mul(rz)
+	}
+	panic("This shouldn't happen either")
 }
-
-}
-
-
-

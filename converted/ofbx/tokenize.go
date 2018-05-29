@@ -107,7 +107,7 @@ func isTextTokenChar(c rune) {
 	return unicode.IsDigit(c) || unicode.IsLetter(c) || c == '_'
 }
 
-func (c *Cursor) readTextToken() (DataView, error) {
+func (c *Cursor) readTextToken() (*DataView, error) {
 	out := bytes.NewBuffer([]byte{})
 	for {
 		r, _, err := c.ReadRune()
@@ -120,7 +120,7 @@ func (c *Cursor) readTextToken() (DataView, error) {
 		}
 		c.UnreadRune()
 	}
-	return DataView(out), nil
+	return &DataView{out}, nil
 }
 
 func (c *Cursor) readElementOffset(version uint16) (uint64, error) {

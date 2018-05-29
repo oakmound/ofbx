@@ -6,7 +6,13 @@ import (
 	"fmt"
 )
 
-type DataView bytes.Buffer
+type DataView struct {
+	bytes.Buffer
+}
+
+func (dv *DataView) Reader() *bytes.Reader {
+	return bytes.NewReader(dv.Bytes())
+}
 
 func (dv *DataView) touint64() uint64 {
 	var i uint64

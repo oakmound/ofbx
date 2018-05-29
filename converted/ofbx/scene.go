@@ -4,7 +4,7 @@ type Connection struct {
 	ConnectionType
 	typ      Type
 	from, to uint64
-	property DataView
+	property string
 }
 
 type ConnectionType int
