@@ -79,18 +79,18 @@ func fromString(str, end string, val *float64, count int) string {
 	return str[iter:]
 }
 
-func vec2FromString(string str, string end, Vec2 *val) string {
+func vec2FromString(str, end string, val *Vec2) string {
 	return fromString(str, end, &val.x, 2)
 }
 
-func vec3FromString(string str, string end, Vec3 *val) string {
+func vec3FromString(str, end string, val *Vec3) string {
 	return fromString(str, end, &val.x, 3)
 }
 
-func vec4FromString(string str, string end, Vec4 *val) string {
+func vec4FromString(str, end string, val *Vec4) string {
 	return fromString(str, end, &val.x, 4)
 }
 
-func matrixFromString(string str, string end, Matrix *val) string {
+func matrixFromString(str, end string, val *Matrix) string {
 	return fromString(str, end, &val.m[0], 16)
 }

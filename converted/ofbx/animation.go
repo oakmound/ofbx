@@ -4,7 +4,7 @@ type AnimationStack struct {
 	Object
 }
 
-func NewAnimationStack(scene *Scene, element *IElement) *AnimationStack {
+func NewAnimationStack(scene *Scene, element *Element) *AnimationStack {
 	return &AnimationStack{}
 }
 
@@ -22,7 +22,7 @@ type AnimationLayer struct {
 	curve_nodes []*AnimationCurveNode
 }
 
-func NewAnimationLayer(scene *Scene, element *IElement) *AnimationLayer {
+func NewAnimationLayer(scene *Scene, element *Element) *AnimationLayer {
 	return &AnimationLayer{}
 }
 
@@ -34,7 +34,7 @@ func (as *AnimationLayer) getCurveNodeIndex(index int) *AnimationCurveNode {
 	return as.curve_nodes[index]
 }
 
-func (as *AnimationLayer) getCurveNodeIndex(bone *Object, property string) *AnimationCurveNode {
+func (as *AnimationLayer) getCurveNode(bone *Object, property string) *AnimationCurveNode {
 	for _, node := range as.curve_nodes {
 		if node.bone_link_property == prop && node.bone == &bone {
 			return node

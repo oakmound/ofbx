@@ -22,7 +22,7 @@ type Geometry struct {
 	uvs                        [s_uvs_max]Vec2
 	colors                     []Vec4
 	materials, to_old_vertices []int
-	to_new_vertices            []NewVector
+	to_new_vertices            []NewVertex
 }
 
 //Hey its a linked list of indices!.....
@@ -51,7 +51,7 @@ func (nv *NewVertex) add(index int) {
 	}
 }
 
-func NewGeometry(scene *Scene, element *IElement) *Geometry {
+func NewGeometry(scene *Scene, element *Element) *Geometry {
 
 	g := NewObject(scene, element)
 	g.to_old_vertices = make([]int)
@@ -78,8 +78,11 @@ func (g *Geometry) getNormals() *Vec3 {
 	return g.normals
 }
 
-func (g *Geometry) getUVs() *Vec2 { return g.getUVs(0) }
-func (g *Geometry) getUVs(index int) *Vec2 {
+func (g *Geometry) getUVs() *Vec2 {
+	return g.getUVs(0)
+}
+
+func (g *Geometry) getUVsIndex(index int) *Vec2 {
 	if index < 0 || index > len(g.uvs) {
 		return nil
 	}
@@ -137,7 +140,7 @@ func (g *Geometry) getType() {
 	return g.Type()
 }
 
-func parseGeometry(scene *Scene, element *IElement) (*Object, Error) {
+func parseGeometry(scene *Scene, element *Element) (*Object, error) {
 	if element.first_property == nil {
 		return nil, errors.New("Geometry invalid")
 	}

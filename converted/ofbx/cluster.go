@@ -13,7 +13,7 @@ type Cluster struct {
 	transform_link_matrix Matrix
 }
 
-func NewCluster(scene *Scene, element *IElement) *Cluster {
+func NewCluster(scene *Scene, element *Element) *Cluster {
 	c := NewObject(scene, element)
 	if c.clusterPostProcess(scene, element) {
 		return c
@@ -56,7 +56,7 @@ func (c *Cluster) getLink() *Object {
 
 // clusterPostProcess adds the additional fields that clusters have over just object fields.
 // In this case its setting up indicies and weights
-func (c *Cluster) clusterPostProcess(scene, element) {
+func (c *Cluster) clusterPostProcess(scene *Scene, element *Element) {
 	geom := (*GeometryImpl).skin.resolveObjectLinkReverse(GEOMETRY)
 	if geom == nil {
 		return false
@@ -100,7 +100,7 @@ func (c *Cluster) clusterPostProcess(scene, element) {
 
 }
 
-func parseCluster(scene *Scene, element *IElement) (*Object, error) {
+func parseCluster(scene *Scene, element *Element) (*Object, error) {
 	cluster := NewCLuster(scene, element)
 	cluster.transform_link = findChild(element, "TransformLink")
 	if transform_link != nil && transform_link.first_property {

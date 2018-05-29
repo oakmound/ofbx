@@ -5,7 +5,7 @@ type Skin struct {
 	clusters []*Cluster
 }
 
-func NewSkin(scene *Scene, element *IElement) *Skin {
+func NewSkin(scene *Scene, element *Element) *Skin {
 	//TODO: Shoulduse NewObject here
 	s := NewObject(scene, element).(*Skin)
 	return s

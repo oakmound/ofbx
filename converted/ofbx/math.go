@@ -50,7 +50,7 @@ func (v *Vec3) Minus() *Vec3{
 	return Vec3{-v.X, -v.Y, -v.Z}
 }
 
-func (v *Vec3) Mul(f){
+func (v *Vec3) Mul(f float64){
 	return NewVec3(v.X * f, v.Y * f, v.Z * f)
 }
 
@@ -60,7 +60,7 @@ func (v *Vec3) Add(v2 *Vec3){
 }
 
 
-func (m1 *Matrix) Mul(m2){
+func (m1 *Matrix) Mul(m2 *Matrix){
 	result := make{[]float64, 16}
 	for j := 0; j < 4; j++	{
 		for  i := 0; i < 4; i++{

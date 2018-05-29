@@ -14,7 +14,7 @@ type Texture struct {
 	relative_filename DataView
 }
 
-func NewTexture(scene *Scene, element *IElement) *Texture {
+func NewTexture(scene *Scene, element *Element) *Texture {
 	//TODO: Shoulduse NewObject here
 	t := &Texture{
 		Object: NewObject(scene, element),

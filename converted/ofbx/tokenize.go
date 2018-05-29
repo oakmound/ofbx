@@ -1,20 +1,25 @@
 package ofbx
 
 import (
-	"encoding/binary"
 	"bufio"
+	"bytes"
+	"encoding/binary"
+	"errors"
+	"fmt"
+	"io"
+	"unicode"
 )
 
 type Header struct {
-	magic [21]int
+	magic    [21]int
 	reserved [2]int
-	version int
+	version  int
 }
 
-type Cursor *bufio.Reader
+type Cursor bufio.Reader
 
-const(
-	UINT8_BYTES = 1
+const (
+	UINT8_BYTES  = 1
 	UINT32_BYTES = 4
 	HEADER_BYTES = (21 + 2 + 1) * 4
 )
@@ -28,10 +33,10 @@ func (c *Cursor) readShortString() (string, error) {
 	_, err = c.Read(byt)
 	if err != nil {
 		return nil, err
-	} 
+	}
 	return string(byt), nil
 }
-func (c *Cursor ) readLongString() (string, error) {
+func (c *Cursor) readLongString() (string, error) {
 	var length uint32
 	err := binary.Read(c, binary.BigEndian, &length)
 	if err != nil {
@@ -41,7 +46,7 @@ func (c *Cursor ) readLongString() (string, error) {
 	_, err = c.Read(byt)
 	if err != nil {
 		return "", err
-	} 
+	}
 	return string(byt), nil
 }
 
@@ -52,6 +57,7 @@ func (c *Cursor) isEndLine() bool {
 	}
 	return by[0] == '\n'
 }
+
 //TODO: Make a isspace for bytes not unicode
 func (c *Cursor) skipInsignificantWhitespaces() error {
 	for {
@@ -67,7 +73,7 @@ func (c *Cursor) skipInsignificantWhitespaces() error {
 	}
 }
 
-func (c *Cursor) skipLine(){
+func (c *Cursor) skipLine() {
 	c.ReadLine()
 }
 
@@ -98,9 +104,8 @@ func (c *Cursor) skipWhitespaces() error {
 }
 
 func isTextTokenChar(c rune) {
-	return unicode.IsDigit(c) || unicode.IsLetter(c) ||  c == '_'
+	return unicode.IsDigit(c) || unicode.IsLetter(c) || c == '_'
 }
-
 
 func (c *Cursor) readTextToken() (DataView, error) {
 	out := bytes.NewBuffer([]byte{})
@@ -118,71 +123,70 @@ func (c *Cursor) readTextToken() (DataView, error) {
 	return DataView(out), nil
 }
 
-
 func (c *Cursor) readElementOffset(version uint16) (uint64, error) {
-	if version >= 7500{
-		var i uint64 
+	if version >= 7500 {
+		var i uint64
 		err := binary.Read(c, binary.BigEndian, &i)
 		return i, err
 	}
-	var i uint32 
+	var i uint32
 	err := binary.Read(c, binary.BigEndian, &i)
 	return uint64(i), err
 }
 
-func (c *Curesor) readBytes(len int) []byte{
+func (c *Cursor) readBytes(len int) []byte {
 	tempArr := make([]byte, len)
 	_, err := c.Read(tempArr)
 	return tempArr
 }
 
-func (c *Cursor) readProperty() *Property{
-	if c.cur > len(c.data){
+func (c *Cursor) readProperty() *Property {
+	if c.cur > len(c.data) {
 		return errors.NewError("Reading Past End")
 	}
-		prop := Property{}
-		typ, _, err := c.ReadRune()
-		if err !=nil{
-			fmt.Println(err)
-		}
-		prop.typ = typ
-		switch(prop.typ){
-		case 'S':
-			prop.value, err = c.readLongString()
-		case 'Y': 
-			prop.value = c.readBytes(2)
-		case 'C': 
-		prop.value =c.readBytes(1)
-		case 'I': 
-		prop.value =c.readBytes(4)
-		case 'F': 
-		prop.value =c.readBytes(4)
-		case 'D': 
-		prop.value =c.readBytes(8)
-		case 'L': 
-		prop.value =c.readBytes(8)
-		case 'R':
-		 	tmp := c.readBytes(4)
-			length :=  binary.BigEndian.Uint32(tmp)
-			prop.value = append(tmp,c.readBytes(length)...)
-		case 'b'||'f'||'d'||'l'||'i':
-			temp := c.readBytes(8)
-			tempArr := c.readBytes(4)
-			length :=  binary.BigEndian.Uint32(tempArr)
-			prop.value = append(append(temp, tempArr...),c.readBytes(length)...)
-		default:
-			errors.NewError("Did not know this property")
-		}
-		if err != nil{
-			fmt.Println(err)
-		}
-		return &prop
+	prop := Property{}
+	typ, _, err := c.ReadRune()
+	if err != nil {
+		fmt.Println(err)
+	}
+	prop.typ = typ
+	switch prop.typ {
+	case 'S':
+		prop.value, err = c.readLongString()
+	case 'Y':
+		prop.value = c.readBytes(2)
+	case 'C':
+		prop.value = c.readBytes(1)
+	case 'I':
+		prop.value = c.readBytes(4)
+	case 'F':
+		prop.value = c.readBytes(4)
+	case 'D':
+		prop.value = c.readBytes(8)
+	case 'L':
+		prop.value = c.readBytes(8)
+	case 'R':
+		tmp := c.readBytes(4)
+		length := binary.BigEndian.Uint32(tmp)
+		prop.value = append(tmp, c.readBytes(length)...)
+	case 'b' || 'f' || 'd' || 'l' || 'i':
+		temp := c.readBytes(8)
+		tempArr := c.readBytes(4)
+		length := binary.BigEndian.Uint32(tempArr)
+		prop.value = append(append(temp, tempArr...), c.readBytes(length)...)
+	default:
+		errors.NewError("Did not know this property")
+	}
+	if err != nil {
+		fmt.Println(err)
+	}
+	return &prop
 }
 
-func (c *Cursor) readElement(version int){
+func (c *Cursor) readElement(version int) {
 	initial
 	end_offset := c.readElementOffset(version)
-	if end_offset == 0{
+	if end_offset == 0 {
 		return nil
 	}
 	prop_count := c.readElementOffset(version)
@@ -193,26 +197,26 @@ func (c *Cursor) readElement(version int){
 	element.id = id
 
 	oldProp := *element.first_property
-	
-	for i := 0 ; i < prop_count; i++{
+
+	for i := 0; i < prop_count; i++ {
 		prop := c.readProperty()
 		oldProp.next = prop
 		oldProp = prop
 	}
 
-	if initial_size -c.Buffered() >- end_offset{
+	if initial_size-c.Buffered() > -end_offset {
 		return element
 	}
 	BLOCK_SENTINEL_LENGTH = 13
-	if version >= 7500{
+	if version >= 7500 {
 		BLOCK_SENTINEL_LENGTH = 25
 	}
 
 	link := &element.child
 
-	for initial_size- c.buffered() < end_offset -BLOCK_SENTINEL_LENGTH {
+	for initial_size-c.buffered() < end_offset-BLOCK_SENTINEL_LENGTH {
 		child := c.readElement(version)
-		if child==nil{
+		if child == nil {
 			fmt.Println(errors.NewError("ReadingChild element failed"))
 		}
 		*link = child
@@ -237,17 +241,17 @@ func (c *Cursor) readTextProperty() (*Property, error) {
 			if err != nil {
 				if err == io.EOF {
 					break //?
-				 }
-				 return nil, err
+				}
+				return nil, err
 			}
 			if r == '"' {
 				break
 			}
 			prop.value.WriteRune(r)
 		}
-		return prop
+		return nil, prop
 	}
-	
+
 	if unicode.IsDigit(r) || r == '-' {
 		prop.typ = 'L'
 		if r != '-' {
@@ -259,8 +263,8 @@ func (c *Cursor) readTextProperty() (*Property, error) {
 			if err != nil {
 				if err == io.EOF {
 					break //?
-				 }
-				 return nil, err
+				}
+				return nil, err
 			}
 			if !unicode.IsDigit(r) {
 				break
@@ -269,7 +273,7 @@ func (c *Cursor) readTextProperty() (*Property, error) {
 		}
 
 		r, _, err = cursor.ReadRune()
-		
+
 		if err == nil && r == '.' {
 			prop.typ = 'D'
 			prop.value.WriteRune(r)
@@ -309,49 +313,49 @@ func (c *Cursor) readTextProperty() (*Property, error) {
 					prop.value.WriteRune(r)
 				}
 			}
-		}	
+		}
 		return prop, nil
 	}
-	
-	if r == 'T' | r == 'Y' {
+
+	if r == 'T'|r == 'Y' {
 		// WTF is this
-		prop.typ = r 
+		prop.typ = r
 		b, err = cursor.ReadByte()
 		prop.value = bytes.NewBuffer([]byte{b})
 		return prop, err
 	}
-	if r == '*'{
+	if r == '*' {
 		prop.typ = 'l'
 		// Vertices: *10740 { a: 14.2760353088379,... } //Pulled from original...
 		pBytes := []byte{}
 		r2, _, _ := c.ReadRune()
 		pBytes.WriteRune(r2)
-		for c.Buffered() > 0 && r2 != ':'{
-			r2 , _, _ = c.ReadRune()
+		for c.Buffered() > 0 && r2 != ':' {
+			r2, _, _ = c.ReadRune()
 			pBytes.WriteRune(r2)
 		}
 
 		c.skipInsignificantWhitespaces() //We assume it is insignificat so dont add to buff
 
-		prop.count=0
-		
+		prop.count = 0
+
 		is_any := false
-		for c.Buffered() > 0 && r2 != '}'{
-			if r2 == ','{
-				if is_any{
+		for c.Buffered() > 0 && r2 != '}' {
+			if r2 == ',' {
+				if is_any {
 					prop.count++
 				}
-				is_any=false
-			}else if 	!unicode.IsSpace(r2) && r2 != '\n'{
+				is_any = false
+			} else if !unicode.IsSpace(r2) && r2 != '\n' {
 				is_any = true
 			}
-			if r2 =='.'{
-				prop.typ ='d'
+			if r2 == '.' {
+				prop.typ = 'd'
 			}
-			r2 , _, _ = c.ReadRune()
+			r2, _, _ = c.ReadRune()
 			pBytes.WriteRune(r2)
 		}
-		if is_any{
+		if is_any {
 			prop.count++
 		}
 		prop.value = pBytes
@@ -396,7 +400,7 @@ func (c *Cursor) readTextElement() (*Element, error) {
 		if err != nil {
 			return nil, err
 		}
-		by, err := cursor.Peek(1)
+		by, err = cursor.Peek(1)
 		if err != io.EOF {
 			if err != nil {
 				return nil, err
@@ -411,12 +415,12 @@ func (c *Cursor) readTextElement() (*Element, error) {
 		*prop_link = prop.getValue()
 		prop_link = prop_link.next
 	}
-	
+
 	link := &element.child
-	r, _, err := cursor.ReadRune()
+	r, _, err = cursor.ReadRune()
 	if err != nil {
 		return nil, err
-	} 
+	}
 	if r == '{' {
 		cursor.skipWhitespaces()
 		for {
@@ -432,7 +436,7 @@ func (c *Cursor) readTextElement() (*Element, error) {
 				break
 			}
 			child, err := readTextElement(cursor)
-			if err != nil  {
+			if err != nil {
 				return nil, err
 			}
 			cursor.skipWhitespaces()
@@ -443,19 +447,20 @@ func (c *Cursor) readTextElement() (*Element, error) {
 	} else {
 		cursor.UnreadRune()
 	}
-	return element
+	return nil, element
 }
 
 func tokenizeText(data []byte) (*Element, error) {
 	cursor := Cursor(bufio.NewReader(data))
 	root := &Element{}
 	element := &root.child
-	for _, err := cursor.Peek(1); err != io.EOF {
-		v, _, err := cursor.ReadRune()
+	_, err := cursor.Peek(1)
+	for ; err != io.EOF; _, err = cursor.Peek(1) {
+		v, _, err = cursor.ReadRune()
 		if err != nil {
 			return nil, err
 		}
-		if (v == ';' || v == '\r' || v == '\n') {
+		if v == ';' || v == '\r' || v == '\n' {
 			skipLine(cursor)
 		} else {
 			child, err := cursor.readTextElement()
@@ -480,7 +485,7 @@ func tokenize(data []byte) (*Element, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	root := &Element{}
 	element := &root.child
 	for true {
@@ -489,7 +494,7 @@ func tokenize(data []byte) (*Element, error) {
 			return nil, err
 		}
 		*element = child
-		if element == nil{
+		if element == nil {
 			return root, nil
 		}
 		element = element.sibling

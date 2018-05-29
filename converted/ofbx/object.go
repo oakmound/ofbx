@@ -3,7 +3,7 @@ package ofbx
 type Object struct {
 	ID             uint64
 	Name           string
-	Element        *IElement
+	Element        *Element
 	Node_attribute *Object
 
 	is_node bool
@@ -29,7 +29,7 @@ func NewObject(scene *Scene, e *Element) *Object {
 // 	return 0
 // }
 
-func (o *Object) getScene() *IScene {
+func (o *Object) getScene() *Scene {
 	return o.scene
 }
 

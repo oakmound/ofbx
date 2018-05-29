@@ -14,7 +14,7 @@ type AnimationCurve struct {
 	values []float32
 }
 
-func NewAnimationCurve(scene *Scene, element *IElement) *AnimationCurve {
+func NewAnimationCurve(scene *Scene, element *Element) *AnimationCurve {
 	return &AnimationCurve{}
 }
 

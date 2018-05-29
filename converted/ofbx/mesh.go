@@ -7,7 +7,7 @@ type Mesh struct {
 	materials []*Material
 }
 
-func NewMesh(scene *Scene, element *IElement) *Mesh {
+func NewMesh(scene *Scene, element *Element) *Mesh {
 	m := &Mesh{}
 	m.Object = NewObject(scene, element)
 	m.Object.is_node = true

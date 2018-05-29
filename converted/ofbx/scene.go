@@ -53,7 +53,7 @@ func (s *Scene) getTakeInfo(name string) *TakeInfo {
 func (s *Scene) getSceneFrameRate() float32 {
 	return s.m_scene_frame_rate
 }
-func (s *Scene) getMesh(int index) *Mesh {
+func (s *Scene) getMesh(index int) *Mesh {
 	//assert(index >= 0);
 	//assert(index < m_meshes.size());
 	return m_meshes[index]
