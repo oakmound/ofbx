@@ -13,8 +13,7 @@ func (as *AnimationStack) Type() Type {
 }
 
 func (as *AnimationStack) getLayer(index int) *AnimationLayer {
-	// This needs to specify it's output type
-	return as.resolveObjectLinkIndex(index)
+	return resolveObjectLinkIndex(as, index).(*AnimationLayer)
 }
 
 type AnimationLayer struct {
@@ -34,7 +33,7 @@ func (as *AnimationLayer) getCurveNodeIndex(index int) *AnimationCurveNode {
 	return as.curve_nodes[index]
 }
 
-func (as *AnimationLayer) getCurveNode(bone *Object, property string) *AnimationCurveNode {
+func (as *AnimationLayer) getCurveNode(bone Obj, property string) *AnimationCurveNode {
 	for _, node := range as.curve_nodes {
 		if node.bone_link_property == property && node.bone == bone {
 			return node

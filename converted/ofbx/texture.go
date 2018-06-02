@@ -17,7 +17,7 @@ type Texture struct {
 func NewTexture(scene *Scene, element *Element) *Texture {
 	//TODO: Shoulduse NewObject here
 	t := &Texture{
-		Object: NewObject(scene, element),
+		Object: *NewObject(scene, element),
 	}
 	return t
 }
@@ -27,15 +27,9 @@ func (t *Texture) Type() Type {
 }
 
 func (t *Texture) getFileName() *DataView {
-	return filename
+	return t.filename
 }
 
 func (t *Texture) getRelativeFileName() *DataView {
-	return relative_filename
-}
-
-// Keeping for conversion sake, will update and remove later TODO:Clean out references so it can be removed
-
-func (t *Texture) getType() Type {
-	return t.Type()
+	return t.relative_filename
 }

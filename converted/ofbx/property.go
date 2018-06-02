@@ -16,15 +16,14 @@ const (
 
 type Property struct {
 	count int
-	typ   uint8
+	typ   PropertyType
 	value *DataView
 	next  *Property
 }
 
-func (p *Property) getType() Type {
-	return Type(p.typ)
+func (p *Property) Type() PropertyType {
+	return p.typ
 }
-
 func (p *Property) getNext() *Property {
 	return p.next
 }
@@ -37,30 +36,18 @@ func (p *Property) getCount() int {
 	return p.count
 }
 
-func (p *Property) getValuesF64(values []float64, max_size int) bool {
-	return parseArrayRaw(*this, values, max_size)
+func (p *Property) getValuesF32(values []float32) bool {
+	return parseArrayRawF32(p, values)
 }
 
-func (p *Property) getValuesInt(values []int, max_size int) bool {
-	return parseArrayRaw(*this, values, max_size)
-}
-
-func (p *Property) getValuesF32(values []float32, max_size int) bool {
-	return parseArrayRaw(*this, values, max_size)
-}
-
-func (p *Property) getValuesUInt64(values []uint64, max_size int) bool {
-	return parseArrayRaw(*this, values, max_size)
-}
-
-func (p *Property) getValuesInt64(values []int64, max_size int) bool {
-	return parseArrayRaw(*this, values, max_size)
+func (p *Property) getValuesInt64(values []int64) bool {
+	return parseArrayInt64(p, values)
 }
 
 func findChild(element *Element, id string) *Element {
 	iter := element.child
 	for iter != nil {
-		if iter.id == id {
+		if iter.id.String() == id {
 			return iter
 		}
 		iter = iter.sibling
@@ -68,15 +55,15 @@ func findChild(element *Element, id string) *Element {
 	return nil
 }
 
-func resolveProperty(obj *Object, name string) *Element {
-	props := findChild(obj.element, "Properties70")
+func resolveProperty(obj Obj, name string) *Element {
+	props := findChild(obj.Element(), "Properties70")
 	if props == nil {
 		return nil
 	}
 
 	prop := props.child
 	for prop != nil {
-		if prop.first_property && prop.first_property.value == name {
+		if prop.first_property != nil && prop.first_property.value.String() == name {
 			return prop
 		}
 		prop = prop.sibling
@@ -88,12 +75,12 @@ func isString(prop *Property) bool {
 	if prop == nil {
 		return false
 	}
-	return prop.getType() == STRING
+	return prop.Type() == STRING
 }
 
 func isLong(prop *Property) bool {
 	if prop == nil {
 		return false
 	}
-	return prop.getType() == LONG
+	return prop.Type() == LONG
 }

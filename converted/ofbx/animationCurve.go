@@ -33,7 +33,7 @@ func (ac *AnimationCurve) getKeyValue() []float32 {
 type AnimationCurveNode struct {
 	Object
 	curves             [3]Curve
-	bone               *Object
+	bone               Obj
 	bone_link_property string
 	mode               CurveMode
 }
@@ -41,6 +41,14 @@ type AnimationCurveNode struct {
 type Curve struct {
 	curve      *AnimationCurve
 	connection *Connection
+}
+
+func NewAnimationCurveNode(s *Scene, e *Element) *AnimationCurveNode {
+
+	acn := AnimationCurveNode{}
+	obj := *NewObject(s, e)
+	acn.Object = obj
+	return &acn
 }
 
 func (acn *AnimationCurveNode) Type() Type {
@@ -81,6 +89,6 @@ func (acn *AnimationCurveNode) getNodeLocalTransform(time float64) Vec3 {
 	}
 }
 
-func (acn *AnimationCurveNode) getBone() *Object {
+func (acn *AnimationCurveNode) getBone() Obj {
 	return acn.bone
 }

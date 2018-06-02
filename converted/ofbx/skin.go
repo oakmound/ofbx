@@ -7,8 +7,9 @@ type Skin struct {
 
 func NewSkin(scene *Scene, element *Element) *Skin {
 	//TODO: Shoulduse NewObject here
-	s := NewObject(scene, element).(*Skin)
-	return s
+	s := Skin{}
+	s.Object = *NewObject(scene, element)
+	return &s
 }
 
 func (s *Skin) Type() Type {
@@ -16,15 +17,9 @@ func (s *Skin) Type() Type {
 }
 
 func (s *Skin) getCluster(idx int) *Cluster {
-	return clusters[idx]
+	return s.clusters[idx]
 }
 
 func (s *Skin) getClusterCount() int {
 	return len(s.clusters)
-}
-
-/// FROM CPP
-
-func (s *Skin) getType() Type {
-	return s.Type()
 }

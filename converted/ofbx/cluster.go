@@ -5,7 +5,7 @@ import "github.com/pkg/errors"
 type Cluster struct {
 	Object
 
-	link                  *Object
+	link                  Obj
 	skin                  *Skin
 	indices               []int
 	weights               []float64
@@ -46,14 +46,16 @@ func (c *Cluster) getTransformLinkMatrix() Matrix {
 	return c.transform_link_matrix
 }
 
-func (c *Cluster) getLink() *Object {
+func (c *Cluster) getLink() Obj {
 	return c.link
 }
 
 // postProcess adds the additional fields that clusters have over just object fields.
 // In this case its setting up indicies and weights
-func (c *Cluster) postProcess(scene *Scene, element *Element) bool {
-	geom := c.skin.resolveObjectLinkReverse(GEOMETRY).(*Geometry)
+func (c *Cluster) postProcess() bool {
+	element := c.Element()
+	scene := c.Scene()
+	geom := resolveObjectLinkReverse(c.skin, GEOMETRY).(*Geometry)
 	if geom == nil {
 		return false
 	}

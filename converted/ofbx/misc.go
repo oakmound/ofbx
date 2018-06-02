@@ -1,6 +1,6 @@
 package ofbx
 
-func resolveEnumProperty(object *Object, name string, default_value int) int {
+func resolveEnumProperty(object Obj, name string, default_value int) int {
 	element := resolveProperty(object, name)
 	if element == nil {
 		return default_value
@@ -13,7 +13,7 @@ func resolveEnumProperty(object *Object, name string, default_value int) int {
 	return x.value.toInt()
 }
 
-func resolveVec3Property(object *Object, name string, default_value Vec3) Vec3 {
+func resolveVec3Property(object Obj, name string, default_value Vec3) Vec3 {
 	element := resolveProperty(object, name)
 	if element == nil {
 		return default_value
@@ -41,7 +41,7 @@ func NewLimbNode(scene *Scene, element *Element) *LimbNode {
 	return ln
 }
 
-func (ln *LimbNode) getType() Type {
+func (ln *LimbNode) Type() Type {
 	return LIMB_NODE
 }
 
@@ -56,7 +56,7 @@ func NewNull(scene *Scene, element *Element) *Null {
 	return n
 }
 
-func (n *Null) getType() Type {
+func (n *Null) Type() Type {
 	return NULL_NODE
 }
 
@@ -73,7 +73,7 @@ func NewRoot(scene *Scene, element *Element) *Root {
 	return r
 }
 
-func (r *Root) getType() Type {
+func (r *Root) Type() Type {
 	return ROOT
 }
 

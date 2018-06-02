@@ -1,8 +1,7 @@
 package ofbx
 
 type Connection struct {
-	ConnectionType
-	typ      Type
+	typ      ConnectionType
 	from, to uint64
 	property string
 }
@@ -17,7 +16,7 @@ const (
 
 type ObjectPair struct {
 	element *Element
-	object  *Object
+	object  Obj
 }
 
 //const GlobalSettings* getGlobalSettings() const override { return &m_settings; }
@@ -28,7 +27,7 @@ type Scene struct {
 	m_scene_frame_rate float32 // = -1
 	m_settings         GlobalSettings
 	m_object_map       map[uint64]ObjectPair // Slice or map?
-	m_all_objects      []*Object
+	m_all_objects      []Obj
 	m_meshes           []*Mesh
 	m_animation_stacks []*AnimationStack
 	m_connections      []Connection
@@ -39,12 +38,12 @@ type Scene struct {
 func (s *Scene) getRootElement() *Element {
 	return s.m_root_element
 }
-func (s *Scene) getRoot() *Object {
+func (s *Scene) getRoot() Obj {
 	return s.m_root
 }
 func (s *Scene) getTakeInfo(name string) *TakeInfo {
-	for _, info := range m_take_infos {
-		if info.name == name {
+	for _, info := range s.m_take_infos {
+		if info.name.String() == name {
 			return &info
 		}
 	}
@@ -56,19 +55,19 @@ func (s *Scene) getSceneFrameRate() float32 {
 func (s *Scene) getMesh(index int) *Mesh {
 	//assert(index >= 0);
 	//assert(index < m_meshes.size());
-	return m_meshes[index]
+	return s.m_meshes[index]
 }
 func (s *Scene) getAnimationStack(index int) *AnimationStack {
 	//assert(index >= 0);
 	//assert(index < m_animation_stacks.size());
-	return m_animation_stacks[index]
+	return s.m_animation_stacks[index]
 
 }
-func (s *Scene) getAllObjects() []Object {
+func (s *Scene) getAllObjects() []Obj {
 	return s.m_all_objects
 }
 
-func load(data []byte) *Scene {
+func load(data []byte) (*Scene, error) {
 	s := &Scene{}
 	s.m_data = make([]byte, len(data))
 	copy(s.m_data, data)
@@ -77,25 +76,25 @@ func load(data []byte) *Scene {
 	if err != nil {
 		root, err = tokenizeText(s.m_data)
 		if err != nil {
-			return nil
+			return nil, err
 		}
 	}
 
-	scene.m_root_element = root.getValue()
+	s.m_root_element = root
 	//assert(scene.m_root_element);
 
 	// This was commented out already I didn't do it
 	//if (parseTemplates(*root.getValue()).isError()) return nil
-	if !parseConnections(*root.getValue(), scene.get()) {
-		return nil
+	if ok, err := parseConnection(root, s); !ok {
+		return nil, err
 	}
-	if !parseTakes(scene.get()) {
-		return nil
+	if ok, err := parseTakes(s); !ok {
+		return nil, err
 	}
-	if !parseObjects(*root.getValue(), scene.get()) {
-		return nil
+	if ok, err := parseObjects(root, s); !ok {
+		return nil, err
 	}
-	parseGlobalSettings(*root.getValue(), scene.get())
+	parseGlobalSettings(root, s)
 
-	return scene.release()
+	return s, nil
 }

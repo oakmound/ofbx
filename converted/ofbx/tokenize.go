@@ -16,7 +16,9 @@ type Header struct {
 	version  int
 }
 
-type Cursor bufio.Reader
+type Cursor struct {
+	bufio.Reader
+}
 
 const (
 	UINT8_BYTES  = 1
@@ -27,12 +29,12 @@ const (
 func (c *Cursor) readShortString() (string, error) {
 	length, err := c.ReadByte()
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	byt := make([]byte, int(length))
 	_, err = c.Read(byt)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	return string(byt), nil
 }
@@ -65,7 +67,7 @@ func (c *Cursor) skipInsignificantWhitespaces() error {
 		if err != nil {
 			return err
 		}
-		if unicode.IsSpace(by[0]) && by[0] != '\n' {
+		if unicode.IsSpace(by) && by != '\n' {
 			continue
 		}
 		c.UnreadRune()
@@ -83,7 +85,7 @@ func (c *Cursor) skipWhitespaces() error {
 		if err != nil {
 			return err
 		}
-		if unicode.IsSpace(by[0]) {
+		if unicode.IsSpace(by) {
 			continue
 		}
 		c.UnreadRune()
@@ -94,7 +96,7 @@ func (c *Cursor) skipWhitespaces() error {
 		if err != nil {
 			return err
 		}
-		if by[0] == ';' {
+		if by == ';' {
 			c.skipLine()
 			continue
 		}
@@ -103,7 +105,7 @@ func (c *Cursor) skipWhitespaces() error {
 	}
 }
 
-func isTextTokenChar(c rune) {
+func isTextTokenChar(c rune) bool {
 	return unicode.IsDigit(c) || unicode.IsLetter(c) || c == '_'
 }
 
@@ -120,7 +122,7 @@ func (c *Cursor) readTextToken() (*DataView, error) {
 		}
 		c.UnreadRune()
 	}
-	return &DataView{out}, nil
+	return &DataView{*out}, nil
 }
 
 func (c *Cursor) readElementOffset(version uint16) (uint64, error) {
@@ -140,47 +142,54 @@ func (c *Cursor) readBytes(len int) []byte {
 	return tempArr
 }
 
-func (c *Cursor) readProperty() *Property {
-	if c.cur > len(c.data) {
-		return errors.NewError("Reading Past End")
+func (c *Cursor) readProperty() (*Property, error) {
+	if c.Buffered() == 0 {
+		return nil, errors.New("Reading Past End")
 	}
 	prop := Property{}
 	typ, _, err := c.ReadRune()
 	if err != nil {
 		fmt.Println(err)
 	}
-	prop.typ = typ
+	prop.typ = PropertyType(typ)
+	var val string
 	switch prop.typ {
 	case 'S':
-		prop.value, err = c.readLongString()
+		val, err = c.readLongString()
 	case 'Y':
-		prop.value = c.readBytes(2)
+		val = string(c.readBytes(2))
 	case 'C':
-		prop.value = c.readBytes(1)
+		val = string(c.readBytes(1))
 	case 'I':
-		prop.value = c.readBytes(4)
+		val = string(c.readBytes(4))
 	case 'F':
-		prop.value = c.readBytes(4)
+		val = string(c.readBytes(4))
 	case 'D':
-		prop.value = c.readBytes(8)
+		val = string(c.readBytes(8))
 	case 'L':
-		prop.value = c.readBytes(8)
+		val = string(c.readBytes(8))
 	case 'R':
 		tmp := c.readBytes(4)
-		length := binary.BigEndian.Uint32(tmp)
-		prop.value = append(tmp, c.readBytes(length)...)
-	case 'b' || 'f' || 'd' || 'l' || 'i':
+		length := int(binary.BigEndian.Uint32(tmp))
+		val = string(append(tmp, c.readBytes(length)...))
+	case 'b', 'f', 'd', 'l', 'i':
 		temp := c.readBytes(8)
 		tempArr := c.readBytes(4)
-		length := binary.BigEndian.Uint32(tempArr)
-		prop.value = append(append(temp, tempArr...), c.readBytes(length)...)
+		length := int(binary.BigEndian.Uint32(tempArr))
+		val = string(append(append(temp, tempArr...), c.readBytes(length)...))
 	default:
-		errors.NewError("Did not know this property")
+		return nil, errors.New("Did not know this property")
 	}
 	if err != nil {
 		fmt.Println(err)
 	}
-	return &prop
+
+	//convert to prop
+	prop.value = &DataView{
+		*bytes.NewBufferString(val),
+	}
+
+	return &prop, nil
 }
 
 func (c *Cursor) readElement(version int) {

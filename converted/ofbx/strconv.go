@@ -1,60 +1,83 @@
 package ofbx
 
+import "strconv"
+
 func intFromString(str, end string, val *int) string {
-	*val = atoi(str)
+	v, err := strconv.Atoi(str)
+	*val = v
+	if err != nil {
+		panic("Strconv Failed.")
+	}
 	iter := 0
-	for iter < end && s[iter] != ',' {
+	for iter < len(end) && str[iter] != ',' {
 		iter++
 	}
-	if iter < end {
+	if iter < len(end) {
 		iter++
 	}
 	return str[iter:]
 }
 
 func uint64FromString(str, end string, val *uint64) string {
-	*val = strtoull(str, nullptr, 10)
+
+	v, err := strconv.ParseUint(str, 10, 64)
+	*val = v
+	if err != nil {
+		panic("Strconv Failed.")
+	}
 	iter := 0
-	for iter < end && s[iter] != ',' {
+	for iter < len(end) && str[iter] != ',' {
 		iter++
 	}
-	if iter < end {
+	if iter < len(end) {
 		iter++
 	}
 	return str[iter:]
 }
 
 func int64FromString(str, end string, val *int64) string {
-	*val = atoll(str)
+	v, err := strconv.ParseInt(str, 10, 64)
+	*val = v
+	if err != nil {
+		panic("Strconv Failed.")
+	}
 	iter := 0
-	for iter < end && s[iter] != ',' {
+	for iter < len(end) && str[iter] != ',' {
 		iter++
 	}
-	if iter < end {
+	if iter < len(end) {
 		iter++
 	}
 	return str[iter:]
 }
 
 func doubleFromString(str, end string, val *float64) string {
-	*val = atof(str)
+	v, err := strconv.ParseFloat(str, 64)
+	*val = v
+	if err != nil {
+		panic("Strconv Failed.")
+	}
 	iter := 0
-	for iter < end && s[iter] != ',' {
+	for iter < len(end) && str[iter] != ',' {
 		iter++
 	}
-	if iter < end {
+	if iter < len(end) {
 		iter++
 	}
 	return str[iter:]
 }
 
 func floatFromString(str, end string, val *float32) string {
-	*val = float32(atof(str))
+	v, err := strconv.ParseFloat(str, 32)
+	*val = float32(v)
+	if err != nil {
+		panic("Strconv Failed.")
+	}
 	iter := 0
-	for iter < end && s[iter] != ',' {
+	for iter < len(end) && str[iter] != ',' {
 		iter++
 	}
-	if iter < end {
+	if iter < len(end) {
 		iter++
 	}
 	return str[iter:]
@@ -63,32 +86,37 @@ func floatFromString(str, end string, val *float32) string {
 func fromString(str, end string, val *float64, count int) string {
 	iter := 0
 	for i := 0; i < count; i++ {
-		*val = atof(iter)
+		v, err := strconv.ParseFloat(str[iter:], 64)
+		*val = v
+		if err != nil {
+			panic("Strconv Failed.")
+		}
 		iter := 0
-		for iter < end && s[iter] != ',' {
+		for iter < len(end) && str[iter] != ',' {
 			iter++
 		}
-		if iter < end {
+		if iter < len(end) {
 			iter++
 		}
 
-		if iter == end {
+		if iter == len(end) {
 			return str[iter:]
 		}
 	}
 	return str[iter:]
 }
 
+//Todo: Convert from using pointer math...
 func vec2FromString(str, end string, val *Vec2) string {
-	return fromString(str, end, &val.x, 2)
+	return fromString(str, end, &val.X, 2)
 }
 
 func vec3FromString(str, end string, val *Vec3) string {
-	return fromString(str, end, &val.x, 3)
+	return fromString(str, end, &val.X, 3)
 }
 
 func vec4FromString(str, end string, val *Vec4) string {
-	return fromString(str, end, &val.x, 4)
+	return fromString(str, end, &val.X, 4)
 }
 
 func matrixFromString(str, end string, val *Matrix) string {
