@@ -180,6 +180,7 @@ func parseGeometry(scene *Scene, element *Element) (*Geometry, error) {
 		if mapping_element == nil || reference_element == nil {
 			return nil, errors.New("Invalid LayerElementMaterial")
 		}
+		var err error
 		tmp := make([]int, 0)
 
 		if mapping_element.first_property.value.String() == "ByPolygon" &&
@@ -194,7 +195,7 @@ func parseGeometry(scene *Scene, element *Element) (*Geometry, error) {
 				return nil, errors.New("Invalid LayerElementMaterial")
 			}
 
-			tmp, err := parseBinaryArrayInt(indices_element.first_property)
+			tmp, err = parseBinaryArrayInt(indices_element.first_property)
 			if err != nil {
 				return nil, err
 			}

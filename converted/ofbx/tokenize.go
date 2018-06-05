@@ -142,6 +142,9 @@ func (c *Cursor) readElementOffset(version uint16) (uint64, error) {
 func (c *Cursor) readBytes(len int) []byte {
 	tempArr := make([]byte, len)
 	_, err := c.Read(tempArr)
+	if err != nil {
+		fmt.Println(err)
+	}
 	return tempArr
 }
 
@@ -203,7 +206,7 @@ func (c *Cursor) readElement(version uint16) (*Element, error) {
 	if err != nil {
 		return nil, err
 	}
-	prop_length, err := c.readElementOffset(version)
+	_, err = c.readElementOffset(version)
 	if err != nil {
 		return nil, err
 	}
