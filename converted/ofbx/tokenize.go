@@ -56,7 +56,7 @@ func (c *Cursor) readShortString() (string, error) {
 }
 func (c *Cursor) readLongString() (string, error) {
 	var length uint32
-	err := binary.Read(c, binary.BigEndian, &length)
+	err := binary.Read(c, binary.LittleEndian, &length)
 	if err != nil {
 		return "", err
 	}
@@ -165,7 +165,7 @@ func (c *Cursor) readBytes(len int) []byte {
 }
 
 func (c *Cursor) readProperty() (*Property, error) {
-	if c.Buffered() == 0 {
+	if _, err := c.Peek(1); err != nil {
 		return nil, errors.New("Reading Past End")
 	}
 	prop := Property{}
@@ -193,12 +193,12 @@ func (c *Cursor) readProperty() (*Property, error) {
 		val = string(c.readBytes(8))
 	case 'R':
 		tmp := c.readBytes(4)
-		length := int(binary.BigEndian.Uint32(tmp))
+		length := int(binary.LittleEndian.Uint32(tmp))
 		val = string(append(tmp, c.readBytes(length)...))
 	case 'b', 'f', 'd', 'l', 'i':
 		temp := c.readBytes(8)
 		tempArr := c.readBytes(4)
-		length := int(binary.BigEndian.Uint32(tempArr))
+		length := int(binary.LittleEndian.Uint32(tempArr))
 		val = string(append(append(temp, tempArr...), c.readBytes(length)...))
 	default:
 		return nil, errors.New("Did not know this property:" + string(prop.typ))
@@ -208,6 +208,7 @@ func (c *Cursor) readProperty() (*Property, error) {
 	}
 
 	//convert to prop
+	fmt.Println("Read property:", val)
 	prop.value = NewDataView(val)
 
 	return &prop, nil
@@ -272,6 +273,7 @@ func (c *Cursor) readElement(version uint16) (*Element, error) {
 }
 
 func (c *Cursor) readTextProperty() (*Property, error) {
+	fmt.Println("Reading text property")
 	prop := &Property{}
 
 	r, _, err := c.ReadRune()
@@ -279,6 +281,7 @@ func (c *Cursor) readTextProperty() (*Property, error) {
 		return nil, err
 	}
 	if r == '"' {
+		fmt.Println("Quote start")
 		prop.typ = 'S'
 		prop.value = NewDataView("")
 		for {
@@ -294,10 +297,12 @@ func (c *Cursor) readTextProperty() (*Property, error) {
 			}
 			prop.value.WriteRune(r)
 		}
+		fmt.Println("Quote end", prop.value.String())
 		return prop, nil
 	}
 
 	if unicode.IsDigit(r) || r == '-' {
+		fmt.Println("Digit start")
 		prop.typ = 'L'
 		if r != '-' {
 			c.UnreadRune()
@@ -348,6 +353,7 @@ func (c *Cursor) readTextProperty() (*Property, error) {
 					r, _, err := c.ReadRune()
 					if err != nil {
 						if err == io.EOF {
+							fmt.Println("EOF?")
 							break //?
 						}
 						return nil, err
@@ -359,17 +365,21 @@ func (c *Cursor) readTextProperty() (*Property, error) {
 				}
 			}
 		}
+		fmt.Println("Digits end", prop.value.String())
 		return prop, nil
 	}
 
 	if r == 'T' || r == 'Y' {
 		// WTF is this
+		fmt.Println("WTF start")
 		prop.typ = PropertyType(r)
 		b, err := c.ReadByte()
 		prop.value = NewDataView(string(b))
+		fmt.Println("WTF end", b)
 		return prop, err
 	}
 	if r == '*' {
+		fmt.Println("Asterisk start")
 		prop.typ = 'l'
 		// Vertices: *10740 { a: 14.2760353088379,... } //Pulled from original...
 		pBytes := NewDataView("")
@@ -404,8 +414,10 @@ func (c *Cursor) readTextProperty() (*Property, error) {
 			prop.count++
 		}
 		prop.value = pBytes
+		fmt.Println("Asterisk end", prop.value.String())
 		return prop, err
 	}
+	fmt.Println("r was", string(r))
 	return nil, errors.New("TODO")
 }
 
@@ -539,7 +551,7 @@ func tokenize(data []byte) (*Element, error) {
 	cursor := &Cursor{*r}
 
 	var header Header
-	err := binary.Read(cursor, binary.BigEndian, &header)
+	err := binary.Read(cursor, binary.LittleEndian, &header)
 	if err != nil {
 		return nil, err
 	}

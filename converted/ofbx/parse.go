@@ -148,9 +148,9 @@ func parseArrayRawInt(property *Property, max_size int) ([]int, error) {
 	}
 	count := property.getCount()
 	var enc uint32
-	binary.Read(property.value, binary.BigEndian, &enc)
+	binary.Read(property.value, binary.LittleEndian, &enc)
 	var ln uint32
-	binary.Read(property.value, binary.BigEndian, &ln)
+	binary.Read(property.value, binary.LittleEndian, &ln)
 
 	if enc == 0 {
 		if ln > uint32(max_size*elem_size) {
@@ -181,13 +181,13 @@ func parseArrayRawIntEnd(r io.Reader, ln uint32, elem_size int) []int {
 	if elem_size == 4 {
 		for i := 0; i < len(out); i++ {
 			var v int32
-			binary.Read(r, binary.BigEndian, &v)
+			binary.Read(r, binary.LittleEndian, &v)
 			out[i] = int(v)
 		}
 	} else {
 		for i := 0; i < len(out); i++ {
 			var v int64
-			binary.Read(r, binary.BigEndian, &v)
+			binary.Read(r, binary.LittleEndian, &v)
 			out[i] = int(v)
 		}
 	}
@@ -204,9 +204,9 @@ func parseArrayRawInt64(property *Property, max_size int) ([]int64, error) {
 	}
 	count := property.getCount()
 	var enc uint32
-	binary.Read(property.value, binary.BigEndian, &enc)
+	binary.Read(property.value, binary.LittleEndian, &enc)
 	var ln uint32
-	binary.Read(property.value, binary.BigEndian, &ln)
+	binary.Read(property.value, binary.LittleEndian, &ln)
 
 	if enc == 0 {
 		if ln > uint32(max_size*elem_size) {
@@ -237,13 +237,13 @@ func parseArrayRawInt64End(r io.Reader, ln uint32, elem_size int) []int64 {
 	if elem_size == 4 {
 		for i := 0; i < len(out); i++ {
 			var v int32
-			binary.Read(r, binary.BigEndian, &v)
+			binary.Read(r, binary.LittleEndian, &v)
 			out[i] = int64(v)
 		}
 	} else {
 		for i := 0; i < len(out); i++ {
 			var v int64
-			binary.Read(r, binary.BigEndian, &v)
+			binary.Read(r, binary.LittleEndian, &v)
 			out[i] = v
 		}
 	}
@@ -260,9 +260,9 @@ func parseArrayRawFloat32(property *Property, max_size int) ([]float32, error) {
 	}
 	count := property.getCount()
 	var enc uint32
-	binary.Read(property.value, binary.BigEndian, &enc)
+	binary.Read(property.value, binary.LittleEndian, &enc)
 	var ln uint32
-	binary.Read(property.value, binary.BigEndian, &ln)
+	binary.Read(property.value, binary.LittleEndian, &ln)
 
 	if enc == 0 {
 		// Assuming ln is size in bytes
@@ -294,13 +294,13 @@ func parseArrayRawFloat32End(r io.Reader, ln uint32, elem_size int) []float32 {
 	if elem_size == 4 {
 		for i := 0; i < len(out); i++ {
 			var v float32
-			binary.Read(r, binary.BigEndian, &v)
+			binary.Read(r, binary.LittleEndian, &v)
 			out[i] = v
 		}
 	} else {
 		for i := 0; i < len(out); i++ {
 			var v float64
-			binary.Read(r, binary.BigEndian, &v)
+			binary.Read(r, binary.LittleEndian, &v)
 			out[i] = float32(v)
 		}
 	}
@@ -317,9 +317,9 @@ func parseArrayRawFloat64(property *Property, max_size int) ([]float64, error) {
 	}
 	count := property.getCount()
 	var enc uint32
-	binary.Read(property.value, binary.BigEndian, &enc)
+	binary.Read(property.value, binary.LittleEndian, &enc)
 	var ln uint32
-	binary.Read(property.value, binary.BigEndian, &ln)
+	binary.Read(property.value, binary.LittleEndian, &ln)
 
 	if enc == 0 {
 		// Assuming ln is size in bytes
@@ -351,13 +351,13 @@ func parseArrayRawFloat64End(r io.Reader, ln uint32, elem_size int) []float64 {
 	if elem_size == 4 {
 		for i := 0; i < len(out); i++ {
 			var v float32
-			binary.Read(r, binary.BigEndian, &v)
+			binary.Read(r, binary.LittleEndian, &v)
 			out[i] = float64(v)
 		}
 	} else {
 		for i := 0; i < len(out); i++ {
 			var v float64
-			binary.Read(r, binary.BigEndian, &v)
+			binary.Read(r, binary.LittleEndian, &v)
 			out[i] = v
 		}
 	}
