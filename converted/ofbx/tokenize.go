@@ -4,10 +4,11 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"io"
 	"unicode"
+
+	"github.com/pkg/errors"
 )
 
 type Header struct {
@@ -73,6 +74,7 @@ func (c *Cursor) skipInsignificantWhitespaces() error {
 		c.UnreadRune()
 		break
 	}
+	return nil
 }
 
 func (c *Cursor) skipLine() {
@@ -103,6 +105,7 @@ func (c *Cursor) skipWhitespaces() error {
 		c.UnreadRune()
 		break
 	}
+	return nil
 }
 
 func isTextTokenChar(c rune) bool {
@@ -185,68 +188,78 @@ func (c *Cursor) readProperty() (*Property, error) {
 	}
 
 	//convert to prop
-	prop.value = &DataView{
-		*bytes.NewBufferString(val),
-	}
+	prop.value = NewDataView(val)
 
 	return &prop, nil
 }
 
-func (c *Cursor) readElement(version int) {
-	initial
-	end_offset := c.readElementOffset(version)
-	if end_offset == 0 {
-		return nil
+func (c *Cursor) readElement(version uint16) (*Element, error) {
+	initialSize := c.Buffered()
+	end_offset, err := c.readElementOffset(version)
+	if err != nil {
+		return nil, err
 	}
-	prop_count := c.readElementOffset(version)
-	prop_length := c.readElementOffset(version)
-	id := c.readShortString()
+	prop_count, err := c.readElementOffset(version)
+	if err != nil {
+		return nil, err
+	}
+	prop_length, err := c.readElementOffset(version)
+	if err != nil {
+		return nil, err
+	}
+	id, err := c.readShortString()
+	if err != nil {
+		return nil, err
+	}
 
 	element := Element{}
-	element.id = id
+	element.id = NewDataView(id)
 
-	oldProp := *element.first_property
+	oldProp := element.first_property
 
-	for i := 0; i < prop_count; i++ {
-		prop := c.readProperty()
+	for i := uint64(0); i < prop_count; i++ {
+		prop, err := c.readProperty()
+		if err != nil {
+			return nil, err
+		}
 		oldProp.next = prop
 		oldProp = prop
 	}
 
-	if initial_size-c.Buffered() > -end_offset {
-		return element
+	if uint64(initialSize-c.Buffered()) > -end_offset {
+		return &element, nil
 	}
-	BLOCK_SENTINEL_LENGTH = 13
+	blockSentinelLength := 13
 	if version >= 7500 {
-		BLOCK_SENTINEL_LENGTH = 25
+		blockSentinelLength = 25
 	}
 
 	link := &element.child
 
-	for initial_size-c.buffered() < end_offset-BLOCK_SENTINEL_LENGTH {
-		child := c.readElement(version)
-		if child == nil {
-			fmt.Println(errors.NewError("ReadingChild element failed"))
+	for uint64(initialSize-c.Buffered()) < end_offset-uint64(blockSentinelLength) {
+		child, err := c.readElement(version)
+		if err != nil {
+			return nil, errors.Wrap(err, "ReadingChild element failed")
 		}
 		*link = child
 		link = &(*link).sibling
 	}
-	c.Discard(BLOCK_SENTINEL_LENGTH)
-	return element
+	c.Discard(blockSentinelLength)
+	return &element, nil
 }
 
 func (c *Cursor) readTextProperty() (*Property, error) {
-	prop = &Property{}
+	prop := &Property{}
 
-	r, _, err := cursor.ReadRune()
+	r, _, err := c.ReadRune()
 	if err != nil {
 		return nil, err
 	}
 	if r == '"' {
 		prop.typ = 'S'
-		prop.value = bytes.NewBuffer([]byte{})
+		prop.value = NewDataView("")
 		for {
-			r, _, err := cursor.ReadRune()
+			r, _, err := c.ReadRune()
 			if err != nil {
 				if err == io.EOF {
 					break //?
@@ -258,17 +271,17 @@ func (c *Cursor) readTextProperty() (*Property, error) {
 			}
 			prop.value.WriteRune(r)
 		}
-		return nil, prop
+		return prop, nil
 	}
 
 	if unicode.IsDigit(r) || r == '-' {
 		prop.typ = 'L'
 		if r != '-' {
-			cursor.UnreadRune()
+			c.UnreadRune()
 		}
-		prop.value = bytes.NewBuffer([]byte{})
+		prop.value = NewDataView("")
 		for {
-			r, _, err := cursor.ReadRune()
+			r, _, err := c.ReadRune()
 			if err != nil {
 				if err == io.EOF {
 					break //?
@@ -281,13 +294,13 @@ func (c *Cursor) readTextProperty() (*Property, error) {
 			prop.value.WriteRune(r)
 		}
 
-		r, _, err = cursor.ReadRune()
+		r, _, err = c.ReadRune()
 
 		if err == nil && r == '.' {
 			prop.typ = 'D'
 			prop.value.WriteRune(r)
 			for {
-				r, _, err := cursor.ReadRune()
+				r, _, err := c.ReadRune()
 				if err != nil {
 					if err == io.EOF {
 						break //?
@@ -299,17 +312,17 @@ func (c *Cursor) readTextProperty() (*Property, error) {
 				}
 				prop.value.WriteRune(r)
 			}
-			r, _, err = cursor.ReadRune()
+			r, _, err = c.ReadRune()
 			if err == nil && r == 'e' || r == 'E' {
 				// 10.5e-013
 				prop.value.WriteRune(r)
-				r, _, err = cursor.ReadRune()
-				if r != "-" || !unicode.IsDigit(r) {
+				r, _, err = c.ReadRune()
+				if r != '-' || !unicode.IsDigit(r) {
 					return nil, errors.New("malformed floating point with exponent")
 				}
 				prop.value.WriteRune(r)
 				for {
-					r, _, err := cursor.ReadRune()
+					r, _, err := c.ReadRune()
 					if err != nil {
 						if err == io.EOF {
 							break //?
@@ -326,17 +339,17 @@ func (c *Cursor) readTextProperty() (*Property, error) {
 		return prop, nil
 	}
 
-	if r == 'T'|r == 'Y' {
+	if r == 'T' || r == 'Y' {
 		// WTF is this
-		prop.typ = r
-		b, err = cursor.ReadByte()
-		prop.value = bytes.NewBuffer([]byte{b})
+		prop.typ = PropertyType(r)
+		b, err := c.ReadByte()
+		prop.value = NewDataView(string(b))
 		return prop, err
 	}
 	if r == '*' {
 		prop.typ = 'l'
 		// Vertices: *10740 { a: 14.2760353088379,... } //Pulled from original...
-		pBytes := []byte{}
+		pBytes := NewDataView("")
 		r2, _, _ := c.ReadRune()
 		pBytes.WriteRune(r2)
 		for c.Buffered() > 0 && r2 != ':' {
@@ -374,11 +387,11 @@ func (c *Cursor) readTextProperty() (*Property, error) {
 }
 
 func (c *Cursor) readTextElement() (*Element, error) {
-	id, err := cursor.readTextToken()
+	id, err := c.readTextToken()
 	if err != nil {
 		return nil, err
 	}
-	r, _, err := cursor.readRune()
+	r, _, err := c.ReadRune()
 	if err != nil {
 		return nil, err
 	}
@@ -386,7 +399,7 @@ func (c *Cursor) readTextElement() (*Element, error) {
 		return nil, errors.New("unexpected end of file")
 	}
 
-	if err = cursor.skipWhitespaces(); err != nil {
+	if err = c.skipWhitespaces(); err != nil {
 		return nil, err
 	}
 
@@ -395,7 +408,7 @@ func (c *Cursor) readTextElement() (*Element, error) {
 
 	prop_link := &element.first_property
 	for {
-		by, err := cursor.Peek(1)
+		by, err := c.Peek(1)
 		if err != nil {
 			if err == io.EOF {
 				break
@@ -405,89 +418,91 @@ func (c *Cursor) readTextElement() (*Element, error) {
 		if by[0] == '\n' || by[0] == '{' {
 			break
 		}
-		prop, err = readTextProperty(cursor)
+		prop, err := c.readTextProperty()
 		if err != nil {
 			return nil, err
 		}
-		by, err = cursor.Peek(1)
+		by, err = c.Peek(1)
 		if err != io.EOF {
 			if err != nil {
 				return nil, err
 			}
 			if by[0] == ',' {
-				cursor.Discard(1)
-				cursor.skipWhitespaces()
+				c.Discard(1)
+				c.skipWhitespaces()
 			}
 		}
-		cursor.skipInsignificantWhitespaces()
+		c.skipInsignificantWhitespaces()
 
-		*prop_link = prop.getValue()
-		prop_link = prop_link.next
+		*prop_link = prop
+		prop_link = &(*prop_link).next
 	}
 
 	link := &element.child
-	r, _, err = cursor.ReadRune()
+	r, _, err = c.ReadRune()
 	if err != nil {
 		return nil, err
 	}
 	if r == '{' {
-		cursor.skipWhitespaces()
+		c.skipWhitespaces()
 		for {
-			by, err := cursor.Peek()
+			by, err := c.Peek(1)
 			if err != nil {
 				if err == io.EOF {
 					break
 				}
 				return nil, err
 			}
-			if by[0] == "}" {
-				cursor.Discard(1)
+			if by[0] == '}' {
+				c.Discard(1)
 				break
 			}
-			child, err := readTextElement(cursor)
+			child, err := c.readTextElement()
 			if err != nil {
 				return nil, err
 			}
-			cursor.skipWhitespaces()
+			c.skipWhitespaces()
 
-			*link = child.getValue()
-			link = link.sibling
+			*link = child
+			link = &(*link).sibling
 		}
 	} else {
-		cursor.UnreadRune()
+		c.UnreadRune()
 	}
-	return nil, element
+	return element, nil
 }
 
 func tokenizeText(data []byte) (*Element, error) {
-	cursor := Cursor(bufio.NewReader(data))
+	r := bufio.NewReader(bytes.NewReader(data))
+	cursor := Cursor{*r}
 	root := &Element{}
 	element := &root.child
 	_, err := cursor.Peek(1)
 	for ; err != io.EOF; _, err = cursor.Peek(1) {
-		v, _, err = cursor.ReadRune()
+		v, _, err := cursor.ReadRune()
 		if err != nil {
 			return nil, err
 		}
 		if v == ';' || v == '\r' || v == '\n' {
-			skipLine(cursor)
+			cursor.skipLine()
 		} else {
 			child, err := cursor.readTextElement()
 			if err != nil {
 				return nil, err
 			}
-			*element = child.getValue()
+			*element = child
 			if element == nil {
 				return root, nil
 			}
-			element = element.sibling
+			element = &(*element).sibling
 		}
 	}
 	return root, nil
 }
 
 func tokenize(data []byte) (*Element, error) {
-	cursor := Cursor(bufio.NewReader(data))
+	r := bufio.NewReader(bytes.NewReader(data))
+	cursor := &Cursor{*r}
 
 	var header Header
 	err := binary.Read(cursor, binary.BigEndian, &header)
@@ -498,7 +513,7 @@ func tokenize(data []byte) (*Element, error) {
 	root := &Element{}
 	element := &root.child
 	for true {
-		child, err := readElement(&cursor, header.version)
+		child, err := cursor.readElement(uint16(header.version))
 		if err != nil {
 			return nil, err
 		}
@@ -506,6 +521,7 @@ func tokenize(data []byte) (*Element, error) {
 		if element == nil {
 			return root, nil
 		}
-		element = element.sibling
+		element = &(*element).sibling
 	}
+	return *element, nil
 }

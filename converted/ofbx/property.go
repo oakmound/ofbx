@@ -36,12 +36,12 @@ func (p *Property) getCount() int {
 	return p.count
 }
 
-func (p *Property) getValuesF32(values []float32) bool {
-	return parseArrayRawF32(p, values)
+func (p *Property) getValuesF32(maxSize int) ([]float32, error) {
+	return parseArrayRawFloat32(p, maxSize)
 }
 
-func (p *Property) getValuesInt64(values []int64) bool {
-	return parseArrayInt64(p, values)
+func (p *Property) getValuesInt64(maxSize int) ([]int64, error) {
+	return parseArrayRawInt64(p, maxSize)
 }
 
 func findChild(element *Element, id string) *Element {

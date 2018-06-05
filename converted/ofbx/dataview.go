@@ -10,6 +10,12 @@ type DataView struct {
 	bytes.Buffer
 }
 
+func NewDataView(s string) *DataView {
+	return &DataView{
+		*bytes.NewBufferString(s),
+	}
+}
+
 func (dv *DataView) Reader() *bytes.Reader {
 	return bytes.NewReader(dv.Bytes())
 }

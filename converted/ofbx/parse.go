@@ -3,10 +3,11 @@ package ofbx
 import (
 	"archive/zip"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
+
+	"github.com/pkg/errors"
 )
 
 func parseTemplates(root *Element) {
@@ -179,15 +180,128 @@ func parseArrayRawIntEnd(r io.Reader, ln uint32, elem_size int) []int {
 	out := make([]int, int(ln)/elem_size)
 	if elem_size == 4 {
 		for i := 0; i < len(out); i++ {
-			var v int
+			var v int32
 			binary.Read(r, binary.BigEndian, &v)
-			out[i] = v
+			out[i] = int(v)
 		}
 	} else {
 		for i := 0; i < len(out); i++ {
 			var v int64
 			binary.Read(r, binary.BigEndian, &v)
 			out[i] = int(v)
+		}
+	}
+	return out
+}
+
+func parseArrayRawInt64(property *Property, max_size int) ([]int64, error) {
+	if property.typ == 'd' || property.typ == 'f' {
+		return nil, errors.New("Invalid type, expected i or l")
+	}
+	elem_size := 4
+	if property.typ == 'l' {
+		elem_size = 8
+	}
+	count := property.getCount()
+	var enc uint32
+	binary.Read(property.value, binary.BigEndian, &enc)
+	var ln uint32
+	binary.Read(property.value, binary.BigEndian, &ln)
+
+	if enc == 0 {
+		if ln > uint32(max_size*elem_size) {
+			return nil, errors.New("Max size too small for array")
+		}
+		return parseArrayRawInt64End(property.value, ln, elem_size), nil
+	} else if enc == 1 {
+		if count*elem_size > max_size*elem_size {
+			return nil, errors.New("Max size too small for array")
+		}
+		zr, err := zip.NewReader(property.value.Reader(), int64(elem_size*count))
+		if err != nil {
+			return nil, err
+		}
+		// Assuming right now that zips only have one file to read
+		fr, err := zr.File[0].Open()
+		if err != nil {
+			return nil, err
+		}
+		defer fr.Close()
+		return parseArrayRawInt64End(property.value, ln, elem_size), nil
+	}
+	return nil, errors.New("Invalid encoding")
+}
+
+func parseArrayRawInt64End(r io.Reader, ln uint32, elem_size int) []int64 {
+	out := make([]int64, int(ln)/elem_size)
+	if elem_size == 4 {
+		for i := 0; i < len(out); i++ {
+			var v int32
+			binary.Read(r, binary.BigEndian, &v)
+			out[i] = int64(v)
+		}
+	} else {
+		for i := 0; i < len(out); i++ {
+			var v int64
+			binary.Read(r, binary.BigEndian, &v)
+			out[i] = v
+		}
+	}
+	return out
+}
+
+func parseArrayRawFloat32(property *Property, max_size int) ([]float32, error) {
+	if property.typ == 'i' || property.typ == 'l' {
+		return nil, errors.New("Invalid type, expected d or f")
+	}
+	elem_size := 4
+	if property.typ == 'd' {
+		elem_size = 8
+	}
+	count := property.getCount()
+	var enc uint32
+	binary.Read(property.value, binary.BigEndian, &enc)
+	var ln uint32
+	binary.Read(property.value, binary.BigEndian, &ln)
+
+	if enc == 0 {
+		// Assuming ln is size in bytes
+		if ln > uint32(max_size*elem_size) {
+			return nil, errors.New("Max size too small for array")
+		}
+		return parseArrayRawFloat32End(property.value, ln, elem_size), nil
+	} else if enc == 1 {
+		if count*elem_size > max_size*elem_size {
+			return nil, errors.New("Max size too small for array")
+		}
+		zr, err := zip.NewReader(property.value.Reader(), int64(elem_size*count))
+		if err != nil {
+			return nil, err
+		}
+		// Assuming right now that zips only have one file to read
+		fr, err := zr.File[0].Open()
+		if err != nil {
+			return nil, err
+		}
+		defer fr.Close()
+		return parseArrayRawFloat32End(property.value, ln, elem_size), nil
+	}
+	return nil, errors.New("Invalid encoding")
+}
+
+func parseArrayRawFloat32End(r io.Reader, ln uint32, elem_size int) []float32 {
+	out := make([]float32, int(ln)/elem_size)
+	if elem_size == 4 {
+		for i := 0; i < len(out); i++ {
+			var v float32
+			binary.Read(r, binary.BigEndian, &v)
+			out[i] = v
+		}
+	} else {
+		for i := 0; i < len(out); i++ {
+			var v float64
+			binary.Read(r, binary.BigEndian, &v)
+			out[i] = float32(v)
 		}
 	}
 	return out
@@ -432,14 +546,16 @@ func parseAnimationCurve(scene *Scene, element *Element) (*AnimationCurve, error
 	values := findChild(element, "KeyValueFloat")
 
 	if times != nil && times.first_property != nil {
-		curve.times = make([]int64, times.first_property.getCount())
-		if !times.first_property.getValuesInt64(curve.times) {
-			return nil, errors.New("Invalid animation curve")
+		var err error
+		curve.times, err = times.first_property.getValuesInt64(times.first_property.getCount())
+		if err != nil {
+			return nil, errors.Wrap(err, "Invalid animation curve")
 		}
 	}
 	if values != nil && values.first_property != nil {
-		curve.values = make([]float32, values.first_property.getCount())
-		if !values.first_property.getValuesF32(curve.values) {
+		var err error
+		curve.values, err = values.first_property.getValuesF32(values.first_property.getCount())
+		if err != nil {
 			return nil, errors.New("Invalid animation curve")
 		}
 	}
