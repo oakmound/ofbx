@@ -6,15 +6,30 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"strconv"
 	"unicode"
 
 	"github.com/pkg/errors"
 )
 
 type Header struct {
-	magic    [21]int
-	reserved [2]int
-	version  int
+	Magic    [21]uint8
+	Reserved [2]uint8
+	Version  uint32
+}
+
+func (h Header) String() string {
+	b := []byte{}
+	for _, n := range h.Magic {
+		b = append(b, byte(n))
+	}
+	b = append(b, ' ')
+	for _, n := range h.Reserved {
+		b = append(b, byte(n))
+	}
+	s := string(b)
+	s += " " + strconv.Itoa(int(h.Version))
+	return s
 }
 
 type Cursor struct {
@@ -124,6 +139,7 @@ func (c *Cursor) readTextToken() (*DataView, error) {
 			continue
 		}
 		c.UnreadRune()
+		break
 	}
 	return &DataView{*out}, nil
 }
@@ -131,11 +147,11 @@ func (c *Cursor) readTextToken() (*DataView, error) {
 func (c *Cursor) readElementOffset(version uint16) (uint64, error) {
 	if version >= 7500 {
 		var i uint64
-		err := binary.Read(c, binary.BigEndian, &i)
+		err := binary.Read(c, binary.LittleEndian, &i)
 		return i, err
 	}
 	var i uint32
-	err := binary.Read(c, binary.BigEndian, &i)
+	err := binary.Read(c, binary.LittleEndian, &i)
 	return uint64(i), err
 }
 
@@ -159,6 +175,7 @@ func (c *Cursor) readProperty() (*Property, error) {
 	}
 	prop.typ = PropertyType(typ)
 	var val string
+	fmt.Println("Got property type:", string(prop.typ))
 	switch prop.typ {
 	case 'S':
 		val, err = c.readLongString()
@@ -184,7 +201,7 @@ func (c *Cursor) readProperty() (*Property, error) {
 		length := int(binary.BigEndian.Uint32(tempArr))
 		val = string(append(append(temp, tempArr...), c.readBytes(length)...))
 	default:
-		return nil, errors.New("Did not know this property")
+		return nil, errors.New("Did not know this property:" + string(prop.typ))
 	}
 	if err != nil {
 		fmt.Println(err)
@@ -202,10 +219,12 @@ func (c *Cursor) readElement(version uint16) (*Element, error) {
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("Obtained element end offset", end_offset)
 	prop_count, err := c.readElementOffset(version)
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("Obtained element prop count", prop_count)
 	_, err = c.readElementOffset(version)
 	if err != nil {
 		return nil, err
@@ -214,19 +233,20 @@ func (c *Cursor) readElement(version uint16) (*Element, error) {
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("Read short string", id)
 
 	element := Element{}
 	element.id = NewDataView(id)
 
-	oldProp := element.first_property
+	oldProp := &element.first_property
 
 	for i := uint64(0); i < prop_count; i++ {
 		prop, err := c.readProperty()
 		if err != nil {
 			return nil, err
 		}
-		oldProp.next = prop
-		oldProp = prop
+		*oldProp = prop
+		oldProp = &(*prop).next
 	}
 
 	if uint64(initialSize-c.Buffered()) > -end_offset {
@@ -390,18 +410,21 @@ func (c *Cursor) readTextProperty() (*Property, error) {
 }
 
 func (c *Cursor) readTextElement() (*Element, error) {
+	fmt.Println("Read text token start")
 	id, err := c.readTextToken()
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("Read rune start")
 	r, _, err := c.ReadRune()
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("Read rune complete")
 	if r != ':' {
-		return nil, errors.New("unexpected end of file")
+		return nil, errors.New("Unexpected end of file")
 	}
-
+	fmt.Println("Skip whitespaces start")
 	if err = c.skipWhitespaces(); err != nil {
 		return nil, err
 	}
@@ -410,7 +433,9 @@ func (c *Cursor) readTextElement() (*Element, error) {
 	element.id = id
 
 	prop_link := &element.first_property
+	fmt.Println("Looping over properties")
 	for {
+		fmt.Println("Property loop")
 		by, err := c.Peek(1)
 		if err != nil {
 			if err == io.EOF {
@@ -481,16 +506,22 @@ func tokenizeText(data []byte) (*Element, error) {
 	root := &Element{}
 	element := &root.child
 	_, err := cursor.Peek(1)
+	fmt.Println("Looping tokenizeText")
 	for ; err != io.EOF; _, err = cursor.Peek(1) {
 		v, _, err := cursor.ReadRune()
 		if err != nil {
 			return nil, err
 		}
+		fmt.Println("Read rune from tokenizeText", v)
 		if v == ';' || v == '\r' || v == '\n' {
+			fmt.Println("Skipping line")
 			cursor.skipLine()
 		} else {
+			fmt.Println("Reading text element")
 			child, err := cursor.readTextElement()
+			fmt.Println("Read text element")
 			if err != nil {
+				fmt.Println("Read text element error", err)
 				return nil, err
 			}
 			*element = child
@@ -513,11 +544,15 @@ func tokenize(data []byte) (*Element, error) {
 		return nil, err
 	}
 
+	fmt.Println("Header:", header)
+
 	root := &Element{}
 	element := &root.child
-	for true {
-		child, err := cursor.readElement(uint16(header.version))
+	for {
+		fmt.Println("Reading element")
+		child, err := cursor.readElement(uint16(header.Version))
 		if err != nil {
+			fmt.Println("Read element failure", err)
 			return nil, err
 		}
 		*element = child

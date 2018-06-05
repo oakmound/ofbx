@@ -1,5 +1,7 @@
 package ofbx
 
+import "fmt"
+
 type Connection struct {
 	typ      ConnectionType
 	from, to uint64
@@ -67,14 +69,18 @@ func (s *Scene) getAllObjects() []Obj {
 	return s.m_all_objects
 }
 
-func load(data []byte) (*Scene, error) {
+func Load(data []byte) (*Scene, error) {
 	s := &Scene{}
 	s.m_data = make([]byte, len(data))
 	copy(s.m_data, data)
 
+	fmt.Println("Starting tokenize")
 	root, err := tokenize(s.m_data)
+	fmt.Println("Tokenize completed", err)
 	if err != nil {
+		fmt.Println("Starting TokenizeText")
 		root, err = tokenizeText(s.m_data)
+		fmt.Println("TokenizeText completed")
 		if err != nil {
 			return nil, err
 		}
@@ -85,15 +91,19 @@ func load(data []byte) (*Scene, error) {
 
 	// This was commented out already I didn't do it
 	//if (parseTemplates(*root.getValue()).isError()) return nil
+	fmt.Println("Starting parse connection")
 	if ok, err := parseConnection(root, s); !ok {
 		return nil, err
 	}
+	fmt.Println("Starting parse takes")
 	if ok, err := parseTakes(s); !ok {
 		return nil, err
 	}
+	fmt.Println("Starting parse objects")
 	if ok, err := parseObjects(root, s); !ok {
 		return nil, err
 	}
+	fmt.Println("Parsing global settings")
 	parseGlobalSettings(root, s)
 
 	return s, nil
