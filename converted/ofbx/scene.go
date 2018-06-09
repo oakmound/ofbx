@@ -79,8 +79,9 @@ func Load(data []byte) (*Scene, error) {
 	fmt.Println("Tokenize completed", err)
 	if err != nil {
 		fmt.Println("Starting TokenizeText")
-		root, err = tokenizeText(s.m_data)
-		fmt.Println("TokenizeText completed")
+		//TODO: reimplement
+		// root, err = tokenizeText(s.m_data)
+		// fmt.Println("TokenizeText completed")
 		if err != nil {
 			return nil, err
 		}

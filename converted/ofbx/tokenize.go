@@ -34,6 +34,8 @@ func (h Header) String() string {
 
 type Cursor struct {
 	bufio.Reader
+	readCount   int // bufio does not expose its last byte but we need this to determine how far we are...
+	initialSize int
 }
 
 const (
@@ -47,11 +49,13 @@ func (c *Cursor) readShortString() (string, error) {
 	if err != nil {
 		return "", err
 	}
+	fmt.Print("slength is ", length)
 	byt := make([]byte, int(length))
 	_, err = c.Read(byt)
 	if err != nil {
 		return "", err
 	}
+	c.readCount = c.readCount + 1 + int(length)
 	return string(byt), nil
 }
 func (c *Cursor) readLongString() (string, error) {
@@ -65,6 +69,8 @@ func (c *Cursor) readLongString() (string, error) {
 	if err != nil {
 		return "", err
 	}
+	fmt.Print(" |S Prop had ", length, "|")
+	c.readCount += 1 + int(length)
 	return string(byt), nil
 }
 
@@ -93,7 +99,8 @@ func (c *Cursor) skipInsignificantWhitespaces() error {
 }
 
 func (c *Cursor) skipLine() {
-	c.ReadLine()
+	c.ReadBytes('\n')
+	c.skipInsignificantWhitespaces()
 }
 
 func (c *Cursor) skipWhitespaces() error {
@@ -148,19 +155,22 @@ func (c *Cursor) readElementOffset(version uint16) (uint64, error) {
 	if version >= 7500 {
 		var i uint64
 		err := binary.Read(c, binary.LittleEndian, &i)
+		c.readCount += 8
 		return i, err
 	}
 	var i uint32
 	err := binary.Read(c, binary.LittleEndian, &i)
+	c.readCount += 4
 	return uint64(i), err
 }
 
-func (c *Cursor) readBytes(len int) []byte {
-	tempArr := make([]byte, len)
+func (c *Cursor) readBytes(length int) []byte {
+	tempArr := make([]byte, length)
 	_, err := c.Read(tempArr)
 	if err != nil {
 		fmt.Println(err)
 	}
+	c.readCount += length
 	return tempArr
 }
 
@@ -169,10 +179,11 @@ func (c *Cursor) readProperty() (*Property, error) {
 		return nil, errors.New("Reading Past End")
 	}
 	prop := Property{}
-	typ, _, err := c.ReadRune()
+	typ, rSize, err := c.ReadRune()
 	if err != nil {
 		fmt.Println(err)
 	}
+	c.readCount += rSize
 	prop.typ = PropertyType(typ)
 	var val string
 	fmt.Println("Got property type:", string(prop.typ))
@@ -196,10 +207,18 @@ func (c *Cursor) readProperty() (*Property, error) {
 		length := int(binary.LittleEndian.Uint32(tmp))
 		val = string(append(tmp, c.readBytes(length)...))
 	case 'b', 'f', 'd', 'l', 'i':
-		temp := c.readBytes(8)
-		tempArr := c.readBytes(4)
-		length := int(binary.LittleEndian.Uint32(tempArr))
-		val = string(append(append(temp, tempArr...), c.readBytes(length)...))
+		unCompressedLength := c.readBytes(4)
+		encoding := c.readBytes(4)
+		compressedLength := c.readBytes(4)
+		length := int(binary.LittleEndian.Uint32(unCompressedLength))
+		if int(binary.LittleEndian.Uint32(encoding)) == 1 {
+			length = int(binary.LittleEndian.Uint32(compressedLength))
+		}
+		fmt.Println("prop's length", length, "props encoding", encoding)
+		temp := append(unCompressedLength, encoding...)
+		temp = append(temp, compressedLength...)
+		temp = append(temp, c.readBytes(length)...)
+		val = string(temp)
 	default:
 		return nil, errors.New("Did not know this property:" + string(prop.typ))
 	}
@@ -215,7 +234,11 @@ func (c *Cursor) readProperty() (*Property, error) {
 }
 
 func (c *Cursor) readElement(version uint16) (*Element, error) {
-	initialSize := c.Buffered()
+
+	c.readCount = 0
+	v, _ := c.Peek(20)
+	fmt.Println("Peek for this element", v, "and string ", string(v))
+
 	end_offset, err := c.readElementOffset(version)
 	if err != nil {
 		return nil, err
@@ -226,10 +249,11 @@ func (c *Cursor) readElement(version uint16) (*Element, error) {
 		return nil, err
 	}
 	fmt.Println("Obtained element prop count", prop_count)
-	_, err = c.readElementOffset(version)
+	prop_list_length, err := c.readElementOffset(version)
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("Obtained property list length", prop_list_length)
 	id, err := c.readShortString()
 	if err != nil {
 		return nil, err
@@ -250,7 +274,8 @@ func (c *Cursor) readElement(version uint16) (*Element, error) {
 		oldProp = &(*prop).next
 	}
 
-	if uint64(initialSize-c.Buffered()) > -end_offset {
+	if uint64(c.readCount) >= end_offset {
+		fmt.Print("NO Sentinel sizes ", c.readCount, end_offset)
 		return &element, nil
 	}
 	blockSentinelLength := 13
@@ -259,9 +284,12 @@ func (c *Cursor) readElement(version uint16) (*Element, error) {
 	}
 
 	link := &element.child
-
-	for uint64(initialSize-c.Buffered()) < end_offset-uint64(blockSentinelLength) {
+	readBytes := c.readCount
+	c.readCount = 0
+	fmt.Print("sizes pre children ", c.readCount, end_offset, uint64(blockSentinelLength))
+	for uint64(c.readCount) <= end_offset-uint64(blockSentinelLength) {
 		child, err := c.readElement(version)
+		readBytes += c.readCount
 		if err != nil {
 			return nil, errors.Wrap(err, "ReadingChild element failed")
 		}
@@ -269,6 +297,7 @@ func (c *Cursor) readElement(version uint16) (*Element, error) {
 		link = &(*link).sibling
 	}
 	c.Discard(blockSentinelLength)
+	fmt.Println("With Sentinel", uint64(c.readCount), "versus", end_offset)
 	return &element, nil
 }
 
@@ -385,9 +414,11 @@ func (c *Cursor) readTextProperty() (*Property, error) {
 		pBytes := NewDataView("")
 		r2, _, _ := c.ReadRune()
 		pBytes.WriteRune(r2)
-		for c.Buffered() > 0 && r2 != ':' {
+		_, err := c.Peek(1)
+		for err == nil && r2 != ':' {
 			r2, _, _ = c.ReadRune()
 			pBytes.WriteRune(r2)
+			_, err = c.Peek(1)
 		}
 
 		c.skipInsignificantWhitespaces() //We assume it is insignificat so dont add to buff
@@ -395,7 +426,8 @@ func (c *Cursor) readTextProperty() (*Property, error) {
 		prop.count = 0
 
 		is_any := false
-		for c.Buffered() > 0 && r2 != '}' {
+		_, err = c.Peek(1)
+		for err == nil && r2 != '}' {
 			if r2 == ',' {
 				if is_any {
 					prop.count++
@@ -409,6 +441,7 @@ func (c *Cursor) readTextProperty() (*Property, error) {
 			}
 			r2, _, _ = c.ReadRune()
 			pBytes.WriteRune(r2)
+			_, err = c.Peek(1)
 		}
 		if is_any {
 			prop.count++
@@ -512,9 +545,11 @@ func (c *Cursor) readTextElement() (*Element, error) {
 	return element, nil
 }
 
+//Todo: make this matter
 func tokenizeText(data []byte) (*Element, error) {
-	r := bufio.NewReader(bytes.NewReader(data))
-	cursor := Cursor{*r}
+	bytesR := bytes.NewReader(data)
+	r := bufio.NewReader(bytesR)
+	cursor := Cursor{*r, 0, r.Buffered()}
 	root := &Element{}
 	element := &root.child
 	_, err := cursor.Peek(1)
@@ -547,8 +582,10 @@ func tokenizeText(data []byte) (*Element, error) {
 }
 
 func tokenize(data []byte) (*Element, error) {
-	r := bufio.NewReader(bytes.NewReader(data))
-	cursor := &Cursor{*r}
+	bytesR := bytes.NewReader(data)
+	r := bufio.NewReaderSize(bytesR, len(data))
+	cursor := &Cursor{*r, 0, int(bytesR.Size())}
+	fmt.Println("initial stats: ", cursor.initialSize, r.Buffered(), len(data))
 
 	var header Header
 	err := binary.Read(cursor, binary.LittleEndian, &header)
