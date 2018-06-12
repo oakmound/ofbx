@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 
@@ -16,12 +15,7 @@ func main() {
 		log.Fatal(err)
 	}
 	fmt.Println("File opened")
-	data, err := ioutil.ReadAll(f)
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println("File read")
-	scene, err := ofbx.Load(data)
+	scene, err := ofbx.Load(f)
 	if err != nil {
 		log.Fatal(err)
 	}

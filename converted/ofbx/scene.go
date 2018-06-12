@@ -1,6 +1,9 @@
 package ofbx
 
-import "fmt"
+import (
+	"fmt"
+	"io"
+)
 
 type Connection struct {
 	typ      ConnectionType
@@ -69,18 +72,15 @@ func (s *Scene) getAllObjects() []Obj {
 	return s.m_all_objects
 }
 
-func Load(data []byte) (*Scene, error) {
+func Load(r io.Reader) (*Scene, error) {
 	s := &Scene{}
-	s.m_data = make([]byte, len(data))
-	copy(s.m_data, data)
-
 	fmt.Println("Starting tokenize")
-	root, err := tokenize(s.m_data)
+	root, err := tokenize(r)
 	fmt.Println("Tokenize completed", err)
 	if err != nil {
 		fmt.Println("Starting TokenizeText")
 		//TODO: reimplement
-		// root, err = tokenizeText(s.m_data)
+		// root, err = tokenizeText(r)
 		// fmt.Println("TokenizeText completed")
 		if err != nil {
 			return nil, err
