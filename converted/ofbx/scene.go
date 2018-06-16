@@ -74,11 +74,12 @@ func (s *Scene) getAllObjects() []Obj {
 
 func Load(r io.Reader) (*Scene, error) {
 	s := &Scene{}
+	s.m_object_map = make(map[uint64]ObjectPair)
 	fmt.Println("Starting tokenize")
 	root, err := tokenize(r)
-	fmt.Println("Tokenize completed", err)
+	fmt.Println("Tokenize completed")
 	if err != nil {
-		fmt.Println("Starting TokenizeText")
+		//fmt.Println("Starting TokenizeText")
 		//TODO: reimplement
 		// root, err = tokenizeText(r)
 		// fmt.Println("TokenizeText completed")

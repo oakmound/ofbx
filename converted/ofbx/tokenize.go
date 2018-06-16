@@ -230,14 +230,21 @@ func (c *Cursor) readProperty() (*Property, error) {
 	return &prop, nil
 }
 
-var (
-	recursionDepth = 0
-)
-
 func (c *Cursor) readElement(version uint16) (*Element, error) {
-	fmt.Println("Reading new element at depth", recursionDepth)
-	v, _ := c.Peek(20)
-	fmt.Println("Peek for this element", v, "and string ", string(v))
+	v, _ := c.Peek(12)
+	footer := true
+	for _, b := range v {
+		if b != 0 {
+			footer = false
+			break
+		}
+	}
+	if footer {
+		// Note we don't actually read the footer contents yet,
+		// as far as we know the footer holds no useful information
+		fmt.Println("Returning footer")
+		return nil, nil
+	}
 
 	end_offset, err := c.readElementOffset(version)
 	if err != nil {
@@ -285,7 +292,6 @@ func (c *Cursor) readElement(version uint16) (*Element, error) {
 
 	link := &element.child
 	fmt.Print("sizes pre children ", c.ReadSoFar(), end_offset, uint64(blockSentinelLength))
-	recursionDepth++
 	for uint64(c.ReadSoFar()) < end_offset-uint64(blockSentinelLength) {
 		child, err := c.readElement(version)
 		if err != nil {
@@ -297,7 +303,6 @@ func (c *Cursor) readElement(version uint16) (*Element, error) {
 			fmt.Println("Read past where we were supposed to!!", c.ReadSoFar(), end_offset)
 		}
 	}
-	recursionDepth--
 	if uint64(c.ReadSoFar()) > end_offset {
 		fmt.Println("Read past where we were supposed to!!", c.ReadSoFar(), end_offset)
 	}
@@ -610,10 +615,9 @@ func tokenize(r io.Reader) (*Element, error) {
 			return nil, err
 		}
 		*element = child
-		if element == nil {
+		if child == nil {
 			return root, nil
 		}
 		element = &(*element).sibling
 	}
-	return *element, nil
 }
