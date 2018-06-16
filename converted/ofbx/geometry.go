@@ -221,7 +221,7 @@ func parseGeometry(scene *Scene, element *Element) (*Geometry, error) {
 		for layer_uv_element != nil {
 			uv_index := 0
 			if layer_uv_element.first_property != nil {
-				uv_index = layer_uv_element.first_property.getValue().toInt()
+				uv_index = int(layer_uv_element.first_property.getValue().toInt32())
 			}
 			if uv_index >= 0 && uv_index < geom.UVSMax() {
 				tmp, tmp_indices, mapping, err := parseVertexDataVec2(layer_uv_element, "UV", "UVIndex")

@@ -147,17 +147,13 @@ func parseArrayRawInt(property *Property, max_size int) ([]int, error) {
 		elem_size = 8
 	}
 	count := property.getCount()
-	var enc uint32
-	binary.Read(property.value, binary.LittleEndian, &enc)
-	var ln uint32
-	binary.Read(property.value, binary.LittleEndian, &ln)
 
-	if enc == 0 {
-		if ln > uint32(max_size*elem_size) {
+	if property.encoding == 0 {
+		if property.compressedLength > uint32(max_size*elem_size) {
 			return nil, errors.New("Max size too small for array")
 		}
-		return parseArrayRawIntEnd(property.value, ln, elem_size), nil
-	} else if enc == 1 {
+		return parseArrayRawIntEnd(property.value, property.compressedLength, elem_size), nil
+	} else if property.encoding == 1 {
 		if count*elem_size > max_size*elem_size {
 			return nil, errors.New("Max size too small for array")
 		}
@@ -171,7 +167,7 @@ func parseArrayRawInt(property *Property, max_size int) ([]int, error) {
 			return nil, err
 		}
 		defer fr.Close()
-		return parseArrayRawIntEnd(property.value, ln, elem_size), nil
+		return parseArrayRawIntEnd(property.value, property.compressedLength, elem_size), nil
 	}
 	return nil, errors.New("Invalid encoding")
 }
@@ -203,31 +199,28 @@ func parseArrayRawInt64(property *Property, max_size int) ([]int64, error) {
 		elem_size = 8
 	}
 	count := property.getCount()
-	var enc uint32
-	binary.Read(property.value, binary.LittleEndian, &enc)
-	var ln uint32
-	binary.Read(property.value, binary.LittleEndian, &ln)
-
-	if enc == 0 {
-		if ln > uint32(max_size*elem_size) {
+	if property.encoding == 0 {
+		if property.compressedLength > uint32(max_size*elem_size) {
 			return nil, errors.New("Max size too small for array")
 		}
-		return parseArrayRawInt64End(property.value, ln, elem_size), nil
-	} else if enc == 1 {
+		return parseArrayRawInt64End(property.value, property.compressedLength, elem_size), nil
+	} else if property.encoding == 1 {
 		if count*elem_size > max_size*elem_size {
 			return nil, errors.New("Max size too small for array")
 		}
+
 		zr, err := zip.NewReader(property.value.Reader(), int64(elem_size*count))
 		if err != nil {
-			return nil, err
+			fmt.Println("Sizes: ", elem_size, count, elem_size*count)
+			return nil, errors.Wrap(err, "Zip new Reader fails")
 		}
 		// Assuming right now that zips only have one file to read
 		fr, err := zr.File[0].Open()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "Zip single file assumption fails")
 		}
 		defer fr.Close()
-		return parseArrayRawInt64End(property.value, ln, elem_size), nil
+		return parseArrayRawInt64End(property.value, property.compressedLength, elem_size), nil
 	}
 	return nil, errors.New("Invalid encoding")
 }
@@ -259,18 +252,14 @@ func parseArrayRawFloat32(property *Property, max_size int) ([]float32, error) {
 		elem_size = 8
 	}
 	count := property.getCount()
-	var enc uint32
-	binary.Read(property.value, binary.LittleEndian, &enc)
-	var ln uint32
-	binary.Read(property.value, binary.LittleEndian, &ln)
 
-	if enc == 0 {
+	if property.encoding == 0 {
 		// Assuming ln is size in bytes
-		if ln > uint32(max_size*elem_size) {
+		if property.compressedLength > uint32(max_size*elem_size) {
 			return nil, errors.New("Max size too small for array")
 		}
-		return parseArrayRawFloat32End(property.value, ln, elem_size), nil
-	} else if enc == 1 {
+		return parseArrayRawFloat32End(property.value, property.compressedLength, elem_size), nil
+	} else if property.encoding == 1 {
 		if count*elem_size > max_size*elem_size {
 			return nil, errors.New("Max size too small for array")
 		}
@@ -284,7 +273,7 @@ func parseArrayRawFloat32(property *Property, max_size int) ([]float32, error) {
 			return nil, err
 		}
 		defer fr.Close()
-		return parseArrayRawFloat32End(property.value, ln, elem_size), nil
+		return parseArrayRawFloat32End(property.value, property.compressedLength, elem_size), nil
 	}
 	return nil, errors.New("Invalid encoding")
 }
@@ -316,18 +305,14 @@ func parseArrayRawFloat64(property *Property, max_size int) ([]float64, error) {
 		elem_size = 8
 	}
 	count := property.getCount()
-	var enc uint32
-	binary.Read(property.value, binary.LittleEndian, &enc)
-	var ln uint32
-	binary.Read(property.value, binary.LittleEndian, &ln)
 
-	if enc == 0 {
+	if property.encoding == 0 {
 		// Assuming ln is size in bytes
-		if ln > uint32(max_size*elem_size) {
+		if property.compressedLength > uint32(max_size*elem_size) {
 			return nil, errors.New("Max size too small for array")
 		}
-		return parseArrayRawFloat64End(property.value, ln, elem_size), nil
-	} else if enc == 1 {
+		return parseArrayRawFloat64End(property.value, property.compressedLength, elem_size), nil
+	} else if property.encoding == 1 {
 		if count*elem_size > max_size*elem_size {
 			return nil, errors.New("Max size too small for array")
 		}
@@ -341,7 +326,7 @@ func parseArrayRawFloat64(property *Property, max_size int) ([]float64, error) {
 			return nil, err
 		}
 		defer fr.Close()
-		return parseArrayRawFloat64End(property.value, ln, elem_size), nil
+		return parseArrayRawFloat64End(property.value, property.compressedLength, elem_size), nil
 	}
 	return nil, errors.New("Invalid encoding")
 }
@@ -549,18 +534,18 @@ func parseAnimationCurve(scene *Scene, element *Element) (*AnimationCurve, error
 		var err error
 		curve.times, err = times.first_property.getValuesInt64(times.first_property.getCount())
 		if err != nil {
-			return nil, errors.Wrap(err, "Invalid animation curve")
+			return nil, errors.Wrap(err, "Invalid animation curve: times error")
 		}
 	}
 	if values != nil && values.first_property != nil {
 		var err error
 		curve.values, err = values.first_property.getValuesF32(values.first_property.getCount())
 		if err != nil {
-			return nil, errors.New("Invalid animation curve")
+			return nil, errors.New("Invalid animation curve: values error")
 		}
 	}
 	if len(curve.times) != len(curve.values) {
-		return nil, errors.New("Invalid animation curve")
+		return nil, errors.New("Invalid animation curve: len error")
 	}
 	return curve, nil
 }
@@ -662,7 +647,7 @@ func parseGlobalSettings(root *Element, scene *Scene) {
 							prop := node.getProperty(4)
 							if prop != nil {
 								value := prop.getValue()
-								scene.m_settings.UpAxis = UpVector(value.toInt())
+								scene.m_settings.UpAxis = UpVector(int(value.toInt32()))
 							}
 						}
 
@@ -670,7 +655,7 @@ func parseGlobalSettings(root *Element, scene *Scene) {
 							prop := node.getProperty(4)
 							if prop != nil {
 								value := prop.getValue()
-								scene.m_settings.UpAxisSign = value.toInt()
+								scene.m_settings.UpAxisSign = int(value.toInt32())
 							}
 						}
 
@@ -678,7 +663,7 @@ func parseGlobalSettings(root *Element, scene *Scene) {
 							prop := node.getProperty(4)
 							if prop != nil {
 								value := prop.getValue()
-								scene.m_settings.FrontAxis = FrontVector(value.toInt())
+								scene.m_settings.FrontAxis = FrontVector(int(value.toInt32()))
 							}
 						}
 
@@ -686,7 +671,7 @@ func parseGlobalSettings(root *Element, scene *Scene) {
 							prop := node.getProperty(4)
 							if prop != nil {
 								value := prop.getValue()
-								scene.m_settings.FrontAxisSign = value.toInt()
+								scene.m_settings.FrontAxisSign = int(value.toInt32())
 							}
 						}
 
@@ -694,7 +679,7 @@ func parseGlobalSettings(root *Element, scene *Scene) {
 							prop := node.getProperty(4)
 							if prop != nil {
 								value := prop.getValue()
-								scene.m_settings.CoordAxis = CoordSystem(value.toInt())
+								scene.m_settings.CoordAxis = CoordSystem(int(value.toInt32()))
 							}
 						}
 
@@ -702,7 +687,7 @@ func parseGlobalSettings(root *Element, scene *Scene) {
 							prop := node.getProperty(4)
 							if prop != nil {
 								value := prop.getValue()
-								scene.m_settings.CoordAxisSign = value.toInt()
+								scene.m_settings.CoordAxisSign = int(value.toInt32())
 							}
 						}
 
@@ -710,7 +695,7 @@ func parseGlobalSettings(root *Element, scene *Scene) {
 							prop := node.getProperty(4)
 							if prop != nil {
 								value := prop.getValue()
-								scene.m_settings.OriginalUpAxis = value.toInt()
+								scene.m_settings.OriginalUpAxis = int(value.toInt32())
 							}
 						}
 
@@ -718,7 +703,7 @@ func parseGlobalSettings(root *Element, scene *Scene) {
 							prop := node.getProperty(4)
 							if prop != nil {
 								value := prop.getValue()
-								scene.m_settings.OriginalUpAxisSign = value.toInt()
+								scene.m_settings.OriginalUpAxisSign = int(value.toInt32())
 							}
 						}
 
@@ -758,7 +743,7 @@ func parseGlobalSettings(root *Element, scene *Scene) {
 							prop := node.getProperty(4)
 							if prop != nil {
 								value := prop.getValue()
-								scene.m_settings.TimeMode = FrameRate(value.toInt())
+								scene.m_settings.TimeMode = FrameRate(int(value.toInt32()))
 							}
 						}
 
@@ -781,6 +766,7 @@ func parseGlobalSettings(root *Element, scene *Scene) {
 }
 
 func parseObjects(root *Element, scene *Scene) (bool, error) {
+	fmt.Println("Starting object Parse")
 	objs := findChild(root, "Objects")
 	if objs == nil {
 		return true, nil
@@ -794,18 +780,18 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 		if !isLong(object.first_property) {
 			return false, errors.New("Invalid")
 		}
-
 		id := object.first_property.value.touint64()
 		scene.m_object_map[id] = ObjectPair{object, nil}
 		object = object.sibling
 	}
-
+	fmt.Println("Iterating through the object map")
 	for k, iter := range scene.m_object_map {
 		var obj Obj
 		var err error
 		if iter.object == scene.m_root {
 			continue
 		}
+		fmt.Println("Printing for ", iter.element.id.String())
 
 		if iter.element.id.String() == "Geometry" {
 			last_prop := iter.element.first_property
@@ -872,6 +858,8 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 			obj.SetID(k)
 		}
 	}
+
+	fmt.Println("Parsing connections")
 	for _, con := range scene.m_connections {
 		parent := scene.m_object_map[con.to].object
 		child := scene.m_object_map[con.from].object
@@ -977,6 +965,7 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 		}
 	}
 
+	fmt.Println("Parsing clusters?")
 	for _, iter := range scene.m_object_map {
 		obj := iter.object
 		if obj == nil {

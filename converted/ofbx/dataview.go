@@ -38,8 +38,8 @@ func (dv *DataView) toint64() int64 {
 	return i
 }
 
-func (dv *DataView) toInt() int {
-	var i int
+func (dv *DataView) toInt32() int32 {
+	var i int32
 	err := binary.Read(dv, binary.LittleEndian, &i)
 	if err != nil {
 		fmt.Println("binary read failure:", err)

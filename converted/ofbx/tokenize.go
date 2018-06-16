@@ -204,6 +204,7 @@ func (c *Cursor) readProperty() (*Property, error) {
 		length := int(binary.LittleEndian.Uint32(compressedLength))
 		if int(binary.LittleEndian.Uint32(encoding)) == 0 {
 			elemCount := int(binary.LittleEndian.Uint32(unCompressedLength))
+			prop.count = elemCount
 			switch prop.typ {
 			case 'f', 'i':
 				length = elemCount * 4
@@ -211,11 +212,11 @@ func (c *Cursor) readProperty() (*Property, error) {
 				length = elemCount * 8
 			}
 		}
+		prop.encoding = binary.LittleEndian.Uint32(encoding)
+		prop.unCompressedLength = binary.LittleEndian.Uint32(unCompressedLength)
+		prop.compressedLength = binary.LittleEndian.Uint32(compressedLength)
 		fmt.Println("prop lengths", unCompressedLength, compressedLength, "props encoding", encoding)
-		temp := append(unCompressedLength, encoding...)
-		temp = append(temp, compressedLength...)
-		temp = append(temp, c.readBytes(length)...)
-		val = string(temp)
+		val = string(c.readBytes(length))
 	default:
 		return nil, errors.New("Did not know this property:" + string(prop.typ))
 	}

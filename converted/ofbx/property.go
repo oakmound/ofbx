@@ -15,10 +15,13 @@ const (
 )
 
 type Property struct {
-	count int
-	typ   PropertyType
-	value *DataView
-	next  *Property
+	count              int
+	typ                PropertyType
+	value              *DataView
+	next               *Property
+	encoding           uint32
+	compressedLength   uint32
+	unCompressedLength uint32
 }
 
 func (p *Property) Type() PropertyType {
@@ -34,6 +37,10 @@ func (p *Property) getValue() *DataView {
 
 func (p *Property) getCount() int {
 	return p.count
+}
+
+func (p *Property) getEncoding() uint32 {
+	return p.encoding
 }
 
 func (p *Property) getValuesF32(maxSize int) ([]float32, error) {

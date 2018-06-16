@@ -10,7 +10,7 @@ func resolveEnumProperty(object Obj, name string, default_value int) int {
 		return default_value
 	}
 
-	return x.value.toInt()
+	return int(x.value.toInt32())
 }
 
 func resolveVec3Property(object Obj, name string, default_value Vec3) Vec3 {
