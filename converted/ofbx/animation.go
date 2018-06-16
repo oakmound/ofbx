@@ -5,7 +5,8 @@ type AnimationStack struct {
 }
 
 func NewAnimationStack(scene *Scene, element *Element) *AnimationStack {
-	return &AnimationStack{}
+	o := *NewObject(scene, element)
+	return &AnimationStack{o}
 }
 
 func (as *AnimationStack) Type() Type {
@@ -22,7 +23,8 @@ type AnimationLayer struct {
 }
 
 func NewAnimationLayer(scene *Scene, element *Element) *AnimationLayer {
-	return &AnimationLayer{}
+	o := *NewObject(scene, element)
+	return &AnimationLayer{o, nil}
 }
 
 func (as *AnimationLayer) Type() Type {

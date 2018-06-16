@@ -15,13 +15,12 @@ const (
 )
 
 type Property struct {
-	count              int
-	typ                PropertyType
-	value              *DataView
-	next               *Property
-	encoding           uint32
-	compressedLength   uint32
-	unCompressedLength uint32
+	count            int
+	typ              PropertyType
+	value            *DataView
+	next             *Property
+	encoding         uint32
+	compressedLength uint32
 }
 
 func (p *Property) Type() PropertyType {

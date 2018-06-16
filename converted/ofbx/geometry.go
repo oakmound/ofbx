@@ -1,6 +1,9 @@
 package ofbx
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 type VertexDataMapping int
 
@@ -14,7 +17,6 @@ const s_uvs_max = 4
 
 type Geometry struct {
 	Object
-
 	skin *Skin
 
 	vertices, normals, tangents []Vec3
@@ -149,11 +151,12 @@ func parseGeometry(scene *Scene, element *Element) (*Geometry, error) {
 	if polys_element == nil || polys_element.first_property == nil {
 		return nil, errors.New("Geometry Indicies missing")
 	}
-
+	fmt.Println("Geometry parsing arrays")
 	vertices, err := parseDoubleVecDataVec3(vertices_element.first_property)
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("Parsing binary int array")
 	original_indices, err := parseBinaryArrayInt(polys_element.first_property)
 	if err != nil {
 		return nil, err

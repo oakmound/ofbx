@@ -15,7 +15,8 @@ type AnimationCurve struct {
 }
 
 func NewAnimationCurve(scene *Scene, element *Element) *AnimationCurve {
-	return &AnimationCurve{}
+	o := *NewObject(scene, element)
+	return &AnimationCurve{o, nil, nil}
 }
 
 func (ac *AnimationCurve) Type() Type {

@@ -6,7 +6,9 @@ type NodeAttribute struct {
 }
 
 func NewNodeAttribute(scene *Scene, element *Element) *NodeAttribute {
-	return nil
+	o := *NewObject(scene, element)
+
+	return &NodeAttribute{o, nil}
 }
 
 func (na *NodeAttribute) Type() Type {

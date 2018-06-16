@@ -63,6 +63,9 @@ func parseBinaryArrayInt(property *Property) ([]int, error) {
 		return nil, errors.New("Invalid type")
 	}
 	elem_count := 4 / elem_size
+	if elem_count == 0 {
+		return []int{}, nil
+	}
 	return parseArrayRawInt(property, count/elem_count)
 }
 
@@ -82,7 +85,11 @@ func parseBinaryArrayFloat64(property *Property) ([]float64, error) {
 	default:
 		return nil, errors.New("invalid type")
 	}
-	elem_count := 4 / elem_size
+
+	elem_count := 4.0 / elem_size
+	if elem_count == 0 {
+		return []float64{}, nil
+	}
 	return parseArrayRawFloat64(property, count/elem_count)
 }
 
@@ -157,7 +164,8 @@ func parseArrayRawInt(property *Property, max_size int) ([]int, error) {
 		if count*elem_size > max_size*elem_size {
 			return nil, errors.New("Max size too small for array")
 		}
-		zr, err := zip.NewReader(property.value.Reader(), int64(elem_size*count))
+		fmt.Println("Sizes for raw int arr parsing", elem_size, count, int64(property.value.Len()), property.typ, property.compressedLength, property.getCount())
+		zr, err := zip.NewReader(property.value.Reader(), int64(property.value.Len()))
 		if err != nil {
 			return nil, err
 		}
@@ -167,7 +175,7 @@ func parseArrayRawInt(property *Property, max_size int) ([]int, error) {
 			return nil, err
 		}
 		defer fr.Close()
-		return parseArrayRawIntEnd(property.value, property.compressedLength, elem_size), nil
+		return parseArrayRawIntEnd(fr, property.compressedLength, elem_size), nil
 	}
 	return nil, errors.New("Invalid encoding")
 }
@@ -800,6 +808,9 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 			}
 			if last_prop != nil && last_prop.value.String() == "Mesh" {
 				obj, err = parseGeometry(scene, iter.element)
+				if err != nil {
+					return false, err
+				}
 			}
 		} else if iter.element.id.String() == "Material" {
 			obj = parseMaterial(scene, iter.element)
@@ -822,12 +833,18 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 				v := class_prop.getValue().String()
 				if v == "Cluster" {
 					obj, err = parseCluster(scene, iter.element)
+					if err != nil {
+						return false, err
+					}
 				} else if v == "Skin" {
 					obj = NewSkin(scene, iter.element)
 				}
 			}
 		} else if iter.element.id.String() == "NodeAttribute" {
 			obj, err = parseNodeAttribute(scene, iter.element)
+			if err != nil {
+				return false, err
+			}
 		} else if iter.element.id.String() == "Model" {
 			class_prop := iter.element.getProperty(2)
 			if class_prop != nil {
