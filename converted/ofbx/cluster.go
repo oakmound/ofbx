@@ -101,7 +101,7 @@ func parseCluster(scene *Scene, element *Element) (*Cluster, error) {
 	obj := NewCluster(scene, element)
 	transform_link := findChild(element, "TransformLink")
 	if transform_link != nil && transform_link.first_property != nil {
-		mx, err := parseArrayRawFloat64(transform_link.first_property, 16)
+		mx, err := parseArrayRawFloat64(transform_link.first_property)
 		if err != nil {
 			return nil, errors.Wrap(err, "Failed to parse TransformLink")
 		}
@@ -112,7 +112,7 @@ func parseCluster(scene *Scene, element *Element) (*Cluster, error) {
 	}
 	transform := findChild(element, "Transform")
 	if transform != nil && transform.first_property != nil {
-		mx, err := parseArrayRawFloat64(transform.first_property, 16)
+		mx, err := parseArrayRawFloat64(transform.first_property)
 		if err != nil {
 			return nil, errors.Wrap(err, "Failed to parse TransformLink")
 		}
@@ -123,8 +123,6 @@ func parseCluster(scene *Scene, element *Element) (*Cluster, error) {
 	}
 	return obj, nil
 }
-
-//from cpp
 
 func (c *Cluster) getType() Type {
 	return c.Type()

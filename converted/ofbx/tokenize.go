@@ -223,8 +223,6 @@ func (c *Cursor) readProperty() (*Property, error) {
 		fmt.Println(err)
 	}
 
-	//convert to prop
-	fmt.Println("Read property:", val)
 	prop.value = NewDataView(val)
 
 	return &prop, nil

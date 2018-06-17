@@ -166,7 +166,8 @@ func parseGeometry(scene *Scene, element *Element) (*Geometry, error) {
 	geom.vertices = make([]Vec3, len(geom.to_old_vertices))
 
 	for i, vIdx := range geom.to_old_vertices {
-		geom.vertices[i] = vertices[vIdx]
+		v := vertices[vIdx]
+		geom.vertices[i] = v
 	}
 
 	geom.to_new_vertices = make([]Vertex, len(geom.vertices))

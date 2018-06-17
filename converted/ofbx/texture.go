@@ -15,7 +15,6 @@ type Texture struct {
 }
 
 func NewTexture(scene *Scene, element *Element) *Texture {
-	//TODO: Shoulduse NewObject here
 	t := &Texture{
 		Object: *NewObject(scene, element),
 	}

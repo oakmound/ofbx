@@ -14,6 +14,31 @@ const (
 	ARRAY_FLOAT  PropertyType = 'f'
 )
 
+var (
+	propertyTypeSizes = map[PropertyType]int{
+		DOUBLE:       8,
+		INTEGER:      4,
+		LONG:         8,
+		FLOAT:        4,
+		ARRAY_DOUBLE: 8,
+		ARRAY_INT:    4,
+		ARRAY_LONG:   8,
+		ARRAY_FLOAT:  4,
+	}
+)
+
+func (pt PropertyType) Size() int {
+	return propertyTypeSizes[pt]
+}
+
+func (pt PropertyType) IsArray() bool {
+	switch pt {
+	case ARRAY_DOUBLE, ARRAY_FLOAT, ARRAY_INT, ARRAY_LONG:
+		return true
+	}
+	return false
+}
+
 type Property struct {
 	count            int
 	typ              PropertyType
@@ -42,12 +67,12 @@ func (p *Property) getEncoding() uint32 {
 	return p.encoding
 }
 
-func (p *Property) getValuesF32(maxSize int) ([]float32, error) {
-	return parseArrayRawFloat32(p, maxSize)
+func (p *Property) getValuesF32() ([]float32, error) {
+	return parseArrayRawFloat32(p)
 }
 
-func (p *Property) getValuesInt64(maxSize int) ([]int64, error) {
-	return parseArrayRawInt64(p, maxSize)
+func (p *Property) getValuesInt64() ([]int64, error) {
+	return parseArrayRawInt64(p)
 }
 
 func findChild(element *Element, id string) *Element {

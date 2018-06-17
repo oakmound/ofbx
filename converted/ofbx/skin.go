@@ -6,7 +6,6 @@ type Skin struct {
 }
 
 func NewSkin(scene *Scene, element *Element) *Skin {
-	//TODO: Shoulduse NewObject here
 	s := Skin{}
 	s.Object = *NewObject(scene, element)
 	return &s

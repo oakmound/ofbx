@@ -1,7 +1,7 @@
 package ofbx
 
 import (
-	"archive/zip"
+	"compress/zlib"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -51,22 +51,10 @@ func parseBinaryArrayInt(property *Property) ([]int, error) {
 	if count == 0 {
 		return []int{}, nil
 	}
-	elem_size := 1
-	switch property.typ {
-	case 'd':
-		elem_size = 8
-	case 'f':
-		elem_size = 4
-	case 'i':
-		elem_size = 4
-	default:
+	if !property.typ.IsArray() {
 		return nil, errors.New("Invalid type")
 	}
-	elem_count := 4 / elem_size
-	if elem_count == 0 {
-		return []int{}, nil
-	}
-	return parseArrayRawInt(property, count/elem_count)
+	return parseArrayRawInt(property)
 }
 
 func parseBinaryArrayFloat64(property *Property) ([]float64, error) {
@@ -74,23 +62,10 @@ func parseBinaryArrayFloat64(property *Property) ([]float64, error) {
 	if count == 0 {
 		return []float64{}, nil
 	}
-	elem_size := 1
-	switch property.typ {
-	case 'd':
-		elem_size = 8
-	case 'f':
-		elem_size = 4
-	case 'i':
-		elem_size = 4
-	default:
-		return nil, errors.New("invalid type")
+	if !property.typ.IsArray() {
+		return nil, errors.New("Invalid type")
 	}
-
-	elem_count := 4.0 / elem_size
-	if elem_count == 0 {
-		return []float64{}, nil
-	}
-	return parseArrayRawFloat64(property, count/elem_count)
+	return parseArrayRawFloat64(property)
 }
 
 // This might not work??
@@ -145,37 +120,19 @@ func parseBinaryArrayVec4(property *Property) ([]Vec4, error) {
 	return vs, nil
 }
 
-func parseArrayRawInt(property *Property, max_size int) ([]int, error) {
+func parseArrayRawInt(property *Property) ([]int, error) {
 	if property.typ == 'd' || property.typ == 'f' {
 		return nil, errors.New("Invalid type, expected i or l")
 	}
-	elem_size := 4
-	if property.typ == 'l' {
-		elem_size = 8
-	}
-	count := property.getCount()
-
 	if property.encoding == 0 {
-		if property.compressedLength > uint32(max_size*elem_size) {
-			return nil, errors.New("Max size too small for array")
-		}
-		return parseArrayRawIntEnd(property.value, property.compressedLength, elem_size), nil
+		return parseArrayRawIntEnd(property.value, property.compressedLength, property.typ.Size()), nil
 	} else if property.encoding == 1 {
-		if count*elem_size > max_size*elem_size {
-			return nil, errors.New("Max size too small for array")
-		}
-		fmt.Println("Sizes for raw int arr parsing", elem_size, count, int64(property.value.Len()), property.typ, property.compressedLength, property.getCount())
-		zr, err := zip.NewReader(property.value.Reader(), int64(property.value.Len()))
+		zr, err := zlib.NewReader(property.value.Reader())
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "New Reader failed")
 		}
-		// Assuming right now that zips only have one file to read
-		fr, err := zr.File[0].Open()
-		if err != nil {
-			return nil, err
-		}
-		defer fr.Close()
-		return parseArrayRawIntEnd(fr, property.compressedLength, elem_size), nil
+		defer zr.Close()
+		return parseArrayRawIntEnd(zr, property.compressedLength, property.typ.Size()), nil
 	}
 	return nil, errors.New("Invalid encoding")
 }
@@ -198,37 +155,19 @@ func parseArrayRawIntEnd(r io.Reader, ln uint32, elem_size int) []int {
 	return out
 }
 
-func parseArrayRawInt64(property *Property, max_size int) ([]int64, error) {
+func parseArrayRawInt64(property *Property) ([]int64, error) {
 	if property.typ == 'd' || property.typ == 'f' {
 		return nil, errors.New("Invalid type, expected i or l")
 	}
-	elem_size := 4
-	if property.typ == 'l' {
-		elem_size = 8
-	}
-	count := property.getCount()
 	if property.encoding == 0 {
-		if property.compressedLength > uint32(max_size*elem_size) {
-			return nil, errors.New("Max size too small for array")
-		}
-		return parseArrayRawInt64End(property.value, property.compressedLength, elem_size), nil
+		return parseArrayRawInt64End(property.value, property.compressedLength, property.typ.Size()), nil
 	} else if property.encoding == 1 {
-		if count*elem_size > max_size*elem_size {
-			return nil, errors.New("Max size too small for array")
-		}
-
-		zr, err := zip.NewReader(property.value.Reader(), int64(elem_size*count))
+		zr, err := zlib.NewReader(property.value.Reader())
 		if err != nil {
-			fmt.Println("Sizes: ", elem_size, count, elem_size*count)
-			return nil, errors.Wrap(err, "Zip new Reader fails")
+			return nil, errors.Wrap(err, "New Reader failed")
 		}
-		// Assuming right now that zips only have one file to read
-		fr, err := zr.File[0].Open()
-		if err != nil {
-			return nil, errors.Wrap(err, "Zip single file assumption fails")
-		}
-		defer fr.Close()
-		return parseArrayRawInt64End(property.value, property.compressedLength, elem_size), nil
+		defer zr.Close()
+		return parseArrayRawInt64End(zr, property.compressedLength, property.typ.Size()), nil
 	}
 	return nil, errors.New("Invalid encoding")
 }
@@ -251,37 +190,19 @@ func parseArrayRawInt64End(r io.Reader, ln uint32, elem_size int) []int64 {
 	return out
 }
 
-func parseArrayRawFloat32(property *Property, max_size int) ([]float32, error) {
+func parseArrayRawFloat32(property *Property) ([]float32, error) {
 	if property.typ == 'i' || property.typ == 'l' {
 		return nil, errors.New("Invalid type, expected d or f")
 	}
-	elem_size := 4
-	if property.typ == 'd' {
-		elem_size = 8
-	}
-	count := property.getCount()
-
 	if property.encoding == 0 {
-		// Assuming ln is size in bytes
-		if property.compressedLength > uint32(max_size*elem_size) {
-			return nil, errors.New("Max size too small for array")
-		}
-		return parseArrayRawFloat32End(property.value, property.compressedLength, elem_size), nil
+		return parseArrayRawFloat32End(property.value, property.compressedLength, property.typ.Size()), nil
 	} else if property.encoding == 1 {
-		if count*elem_size > max_size*elem_size {
-			return nil, errors.New("Max size too small for array")
-		}
-		zr, err := zip.NewReader(property.value.Reader(), int64(elem_size*count))
+		zr, err := zlib.NewReader(property.value.Reader())
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "New Reader failed")
 		}
-		// Assuming right now that zips only have one file to read
-		fr, err := zr.File[0].Open()
-		if err != nil {
-			return nil, err
-		}
-		defer fr.Close()
-		return parseArrayRawFloat32End(property.value, property.compressedLength, elem_size), nil
+		defer zr.Close()
+		return parseArrayRawFloat32End(zr, property.compressedLength, property.typ.Size()), nil
 	}
 	return nil, errors.New("Invalid encoding")
 }
@@ -304,37 +225,19 @@ func parseArrayRawFloat32End(r io.Reader, ln uint32, elem_size int) []float32 {
 	return out
 }
 
-func parseArrayRawFloat64(property *Property, max_size int) ([]float64, error) {
+func parseArrayRawFloat64(property *Property) ([]float64, error) {
 	if property.typ == 'i' || property.typ == 'l' {
 		return nil, errors.New("Invalid type, expected d or f")
 	}
-	elem_size := 4
-	if property.typ == 'd' {
-		elem_size = 8
-	}
-	count := property.getCount()
-
 	if property.encoding == 0 {
-		// Assuming ln is size in bytes
-		if property.compressedLength > uint32(max_size*elem_size) {
-			return nil, errors.New("Max size too small for array")
-		}
-		return parseArrayRawFloat64End(property.value, property.compressedLength, elem_size), nil
+		return parseArrayRawFloat64End(property.value, property.compressedLength, property.typ.Size()), nil
 	} else if property.encoding == 1 {
-		if count*elem_size > max_size*elem_size {
-			return nil, errors.New("Max size too small for array")
-		}
-		zr, err := zip.NewReader(property.value.Reader(), int64(elem_size*count))
+		zr, err := zlib.NewReader(property.value.Reader())
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "New Reader failed")
 		}
-		// Assuming right now that zips only have one file to read
-		fr, err := zr.File[0].Open()
-		if err != nil {
-			return nil, err
-		}
-		defer fr.Close()
-		return parseArrayRawFloat64End(property.value, property.compressedLength, elem_size), nil
+		defer zr.Close()
+		return parseArrayRawFloat64End(zr, property.compressedLength, property.typ.Size()), nil
 	}
 	return nil, errors.New("Invalid encoding")
 }
@@ -540,14 +443,14 @@ func parseAnimationCurve(scene *Scene, element *Element) (*AnimationCurve, error
 
 	if times != nil && times.first_property != nil {
 		var err error
-		curve.times, err = times.first_property.getValuesInt64(times.first_property.getCount())
+		curve.times, err = times.first_property.getValuesInt64()
 		if err != nil {
 			return nil, errors.Wrap(err, "Invalid animation curve: times error")
 		}
 	}
 	if values != nil && values.first_property != nil {
 		var err error
-		curve.values, err = values.first_property.getValuesF32(values.first_property.getCount())
+		curve.values, err = values.first_property.getValuesF32()
 		if err != nil {
 			return nil, errors.New("Invalid animation curve: values error")
 		}
