@@ -58,13 +58,14 @@ func (s *Scene) getSceneFrameRate() float32 {
 	return s.m_scene_frame_rate
 }
 func (s *Scene) getMesh(index int) *Mesh {
-	//assert(index >= 0);
-	//assert(index < m_meshes.size());
 	return s.m_meshes[index]
 }
-func (s *Scene) getAnimationStack(index int) *AnimationStack {
-	//assert(index >= 0);
-	//assert(index < m_animation_stacks.size());
+
+func (s *Scene) GetAnimationStacks() []*AnimationStack {
+	return s.m_animation_stacks
+}
+
+func (s *Scene) GetAnimationStack(index int) *AnimationStack {
 	return s.m_animation_stacks[index]
 
 }

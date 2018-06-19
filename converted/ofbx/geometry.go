@@ -108,7 +108,7 @@ func (g *Geometry) triangulate(old_indices []int) []int {
 	for i := 0; i < len(old_indices); i++ {
 		idx := old_indices[i]
 		if idx < 0 {
-			idx = -idx - 1
+			idx = (-idx) - 1
 		}
 
 		if in_polygon_idx <= 2 {

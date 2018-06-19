@@ -23,6 +23,29 @@ const (
 	ANIMATION_CURVE_NODE Type = iota
 )
 
+var (
+	typeStrings = map[Type]string{
+		ROOT:                 "root",
+		GEOMETRY:             "geometry",
+		MATERIAL:             "material",
+		MESH:                 "mesh",
+		TEXTURE:              "texture",
+		LIMB_NODE:            "limb node",
+		NULL_NODE:            "null node",
+		NODE_ATTRIBUTE:       "node attribute",
+		CLUSTER:              "cluster",
+		SKIN:                 "skin",
+		ANIMATION_STACK:      "animation stack",
+		ANIMATION_LAYER:      "animation layer",
+		ANIMATION_CURVE:      "animation curve",
+		ANIMATION_CURVE_NODE: "animation curve node",
+	}
+)
+
+func (t Type) String() string {
+	return typeStrings[t]
+}
+
 type RotationOrder int
 
 const (

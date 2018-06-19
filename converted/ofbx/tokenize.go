@@ -143,7 +143,7 @@ func (c *Cursor) readTextToken() (*DataView, error) {
 		c.UnreadRune()
 		break
 	}
-	return &DataView{*out}, nil
+	return BufferDataView(out), nil
 }
 
 func (c *Cursor) readElementOffset(version uint16) (uint64, error) {
@@ -320,7 +320,7 @@ func (c *Cursor) readTextProperty() (*Property, error) {
 	if r == '"' {
 		fmt.Println("Quote start")
 		prop.typ = 'S'
-		prop.value = NewDataView("")
+		val := bytes.NewBuffer([]byte{})
 		for {
 			r, _, err := c.ReadRune()
 			if err != nil {
@@ -332,8 +332,9 @@ func (c *Cursor) readTextProperty() (*Property, error) {
 			if r == '"' {
 				break
 			}
-			prop.value.WriteRune(r)
+			val.WriteRune(r)
 		}
+		prop.value = BufferDataView(val)
 		fmt.Println("Quote end", prop.value.String())
 		return prop, nil
 	}
@@ -344,7 +345,7 @@ func (c *Cursor) readTextProperty() (*Property, error) {
 		if r != '-' {
 			c.UnreadRune()
 		}
-		prop.value = NewDataView("")
+		val := bytes.NewBuffer([]byte{})
 		for {
 			r, _, err := c.ReadRune()
 			if err != nil {
@@ -356,14 +357,14 @@ func (c *Cursor) readTextProperty() (*Property, error) {
 			if !unicode.IsDigit(r) {
 				break
 			}
-			prop.value.WriteRune(r)
+			val.WriteRune(r)
 		}
 
 		r, _, err = c.ReadRune()
 
 		if err == nil && r == '.' {
 			prop.typ = 'D'
-			prop.value.WriteRune(r)
+			val.WriteRune(r)
 			for {
 				r, _, err := c.ReadRune()
 				if err != nil {
@@ -375,17 +376,17 @@ func (c *Cursor) readTextProperty() (*Property, error) {
 				if !unicode.IsDigit(r) {
 					break
 				}
-				prop.value.WriteRune(r)
+				val.WriteRune(r)
 			}
 			r, _, err = c.ReadRune()
 			if err == nil && r == 'e' || r == 'E' {
 				// 10.5e-013
-				prop.value.WriteRune(r)
+				val.WriteRune(r)
 				r, _, err = c.ReadRune()
 				if r != '-' || !unicode.IsDigit(r) {
 					return nil, errors.New("malformed floating point with exponent")
 				}
-				prop.value.WriteRune(r)
+				val.WriteRune(r)
 				for {
 					r, _, err := c.ReadRune()
 					if err != nil {
@@ -398,10 +399,11 @@ func (c *Cursor) readTextProperty() (*Property, error) {
 					if !unicode.IsDigit(r) {
 						break
 					}
-					prop.value.WriteRune(r)
+					val.WriteRune(r)
 				}
 			}
 		}
+		prop.value = BufferDataView(val)
 		fmt.Println("Digits end", prop.value.String())
 		return prop, nil
 	}
@@ -419,7 +421,7 @@ func (c *Cursor) readTextProperty() (*Property, error) {
 		fmt.Println("Asterisk start")
 		prop.typ = 'l'
 		// Vertices: *10740 { a: 14.2760353088379,... } //Pulled from original...
-		pBytes := NewDataView("")
+		pBytes := bytes.NewBuffer([]byte{})
 		r2, _, _ := c.ReadRune()
 		pBytes.WriteRune(r2)
 		_, err := c.Peek(1)
@@ -454,7 +456,7 @@ func (c *Cursor) readTextProperty() (*Property, error) {
 		if is_any {
 			prop.count++
 		}
-		prop.value = pBytes
+		prop.value = BufferDataView(pBytes)
 		fmt.Println("Asterisk end", prop.value.String())
 		return prop, err
 	}

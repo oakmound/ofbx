@@ -10,7 +10,7 @@ import (
 
 func main() {
 	fmt.Println("Starting main")
-	f, err := os.Open("a.FBX")
+	f, err := os.Open("character3.FBX")
 	if err != nil {
 		log.Fatal(err)
 	}

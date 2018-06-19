@@ -1,5 +1,9 @@
 package ofbx
 
+import (
+	"io"
+)
+
 type Object struct {
 	id             uint64
 	name           string
@@ -105,12 +109,14 @@ func resolveObjectLink(o Obj, typ Type, property string, idx int) Obj {
 func resolveObjectLinkReverse(o Obj, typ Type) Obj {
 	var id uint64
 	if o.Element().getFirstProperty() != nil {
-		id = o.Element().getFirstProperty().getValue().touint64()
+		rdr := o.Element().getFirstProperty().getValue()
+		rdr.Seek(0, io.SeekStart)
+		id = rdr.touint64()
 	}
 	for _, conn := range o.Scene().m_connections {
-		if conn.to == id && conn.from != 0 {
+		//fmt.Println("Connection iterated", id, conn.from, conn.to)
+		if conn.from == id && conn.to != 0 {
 			obj := o.Scene().m_object_map[conn.to].object
-
 			if obj != nil && obj.Type() == typ {
 				return obj
 			}

@@ -4,20 +4,35 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"io"
 )
 
 type DataView struct {
-	bytes.Buffer
+	bytes.Reader
 }
 
 func NewDataView(s string) *DataView {
 	return &DataView{
-		*bytes.NewBufferString(s),
+		*bytes.NewReader([]byte(s)),
 	}
 }
 
-func (dv *DataView) Reader() *bytes.Reader {
-	return bytes.NewReader(dv.Bytes())
+func BufferDataView(buff *bytes.Buffer) *DataView {
+	return &DataView{
+		*bytes.NewReader(buff.Bytes()),
+	}
+}
+
+func (dv *DataView) String() string {
+	ln := dv.Len()
+	data := make([]byte, ln)
+	_, err := dv.Read(data)
+	if err != nil {
+		fmt.Println(err)
+	}
+	// Todo: maybe don't do this?
+	dv.Seek(0, io.SeekStart)
+	return string(data)
 }
 
 func (dv *DataView) touint64() uint64 {

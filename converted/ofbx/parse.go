@@ -98,7 +98,11 @@ func parseBinaryArrayVec3(property *Property) ([]Vec3, error) {
 		return nil, err
 	}
 	vs := make([]Vec3, len(f64s)/3)
-	for i := 0; i < len(f64s); i += 3 {
+	// len(f64s) should probably be divisible by 3
+	if len(f64s)%3 != 0 {
+		fmt.Println("Vec3 binary array not made up of Vec3s")
+	}
+	for i := 0; (i + 2) < len(f64s); i += 3 {
 		vs[i/3].X = f64s[i]
 		vs[i/3].Y = f64s[i+1]
 		vs[i/3].Z = f64s[i+2]
@@ -125,32 +129,33 @@ func parseArrayRawInt(property *Property) ([]int, error) {
 		return nil, errors.New("Invalid type, expected i or l")
 	}
 	if property.encoding == 0 {
-		return parseArrayRawIntEnd(property.value, property.compressedLength, property.typ.Size()), nil
+		return parseArrayRawIntEnd(property.value, property.count, property.typ.Size()), nil
 	} else if property.encoding == 1 {
-		zr, err := zlib.NewReader(property.value.Reader())
+		zr, err := zlib.NewReader(&property.value.Reader)
 		if err != nil {
 			return nil, errors.Wrap(err, "New Reader failed")
 		}
 		defer zr.Close()
-		return parseArrayRawIntEnd(zr, property.compressedLength, property.typ.Size()), nil
+		return parseArrayRawIntEnd(zr, property.count, property.typ.Size()), nil
 	}
 	return nil, errors.New("Invalid encoding")
 }
 
-func parseArrayRawIntEnd(r io.Reader, ln uint32, elem_size int) []int {
-	out := make([]int, int(ln)/elem_size)
+func parseArrayRawIntEnd(r io.Reader, ln int, elem_size int) []int {
 	if elem_size == 4 {
-		for i := 0; i < len(out); i++ {
-			var v int32
-			binary.Read(r, binary.LittleEndian, &v)
-			out[i] = int(v)
+		i32s := make([]int32, int(ln))
+		binary.Read(r, binary.LittleEndian, i32s)
+		out := make([]int, len(i32s))
+		for i, f := range i32s {
+			out[i] = int(f)
 		}
-	} else {
-		for i := 0; i < len(out); i++ {
-			var v int64
-			binary.Read(r, binary.LittleEndian, &v)
-			out[i] = int(v)
-		}
+		return out
+	}
+	i64s := make([]int64, int(ln))
+	binary.Read(r, binary.LittleEndian, i64s)
+	out := make([]int, len(i64s))
+	for i, f := range i64s {
+		out[i] = int(f)
 	}
 	return out
 }
@@ -160,33 +165,30 @@ func parseArrayRawInt64(property *Property) ([]int64, error) {
 		return nil, errors.New("Invalid type, expected i or l")
 	}
 	if property.encoding == 0 {
-		return parseArrayRawInt64End(property.value, property.compressedLength, property.typ.Size()), nil
+		return parseArrayRawInt64End(property.value, property.count, property.typ.Size()), nil
 	} else if property.encoding == 1 {
-		zr, err := zlib.NewReader(property.value.Reader())
+		zr, err := zlib.NewReader(&property.value.Reader)
 		if err != nil {
 			return nil, errors.Wrap(err, "New Reader failed")
 		}
 		defer zr.Close()
-		return parseArrayRawInt64End(zr, property.compressedLength, property.typ.Size()), nil
+		return parseArrayRawInt64End(zr, property.count, property.typ.Size()), nil
 	}
 	return nil, errors.New("Invalid encoding")
 }
 
-func parseArrayRawInt64End(r io.Reader, ln uint32, elem_size int) []int64 {
-	out := make([]int64, int(ln)/elem_size)
+func parseArrayRawInt64End(r io.Reader, ln int, elem_size int) []int64 {
 	if elem_size == 4 {
-		for i := 0; i < len(out); i++ {
-			var v int32
-			binary.Read(r, binary.LittleEndian, &v)
-			out[i] = int64(v)
+		i32s := make([]int32, int(ln))
+		binary.Read(r, binary.LittleEndian, i32s)
+		out := make([]int64, len(i32s))
+		for i, f := range i32s {
+			out[i] = int64(f)
 		}
-	} else {
-		for i := 0; i < len(out); i++ {
-			var v int64
-			binary.Read(r, binary.LittleEndian, &v)
-			out[i] = v
-		}
+		return out
 	}
+	out := make([]int64, int(ln))
+	binary.Read(r, binary.LittleEndian, out)
 	return out
 }
 
@@ -195,32 +197,29 @@ func parseArrayRawFloat32(property *Property) ([]float32, error) {
 		return nil, errors.New("Invalid type, expected d or f")
 	}
 	if property.encoding == 0 {
-		return parseArrayRawFloat32End(property.value, property.compressedLength, property.typ.Size()), nil
+		return parseArrayRawFloat32End(property.value, property.count, property.typ.Size()), nil
 	} else if property.encoding == 1 {
-		zr, err := zlib.NewReader(property.value.Reader())
+		zr, err := zlib.NewReader(&property.value.Reader)
 		if err != nil {
 			return nil, errors.Wrap(err, "New Reader failed")
 		}
 		defer zr.Close()
-		return parseArrayRawFloat32End(zr, property.compressedLength, property.typ.Size()), nil
+		return parseArrayRawFloat32End(zr, property.count, property.typ.Size()), nil
 	}
 	return nil, errors.New("Invalid encoding")
 }
 
-func parseArrayRawFloat32End(r io.Reader, ln uint32, elem_size int) []float32 {
-	out := make([]float32, int(ln)/elem_size)
+func parseArrayRawFloat32End(r io.Reader, ln int, elem_size int) []float32 {
 	if elem_size == 4 {
-		for i := 0; i < len(out); i++ {
-			var v float32
-			binary.Read(r, binary.LittleEndian, &v)
-			out[i] = v
-		}
-	} else {
-		for i := 0; i < len(out); i++ {
-			var v float64
-			binary.Read(r, binary.LittleEndian, &v)
-			out[i] = float32(v)
-		}
+		out := make([]float32, int(ln))
+		binary.Read(r, binary.LittleEndian, out)
+		return out
+	}
+	f64s := make([]float64, int(ln))
+	binary.Read(r, binary.LittleEndian, f64s)
+	out := make([]float32, len(f64s))
+	for i, f := range f64s {
+		out[i] = float32(f)
 	}
 	return out
 }
@@ -230,33 +229,30 @@ func parseArrayRawFloat64(property *Property) ([]float64, error) {
 		return nil, errors.New("Invalid type, expected d or f")
 	}
 	if property.encoding == 0 {
-		return parseArrayRawFloat64End(property.value, property.compressedLength, property.typ.Size()), nil
+		return parseArrayRawFloat64End(property.value, property.count, property.typ.Size()), nil
 	} else if property.encoding == 1 {
-		zr, err := zlib.NewReader(property.value.Reader())
+		zr, err := zlib.NewReader(&property.value.Reader)
 		if err != nil {
 			return nil, errors.Wrap(err, "New Reader failed")
 		}
 		defer zr.Close()
-		return parseArrayRawFloat64End(zr, property.compressedLength, property.typ.Size()), nil
+		return parseArrayRawFloat64End(zr, property.count, property.typ.Size()), nil
 	}
 	return nil, errors.New("Invalid encoding")
 }
 
-func parseArrayRawFloat64End(r io.Reader, ln uint32, elem_size int) []float64 {
-	out := make([]float64, int(ln)/elem_size)
+func parseArrayRawFloat64End(r io.Reader, ln int, elem_size int) []float64 {
 	if elem_size == 4 {
-		for i := 0; i < len(out); i++ {
-			var v float32
-			binary.Read(r, binary.LittleEndian, &v)
-			out[i] = float64(v)
+		f32s := make([]float32, int(ln))
+		binary.Read(r, binary.LittleEndian, f32s)
+		out := make([]float64, len(f32s))
+		for i, f := range f32s {
+			out[i] = float64(f)
 		}
-	} else {
-		for i := 0; i < len(out); i++ {
-			var v float64
-			binary.Read(r, binary.LittleEndian, &v)
-			out[i] = v
-		}
+		return out
 	}
+	out := make([]float64, int(ln))
+	binary.Read(r, binary.LittleEndian, out)
 	return out
 }
 

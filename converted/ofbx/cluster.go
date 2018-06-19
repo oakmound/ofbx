@@ -54,8 +54,8 @@ func (c *Cluster) getLink() Obj {
 // In this case its setting up indicies and weights
 func (c *Cluster) postProcess() bool {
 	element := c.Element()
-	geom := resolveObjectLinkReverse(c.skin, GEOMETRY).(*Geometry)
-	if geom == nil {
+	geom, ok := resolveObjectLinkReverse(c.skin, GEOMETRY).(*Geometry)
+	if !ok {
 		return false
 	}
 	var old_indices []int
