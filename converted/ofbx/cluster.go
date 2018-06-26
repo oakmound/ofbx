@@ -60,16 +60,16 @@ func (c *Cluster) postProcess() bool {
 	}
 	var old_indices []int
 	var err error
-	indexes := findChild(element, "Indexes")
-	if indexes != nil && indexes.first_property != nil {
-		if old_indices, err = parseBinaryArrayInt(indexes.first_property); err != nil {
+	prop := findChildProperty(element, "Indexes")
+	if prop != nil {
+		if old_indices, err = parseBinaryArrayInt(prop); err != nil {
 			return false
 		}
 	}
 	var old_weights []float64
-	weights_el := findChild(element, "Weights")
-	if weights_el != nil && weights_el.first_property != nil {
-		if old_weights, err = parseBinaryArrayFloat64(weights_el.first_property); err != nil {
+	prop = findChildProperty(element, "Weights")
+	if prop != nil {
+		if old_weights, err = parseBinaryArrayFloat64(prop); err != nil {
 			return false
 		}
 	}
@@ -99,9 +99,10 @@ func (c *Cluster) postProcess() bool {
 
 func parseCluster(scene *Scene, element *Element) (*Cluster, error) {
 	obj := NewCluster(scene, element)
-	transform_link := findChild(element, "TransformLink")
-	if transform_link != nil && transform_link.first_property != nil {
-		mx, err := parseArrayRawFloat64(transform_link.first_property)
+
+	prop := findChildProperty(element, "TransformLink")
+	if prop != nil {
+		mx, err := parseArrayRawFloat64(prop)
 		if err != nil {
 			return nil, errors.Wrap(err, "Failed to parse TransformLink")
 		}
@@ -110,9 +111,9 @@ func parseCluster(scene *Scene, element *Element) (*Cluster, error) {
 			return nil, errors.Wrap(err, "Failed to parse TransformLink")
 		}
 	}
-	transform := findChild(element, "Transform")
-	if transform != nil && transform.first_property != nil {
-		mx, err := parseArrayRawFloat64(transform.first_property)
+	prop = findChildProperty(element, "Transform")
+	if prop != nil {
+		mx, err := parseArrayRawFloat64(prop)
 		if err != nil {
 			return nil, errors.Wrap(err, "Failed to parse TransformLink")
 		}

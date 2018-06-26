@@ -75,29 +75,37 @@ func (p *Property) getValuesInt64() ([]int64, error) {
 	return parseArrayRawInt64(p)
 }
 
-func findChild(element *Element, id string) *Element {
-	iter := element.child
-	for iter != nil {
-		if iter.id.String() == id {
-			return iter
+func findChildren(element *Element, id string) []*Element {
+	iterables := element.children
+	for idx, val := range iterables {
+		if val.id.String() == id {
+			return iterables[idx:]
 		}
-		iter = iter.sibling
+	}
+	return []*Element{}
+}
+
+func findChildProperty(element *Element, id string) *Property {
+	iterables := element.children
+	for idx, val := range iterables {
+		if val.id.String() == id {
+			return iterables[idx].first_property
+		}
 	}
 	return nil
 }
 
 func resolveProperty(obj Obj, name string) *Element {
-	props := findChild(obj.Element(), "Properties70")
+	props := findChildren(obj.Element(), "Properties70")
 	if props == nil {
 		return nil
 	}
 
-	prop := props.child
-	for prop != nil {
+	props = props[0].children
+	for _, prop := range props {
 		if prop.first_property != nil && prop.first_property.value.String() == name {
 			return prop
 		}
-		prop = prop.sibling
 	}
 	return nil
 }

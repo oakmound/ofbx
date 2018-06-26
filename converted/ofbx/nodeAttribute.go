@@ -21,9 +21,9 @@ func (na NodeAttribute) getAttributeType() *DataView {
 
 func parseNodeAttribute(scene *Scene, element *Element) (*NodeAttribute, error) {
 	na := NewNodeAttribute(scene, element)
-	type_flags := findChild(element, "TypeFlags")
-	if type_flags != nil && type_flags.first_property != nil {
-		na.attribute_type = type_flags.first_property.value
+	typeFlags := findChildProperty(element, "TypeFlags")
+	if typeFlags != nil {
+		na.attribute_type = typeFlags.value
 	}
 	return na, nil
 }

@@ -288,15 +288,13 @@ func (c *Cursor) readElement(version uint16) (*Element, error) {
 		blockSentinelLength = 25
 	}
 
-	link := &element.child
 	fmt.Print("sizes pre children ", c.ReadSoFar(), end_offset, uint64(blockSentinelLength))
 	for uint64(c.ReadSoFar()) < end_offset-uint64(blockSentinelLength) {
 		child, err := c.readElement(version)
 		if err != nil {
 			return nil, errors.Wrap(err, "ReadingChild element failed")
 		}
-		*link = child
-		link = &(*link).sibling
+		element.children = append(element.children, child)
 		if uint64(c.ReadSoFar()) > end_offset {
 			fmt.Println("Read past where we were supposed to!!", c.ReadSoFar(), end_offset)
 		}
@@ -521,7 +519,6 @@ func (c *Cursor) readTextElement() (*Element, error) {
 		prop_link = &(*prop_link).next
 	}
 
-	link := &element.child
 	r, _, err = c.ReadRune()
 	if err != nil {
 		return nil, err
@@ -546,8 +543,7 @@ func (c *Cursor) readTextElement() (*Element, error) {
 			}
 			c.skipWhitespaces()
 
-			*link = child
-			link = &(*link).sibling
+			element.children = append(element.children, child)
 		}
 	} else {
 		c.UnreadRune()
@@ -557,38 +553,41 @@ func (c *Cursor) readTextElement() (*Element, error) {
 
 //Todo: make this matter
 func tokenizeText(r io.Reader) (*Element, error) {
-	cr := NewCountReader(r)
-	r2 := bufio.NewReader(cr)
-	cursor := Cursor{r2, cr}
-	root := &Element{}
-	element := &root.child
-	_, err := cursor.Peek(1)
-	fmt.Println("Looping tokenizeText")
-	for ; err != io.EOF; _, err = cursor.Peek(1) {
-		v, _, err := cursor.ReadRune()
-		if err != nil {
-			return nil, err
-		}
-		fmt.Println("Read rune from tokenizeText", v)
-		if v == ';' || v == '\r' || v == '\n' {
-			fmt.Println("Skipping line")
-			cursor.skipLine()
-		} else {
-			fmt.Println("Reading text element")
-			child, err := cursor.readTextElement()
-			fmt.Println("Read text element")
+	return nil, nil
+	/*
+		cr := NewCountReader(r)
+		r2 := bufio.NewReader(cr)
+		cursor := Cursor{r2, cr}
+		root := &Element{}
+		element := &root.child
+		_, err := cursor.Peek(1)
+		fmt.Println("Looping tokenizeText")
+		for ; err != io.EOF; _, err = cursor.Peek(1) {
+			v, _, err := cursor.ReadRune()
 			if err != nil {
-				fmt.Println("Read text element error", err)
 				return nil, err
 			}
-			*element = child
-			if element == nil {
-				return root, nil
+			fmt.Println("Read rune from tokenizeText", v)
+			if v == ';' || v == '\r' || v == '\n' {
+				fmt.Println("Skipping line")
+				cursor.skipLine()
+			} else {
+				fmt.Println("Reading text element")
+				child, err := cursor.readTextElement()
+				fmt.Println("Read text element")
+				if err != nil {
+					fmt.Println("Read text element error", err)
+					return nil, err
+				}
+				*element = child
+				if element == nil {
+					return root, nil
+				}
+				element = &(*element).sibling
 			}
-			element = &(*element).sibling
 		}
-	}
-	return root, nil
+		return root, nil
+	*/
 }
 
 func tokenize(r io.Reader) (*Element, error) {
@@ -606,7 +605,7 @@ func tokenize(r io.Reader) (*Element, error) {
 	fmt.Println("Header:", header)
 
 	root := &Element{}
-	element := &root.child
+
 	for {
 		fmt.Println("Reading element")
 		child, err := cursor.readElement(uint16(header.Version))
@@ -614,10 +613,10 @@ func tokenize(r io.Reader) (*Element, error) {
 			fmt.Println("Read element failure", err)
 			return nil, err
 		}
-		*element = child
+
 		if child == nil {
 			return root, nil
 		}
-		element = &(*element).sibling
+		root.children = append(root.children, child)
 	}
 }

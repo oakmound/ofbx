@@ -11,38 +11,35 @@ import (
 )
 
 func parseTemplates(root *Element) {
-	defs := findChild(root, "Definitions")
+	defs := findChildren(root, "Definitions")
 	if defs == nil {
 		return
 	}
 
 	templates := make(map[string]*Element)
-	def := defs.child
-	for def != nil {
+	defs = defs[0].children
+	for _, def := range defs {
 		if def.id.String() == "ObjectType" {
 			prop1 := def.first_property.value
 			prop1Data, err := ioutil.ReadAll(prop1)
 			if err != nil && err != io.EOF {
 				fmt.Println(err)
-				def = def.sibling
 				continue
 			}
-			subdef := def.child
-			for subdef != nil {
+			subdefs := def.children
+			for _, subdef := range subdefs {
 				if subdef.id.String() == "PropertyTemplate" {
 					prop2 := subdef.first_property.value
 					prop2Data, err := ioutil.ReadAll(prop2)
 					if err != nil && err != io.EOF {
 						fmt.Println(err)
-						subdef = subdef.sibling
 						continue
 					}
 					templates[string(prop1Data)+string(prop2Data)] = subdef
 				}
-				subdef = subdef.sibling
 			}
+
 		}
-		def = def.sibling
 	}
 }
 
@@ -314,45 +311,38 @@ func parseDoubleVecDataVec4(property *Property) ([]Vec4, error) {
 }
 
 func parseVertexDataVec2(element *Element, name, index_name string) ([]Vec2, []int, VertexDataMapping, error) {
-	data_element := findChild(element, name)
-	if data_element == nil || data_element.first_property == nil {
-		return nil, nil, 0, errors.New("Invalid data element")
-	}
-	idxs, mapping, err := parseVertexDataInner(element, name, index_name)
-	vcs, err := parseDoubleVecDataVec2(data_element.first_property)
+	idxs, mapping, dataProp, err := parseVertexDataInner(element, name, index_name)
+	vcs, err := parseDoubleVecDataVec2(dataProp)
 	return vcs, idxs, mapping, err
 }
 
 func parseVertexDataVec3(element *Element, name, index_name string) ([]Vec3, []int, VertexDataMapping, error) {
-	data_element := findChild(element, name)
-	if data_element == nil || data_element.first_property == nil {
-		return nil, nil, 0, errors.New("Invalid data element")
-	}
-	idxs, mapping, err := parseVertexDataInner(element, name, index_name)
-	vcs, err := parseDoubleVecDataVec3(data_element.first_property)
+	idxs, mapping, dataProp, err := parseVertexDataInner(element, name, index_name)
+	vcs, err := parseDoubleVecDataVec3(dataProp)
 	return vcs, idxs, mapping, err
 }
 
 func parseVertexDataVec4(element *Element, name, index_name string) ([]Vec4, []int, VertexDataMapping, error) {
-	data_element := findChild(element, name)
-	if data_element == nil || data_element.first_property == nil {
-		return nil, nil, 0, errors.New("Invalid data element")
-	}
-	idxs, mapping, err := parseVertexDataInner(element, name, index_name)
-	vcs, err := parseDoubleVecDataVec4(data_element.first_property)
+
+	idxs, mapping, dataProp, err := parseVertexDataInner(element, name, index_name)
+	vcs, err := parseDoubleVecDataVec4(dataProp)
 	return vcs, idxs, mapping, err
 }
 
-func parseVertexDataInner(element *Element, name, index_name string) ([]int, VertexDataMapping, error) {
-	mapping_element := findChild(element, "MappingInformationType")
-	reference_element := findChild(element, "ReferenceInformationType")
+func parseVertexDataInner(element *Element, name, index_name string) ([]int, VertexDataMapping, *Property, error) {
+	dataProp := findChildProperty(element, name)
+	if dataProp == nil {
+		return nil, 0, nil, errors.New("Invalid data element")
+	}
+	mappingProp := findChildProperty(element, "MappingInformationType")
+	referenceProp := findChildProperty(element, "ReferenceInformationType")
 
 	var idxs []int
 	var mapping VertexDataMapping
 	var err error
 
-	if mapping_element != nil && mapping_element.first_property != nil {
-		s := mapping_element.first_property.value.String()
+	if mappingProp != nil {
+		s := mappingProp.value.String()
 		if s == "ByPolygonVertex" {
 			mapping = BY_POLYGON_VERTEX
 		} else if s == "ByPolygon" {
@@ -360,33 +350,33 @@ func parseVertexDataInner(element *Element, name, index_name string) ([]int, Ver
 		} else if s == "ByVertice" || s == "ByVertex" {
 			mapping = BY_VERTEX
 		} else {
-			return nil, 0, errors.New("Unable to parse mapping")
+			return nil, 0, nil, errors.New("Unable to parse mapping")
 		}
 	}
-	if reference_element != nil && reference_element.first_property != nil {
-		if reference_element.first_property.value.String() == "IndexToDirect" {
-			indices_element := findChild(element, index_name)
-			if indices_element != nil && indices_element.first_property != nil {
-				if idxs, err = parseBinaryArrayInt(indices_element.first_property); err != nil {
-					return nil, 0, errors.New("Unable to parse indices")
+	if referenceProp != nil {
+		if referenceProp.value.String() == "IndexToDirect" {
+			indicesProp := findChildProperty(element, index_name)
+			if indicesProp != nil {
+				if idxs, err = parseBinaryArrayInt(indicesProp); err != nil {
+					return nil, 0, nil, errors.New("Unable to parse indices")
 				}
 			}
-		} else if reference_element.first_property.value.String() != "Direct" {
-			return nil, 0, errors.New("Invalid properties")
+		} else if referenceProp.value.String() != "Direct" {
+			return nil, 0, nil, errors.New("Invalid properties")
 		}
 	}
-	return idxs, mapping, nil
+	return idxs, mapping, dataProp, nil
 }
 
 func parseTexture(scene *Scene, element *Element) *Texture {
 	texture := NewTexture(scene, element)
-	texture_filename := findChild(element, "FileName")
-	if texture_filename != nil && texture_filename.first_property != nil {
-		texture.filename = texture_filename.first_property.value
+	textureFilenameProp := findChildProperty(element, "FileName")
+	if textureFilenameProp != nil {
+		texture.filename = textureFilenameProp.value
 	}
-	texture_relative_filename := findChild(element, "RelativeFilename")
-	if texture_relative_filename != nil && texture_relative_filename.first_property != nil {
-		texture.relative_filename = texture_relative_filename.first_property.value
+	textureRelativeFilenameProp := findChildProperty(element, "RelativeFilename")
+	if textureRelativeFilenameProp != nil {
+		texture.relative_filename = textureRelativeFilenameProp.value
 	}
 	return texture
 }
@@ -413,20 +403,21 @@ func parseMesh(scene *Scene, element *Element) (*Mesh, error) {
 
 func parseMaterial(scene *Scene, element *Element) *Material {
 	material := NewMaterial(scene, element)
-	prop := findChild(element, "Properties70")
+	props := findChildren(element, "Properties70")
 	material.diffuse_color = Color{1, 1, 1}
-	if prop != nil {
-		prop = prop.child
+	if len(props) == 0 {
+		return material
 	}
-	for prop != nil {
-		if prop.id.String() == "P" && prop.first_property != nil {
-			if prop.first_property.value.String() == "DiffuseColor" {
-				material.diffuse_color.r = float32(prop.getProperty(4).getValue().toDouble())
-				material.diffuse_color.g = float32(prop.getProperty(5).getValue().toDouble())
-				material.diffuse_color.b = float32(prop.getProperty(6).getValue().toDouble())
-			}
+	props = props[0].children
+	//For some reason materials inherit the last diffuse color in the property list?
+	for i := len(props) - 1; i >= 0; i-- {
+		prop := props[i]
+		if prop.id.String() == "p" && prop.first_property != nil && prop.first_property.value.String() == "DiffuseColor" {
+			material.diffuse_color.r = float32(prop.getProperty(4).getValue().toDouble())
+			material.diffuse_color.g = float32(prop.getProperty(5).getValue().toDouble())
+			material.diffuse_color.b = float32(prop.getProperty(6).getValue().toDouble())
+			return material
 		}
-		prop = prop.sibling
 	}
 	return material
 }
@@ -434,19 +425,19 @@ func parseMaterial(scene *Scene, element *Element) *Material {
 func parseAnimationCurve(scene *Scene, element *Element) (*AnimationCurve, error) {
 	curve := &AnimationCurve{}
 
-	times := findChild(element, "KeyTime")
-	values := findChild(element, "KeyValueFloat")
+	times := findChildProperty(element, "KeyTime")
+	values := findChildProperty(element, "KeyValueFloat")
 
-	if times != nil && times.first_property != nil {
+	if times != nil {
 		var err error
-		curve.times, err = times.first_property.getValuesInt64()
+		curve.times, err = times.getValuesInt64()
 		if err != nil {
 			return nil, errors.Wrap(err, "Invalid animation curve: times error")
 		}
 	}
-	if values != nil && values.first_property != nil {
+	if values != nil {
 		var err error
-		curve.values, err = values.first_property.getValuesF32()
+		curve.values, err = values.getValuesF32()
 		if err != nil {
 			return nil, errors.New("Invalid animation curve: values error")
 		}
@@ -458,19 +449,18 @@ func parseAnimationCurve(scene *Scene, element *Element) (*AnimationCurve, error
 }
 
 func parseConnection(root *Element, scene *Scene) (bool, error) {
-	connections := findChild(root, "Connections")
+	connections := findChildren(root, "Connections")
 	if connections == nil {
 		return true, nil
 	}
 
-	connection := connections.child
-	for connection != nil {
+	connections = connections[0].children
+	for _, connection := range connections {
 		if !isString(connection.first_property) ||
 			!isLong(connection.first_property.next) ||
 			!isLong(connection.first_property.next.next) {
 			return false, errors.New("Invalid connection")
 		}
-
 		var c Connection
 		c.from = connection.first_property.next.value.touint64()
 		c.to = connection.first_property.next.next.value.touint64()
@@ -486,211 +476,210 @@ func parseConnection(root *Element, scene *Scene) (bool, error) {
 			return false, errors.New("Not supported")
 		}
 		scene.m_connections = append(scene.m_connections, c)
-		connection = connection.sibling
 	}
 	return true, nil
 }
 
 func parseTakes(scene *Scene) (bool, error) {
-	takes := findChild(scene.getRootElement(), "Takes")
+	takes := findChildren(scene.getRootElement(), "Takes")
 	if takes == nil {
 		return true, nil
 	}
 
-	object := takes.child
-	for object != nil {
-		if object.id.String() == "Take" {
-			if !isString(object.first_property) {
-				return false, errors.New("Invalid name in take")
-			}
+	objects := takes[0].children
 
-			var take TakeInfo
-			take.name = object.first_property.value
-			filename := findChild(object, "FileName")
-			if filename != nil {
-				if !isString(filename.first_property) {
-					return false, errors.New("Invalid filename in take")
-				}
-				take.filename = filename.first_property.value
-			}
-			local_time := findChild(object, "LocalTime")
-			if local_time != nil {
-				if !isLong(local_time.first_property) || !isLong(local_time.first_property.next) {
-					return false, errors.New("Invalid local time in take")
-				}
-
-				take.local_time_from = fbxTimeToSeconds(local_time.first_property.value.toint64())
-				take.local_time_to = fbxTimeToSeconds(local_time.first_property.next.value.toint64())
-			}
-			reference_time := findChild(object, "ReferenceTime")
-			if reference_time != nil {
-				if !isLong(reference_time.first_property) || !isLong(reference_time.first_property.next) {
-					return false, errors.New("Invalid reference time in take")
-				}
-
-				take.reference_time_from = fbxTimeToSeconds(reference_time.first_property.value.toint64())
-				take.reference_time_to = fbxTimeToSeconds(reference_time.first_property.next.value.toint64())
-			}
-			scene.m_take_infos = append(scene.m_take_infos, take)
+	for _, object := range objects {
+		if object.id.String() != "Take" {
+			continue
 		}
+		if !isString(object.first_property) {
+			return false, errors.New("Invalid name in take")
+		}
+		var take TakeInfo
+		take.name = object.first_property.value
+		filename := findChildProperty(object, "FileName")
+		if filename != nil {
+			if !isString(filename) {
+				return false, errors.New("Invalid filename in take")
+			}
+			take.filename = filename.value
+		}
+		local_time := findChildProperty(object, "LocalTime")
+		if local_time != nil {
+			if !isLong(local_time) || !isLong(local_time.next) {
+				return false, errors.New("Invalid local time in take")
+			}
 
-		object = object.sibling
+			take.local_time_from = fbxTimeToSeconds(local_time.value.toint64())
+			take.local_time_to = fbxTimeToSeconds(local_time.next.value.toint64())
+		}
+		reference_time := findChildProperty(object, "ReferenceTime")
+		if reference_time != nil {
+			if !isLong(reference_time) || !isLong(reference_time.next) {
+				return false, errors.New("Invalid reference time in take")
+			}
+			take.reference_time_from = fbxTimeToSeconds(reference_time.value.toint64())
+			take.reference_time_to = fbxTimeToSeconds(reference_time.next.value.toint64())
+		}
+		scene.m_take_infos = append(scene.m_take_infos, take)
 	}
-
 	return true, nil
 }
 
 func parseGlobalSettings(root *Element, scene *Scene) {
-	for settings := root.child; settings != nil; settings = settings.sibling {
-		if settings.id.String() == "GlobalSettings" {
-			for props70 := settings.child; props70 != nil; props70 = props70.sibling {
-				if props70.id.String() == "Properties70" {
-					for node := props70.child; node != nil; node = node.sibling {
-						if node.first_property != nil {
-							continue
-						}
 
-						if node.first_property.value.String() == "UpAxis" {
-							prop := node.getProperty(4)
-							if prop != nil {
-								value := prop.getValue()
-								scene.m_settings.UpAxis = UpVector(int(value.toInt32()))
-							}
-						}
-
-						if node.first_property.value.String() == "UpAxisSign" {
-							prop := node.getProperty(4)
-							if prop != nil {
-								value := prop.getValue()
-								scene.m_settings.UpAxisSign = int(value.toInt32())
-							}
-						}
-
-						if node.first_property.value.String() == "FrontAxis" {
-							prop := node.getProperty(4)
-							if prop != nil {
-								value := prop.getValue()
-								scene.m_settings.FrontAxis = FrontVector(int(value.toInt32()))
-							}
-						}
-
-						if node.first_property.value.String() == "FrontAxisSign" {
-							prop := node.getProperty(4)
-							if prop != nil {
-								value := prop.getValue()
-								scene.m_settings.FrontAxisSign = int(value.toInt32())
-							}
-						}
-
-						if node.first_property.value.String() == "CoordAxis" {
-							prop := node.getProperty(4)
-							if prop != nil {
-								value := prop.getValue()
-								scene.m_settings.CoordAxis = CoordSystem(int(value.toInt32()))
-							}
-						}
-
-						if node.first_property.value.String() == "CoordAxisSign" {
-							prop := node.getProperty(4)
-							if prop != nil {
-								value := prop.getValue()
-								scene.m_settings.CoordAxisSign = int(value.toInt32())
-							}
-						}
-
-						if node.first_property.value.String() == "OriginalUpAxis" {
-							prop := node.getProperty(4)
-							if prop != nil {
-								value := prop.getValue()
-								scene.m_settings.OriginalUpAxis = int(value.toInt32())
-							}
-						}
-
-						if node.first_property.value.String() == "OriginalUpAxisSign" {
-							prop := node.getProperty(4)
-							if prop != nil {
-								value := prop.getValue()
-								scene.m_settings.OriginalUpAxisSign = int(value.toInt32())
-							}
-						}
-
-						if node.first_property.value.String() == "UnitScaleFactor" {
-							prop := node.getProperty(4)
-							if prop != nil {
-								value := prop.getValue()
-								scene.m_settings.UnitScaleFactor = value.toFloat()
-							}
-						}
-
-						if node.first_property.value.String() == "OriginalUnitScaleFactor" {
-							prop := node.getProperty(4)
-							if prop != nil {
-								value := prop.getValue()
-								scene.m_settings.OriginalUnitScaleFactor = value.toFloat()
-							}
-						}
-
-						if node.first_property.value.String() == "TimeSpanStart" {
-							prop := node.getProperty(4)
-							if prop != nil {
-								value := prop.getValue()
-								scene.m_settings.TimeSpanStart = value.touint64()
-							}
-						}
-
-						if node.first_property.value.String() == "TimeSpanStop" {
-							prop := node.getProperty(4)
-							if prop != nil {
-								value := prop.getValue()
-								scene.m_settings.TimeSpanStop = value.touint64()
-							}
-						}
-
-						if node.first_property.value.String() == "TimeMode" {
-							prop := node.getProperty(4)
-							if prop != nil {
-								value := prop.getValue()
-								scene.m_settings.TimeMode = FrameRate(int(value.toInt32()))
-							}
-						}
-
-						if node.first_property.value.String() == "CustomFrameRate" {
-							prop := node.getProperty(4)
-							if prop != nil {
-								value := prop.getValue()
-								scene.m_settings.CustomFrameRate = value.toFloat()
-							}
-						}
-
-						scene.m_scene_frame_rate = GetFramerateFromTimeMode(scene.m_settings.TimeMode, scene.m_settings.CustomFrameRate)
-					}
-					break
+	for _, settings := range root.children {
+		if settings.id.String() != "GlobalSettings" {
+			continue
+		}
+		for _, props70 := range settings.children {
+			if props70.id.String() != "Properties70" {
+				continue
+			}
+			for _, node := range props70.children {
+				if node.first_property != nil {
+					continue
 				}
+				if node.first_property.value.String() == "UpAxis" {
+					prop := node.getProperty(4)
+					if prop != nil {
+						value := prop.getValue()
+						scene.m_settings.UpAxis = UpVector(int(value.toInt32()))
+					}
+				}
+
+				if node.first_property.value.String() == "UpAxisSign" {
+					prop := node.getProperty(4)
+					if prop != nil {
+						value := prop.getValue()
+						scene.m_settings.UpAxisSign = int(value.toInt32())
+					}
+				}
+
+				if node.first_property.value.String() == "FrontAxis" {
+					prop := node.getProperty(4)
+					if prop != nil {
+						value := prop.getValue()
+						scene.m_settings.FrontAxis = FrontVector(int(value.toInt32()))
+					}
+				}
+
+				if node.first_property.value.String() == "FrontAxisSign" {
+					prop := node.getProperty(4)
+					if prop != nil {
+						value := prop.getValue()
+						scene.m_settings.FrontAxisSign = int(value.toInt32())
+					}
+				}
+
+				if node.first_property.value.String() == "CoordAxis" {
+					prop := node.getProperty(4)
+					if prop != nil {
+						value := prop.getValue()
+						scene.m_settings.CoordAxis = CoordSystem(int(value.toInt32()))
+					}
+				}
+
+				if node.first_property.value.String() == "CoordAxisSign" {
+					prop := node.getProperty(4)
+					if prop != nil {
+						value := prop.getValue()
+						scene.m_settings.CoordAxisSign = int(value.toInt32())
+					}
+				}
+
+				if node.first_property.value.String() == "OriginalUpAxis" {
+					prop := node.getProperty(4)
+					if prop != nil {
+						value := prop.getValue()
+						scene.m_settings.OriginalUpAxis = int(value.toInt32())
+					}
+				}
+
+				if node.first_property.value.String() == "OriginalUpAxisSign" {
+					prop := node.getProperty(4)
+					if prop != nil {
+						value := prop.getValue()
+						scene.m_settings.OriginalUpAxisSign = int(value.toInt32())
+					}
+				}
+
+				if node.first_property.value.String() == "UnitScaleFactor" {
+					prop := node.getProperty(4)
+					if prop != nil {
+						value := prop.getValue()
+						scene.m_settings.UnitScaleFactor = value.toFloat()
+					}
+				}
+
+				if node.first_property.value.String() == "OriginalUnitScaleFactor" {
+					prop := node.getProperty(4)
+					if prop != nil {
+						value := prop.getValue()
+						scene.m_settings.OriginalUnitScaleFactor = value.toFloat()
+					}
+				}
+
+				if node.first_property.value.String() == "TimeSpanStart" {
+					prop := node.getProperty(4)
+					if prop != nil {
+						value := prop.getValue()
+						scene.m_settings.TimeSpanStart = value.touint64()
+					}
+				}
+
+				if node.first_property.value.String() == "TimeSpanStop" {
+					prop := node.getProperty(4)
+					if prop != nil {
+						value := prop.getValue()
+						scene.m_settings.TimeSpanStop = value.touint64()
+					}
+				}
+
+				if node.first_property.value.String() == "TimeMode" {
+					prop := node.getProperty(4)
+					if prop != nil {
+						value := prop.getValue()
+						scene.m_settings.TimeMode = FrameRate(int(value.toInt32()))
+					}
+				}
+
+				if node.first_property.value.String() == "CustomFrameRate" {
+					prop := node.getProperty(4)
+					if prop != nil {
+						value := prop.getValue()
+						scene.m_settings.CustomFrameRate = value.toFloat()
+					}
+				}
+
+				scene.m_scene_frame_rate = GetFramerateFromTimeMode(scene.m_settings.TimeMode, scene.m_settings.CustomFrameRate)
 			}
 			break
+
 		}
+		break
+
 	}
 }
 
 func parseObjects(root *Element, scene *Scene) (bool, error) {
 	fmt.Println("Starting object Parse")
-	objs := findChild(root, "Objects")
+	objs := findChildren(root, "Objects")
 	if objs == nil {
 		return true, nil
 	}
-
 	scene.m_root = NewRoot(scene, root)
 	scene.m_object_map[0] = ObjectPair{root, scene.m_root}
 
-	object := objs.child
-	for object != nil {
+	objs = objs[0].children
+	for _, object := range objs {
 		if !isLong(object.first_property) {
 			return false, errors.New("Invalid")
 		}
 		id := object.first_property.value.touint64()
 		scene.m_object_map[id] = ObjectPair{object, nil}
-		object = object.sibling
 	}
+
 	fmt.Println("Iterating through the object map")
 	for k, iter := range scene.m_object_map {
 		var obj Obj

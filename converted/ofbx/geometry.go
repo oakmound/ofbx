@@ -2,7 +2,6 @@ package ofbx
 
 import (
 	"errors"
-	"fmt"
 )
 
 type VertexDataMapping int
@@ -142,22 +141,22 @@ func parseGeometry(scene *Scene, element *Element) (*Geometry, error) {
 	}
 	geom := NewGeometry(scene, element)
 
-	vertices_element := findChild(element, "Vertices")
-	if vertices_element == nil || vertices_element.first_property == nil {
+	verticesProp := findChildProperty(element, "Vertices")
+	if verticesProp == nil {
 		return nil, errors.New("Geometry Vertices Missing")
 	}
 
-	polys_element := findChild(element, "PolygonVertexIndex")
-	if polys_element == nil || polys_element.first_property == nil {
+	polysProp := findChildProperty(element, "PolygonVertexIndex")
+	if polysProp == nil {
 		return nil, errors.New("Geometry Indicies missing")
 	}
-	fmt.Println("Geometry parsing arrays")
-	vertices, err := parseDoubleVecDataVec3(vertices_element.first_property)
+	//fmt.Println("Geometry parsing arrays")
+	vertices, err := parseDoubleVecDataVec3(verticesProp)
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("Parsing binary int array")
-	original_indices, err := parseBinaryArrayInt(polys_element.first_property)
+	//fmt.Println("Parsing binary int array")
+	original_indices, err := parseBinaryArrayInt(polysProp)
 	if err != nil {
 		return nil, err
 	}
@@ -177,29 +176,29 @@ func parseGeometry(scene *Scene, element *Element) (*Geometry, error) {
 		geom.to_new_vertices[old].add(i)
 	}
 
-	layer_material_element := findChild(element, "LayerElementMaterial")
-	if layer_material_element != nil {
-		mapping_element := findChild(layer_material_element, "MappingInformationType")
-		reference_element := findChild(layer_material_element, "ReferenceInformationType")
-		if mapping_element == nil || reference_element == nil {
+	layerMaterialElements := findChildren(element, "LayerElementMaterial")
+	if len(layerMaterialElements) > 0 {
+		mappingProp := findChildProperty(layerMaterialElements[0], "MappingInformationType")
+		referenceProp := findChildProperty(layerMaterialElements[0], "ReferenceInformationType")
+		if mappingProp == nil || referenceProp == nil {
 			return nil, errors.New("Invalid LayerElementMaterial")
 		}
 		var err error
 		tmp := make([]int, 0)
 
-		if mapping_element.first_property.value.String() == "ByPolygon" &&
-			reference_element.first_property.value.String() == "IndexToDirect" {
+		if mappingProp.value.String() == "ByPolygon" &&
+			referenceProp.value.String() == "IndexToDirect" {
 			geom.materials = make([]int, len(geom.vertices)/3)
 			for i := 0; i < len(geom.vertices)/3; i++ {
 				geom.materials[i] = -1
 			}
 
-			indices_element := findChild(layer_material_element, "Materials")
-			if indices_element == nil || indices_element.first_property == nil {
+			indiciesProp := findChildProperty(layerMaterialElements[0], "Materials")
+			if indiciesProp == nil {
 				return nil, errors.New("Invalid LayerElementMaterial")
 			}
 
-			tmp, err = parseBinaryArrayInt(indices_element.first_property)
+			tmp, err = parseBinaryArrayInt(indiciesProp)
 			if err != nil {
 				return nil, err
 			}
@@ -216,19 +215,21 @@ func parseGeometry(scene *Scene, element *Element) (*Geometry, error) {
 				}
 			}
 		} else {
-			if mapping_element.first_property.value.String() != "AllSame" {
+			if mappingProp.value.String() != "AllSame" {
 				return nil, errors.New("Mapping not supported")
 			}
 		}
 
-		layer_uv_element := findChild(element, "LayerElementUV")
-		for layer_uv_element != nil {
+		for _, elem := range element.children {
+			if elem.id.String() != "LayerElementUV" {
+				continue
+			}
 			uv_index := 0
-			if layer_uv_element.first_property != nil {
-				uv_index = int(layer_uv_element.first_property.getValue().toInt32())
+			if elem.first_property != nil {
+				uv_index = int(elem.first_property.getValue().toInt32())
 			}
 			if uv_index >= 0 && uv_index < geom.UVSMax() {
-				tmp, tmp_indices, mapping, err := parseVertexDataVec2(layer_uv_element, "UV", "UVIndex")
+				tmp, tmp_indices, mapping, err := parseVertexDataVec2(elem, "UV", "UVIndex")
 				if err != nil {
 					return nil, err
 				}
@@ -238,24 +239,20 @@ func parseGeometry(scene *Scene, element *Element) (*Geometry, error) {
 					remapVec2(&geom.uvs[uv_index], to_old_indices)
 				}
 			}
-			layer_uv_element = layer_uv_element.sibling
-			for layer_uv_element != nil && layer_uv_element.id.String() != "LayerElementUV" {
-				layer_uv_element = layer_uv_element.sibling
-			}
 
 		}
 
-		layer_tangent_element := findChild(element, "LayerElementTangents")
-		if layer_tangent_element != nil {
-			tans := findChild(layer_tangent_element, "Tangents")
+		layerTangentElems := findChildren(element, "LayerElementTangents")
+		if len(layerTangentElems) > 0 {
+			tans := findChildren(layerTangentElems[0], "Tangents")
 			var tmp []Vec3
 			var tmp_indices []int
 			var mapping VertexDataMapping
 			var err error
-			if tans != nil {
-				tmp, tmp_indices, mapping, err = parseVertexDataVec3(layer_tangent_element, "Tangents", "TangentsIndex")
+			if len(tans) > 0 {
+				tmp, tmp_indices, mapping, err = parseVertexDataVec3(layerTangentElems[0], "Tangents", "TangentsIndex")
 			} else {
-				tmp, tmp_indices, mapping, err = parseVertexDataVec3(layer_tangent_element, "Tangent", "TangentIndex")
+				tmp, tmp_indices, mapping, err = parseVertexDataVec3(layerTangentElems[0], "Tangent", "TangentIndex")
 			}
 			if err != nil {
 				return nil, err
@@ -266,9 +263,9 @@ func parseGeometry(scene *Scene, element *Element) (*Geometry, error) {
 			}
 		}
 
-		layer_color_element := findChild(element, "LayerElementColor")
-		if layer_color_element != nil {
-			tmp, tmp_indices, mapping, err := parseVertexDataVec4(layer_color_element, "Colors", "ColorIndex")
+		layerColorElems := findChildren(element, "LayerElementColor")
+		if len(layerColorElems) > 0 {
+			tmp, tmp_indices, mapping, err := parseVertexDataVec4(layerColorElems[0], "Colors", "ColorIndex")
 			if err != nil {
 				return nil, err
 			}
@@ -278,9 +275,9 @@ func parseGeometry(scene *Scene, element *Element) (*Geometry, error) {
 			}
 		}
 
-		layer_normal_element := findChild(element, "LayerElementNormal")
-		if layer_normal_element != nil {
-			tmp, tmp_indices, mapping, err := parseVertexDataVec3(layer_normal_element, "Normals", "NormalsIndex")
+		layerNormalElems := findChildren(element, "LayerElementNormal")
+		if len(layerNormalElems) > 0 {
+			tmp, tmp_indices, mapping, err := parseVertexDataVec3(layerNormalElems[0], "Normals", "NormalsIndex")
 			if err != nil {
 				return nil, err
 			}
