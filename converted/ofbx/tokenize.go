@@ -268,15 +268,9 @@ func (c *Cursor) readElement(version uint16) (*Element, error) {
 	element := Element{}
 	element.id = NewDataView(id)
 
-	oldProp := &element.first_property
-
+	element.properties = make([]*Property, prop_count)
 	for i := uint64(0); i < prop_count; i++ {
-		prop, err := c.readProperty()
-		if err != nil {
-			return nil, err
-		}
-		*oldProp = prop
-		oldProp = &(*prop).next
+		element.properties[i], err = c.readProperty()
 	}
 
 	if uint64(c.ReadSoFar()) >= end_offset {
@@ -485,7 +479,6 @@ func (c *Cursor) readTextElement() (*Element, error) {
 	element := &Element{}
 	element.id = id
 
-	prop_link := &element.first_property
 	fmt.Println("Looping over properties")
 	for {
 		fmt.Println("Property loop")
@@ -515,8 +508,7 @@ func (c *Cursor) readTextElement() (*Element, error) {
 		}
 		c.skipInsignificantWhitespaces()
 
-		*prop_link = prop
-		prop_link = &(*prop_link).next
+		element.properties = append(element.properties, prop)
 	}
 
 	r, _, err = c.ReadRune()

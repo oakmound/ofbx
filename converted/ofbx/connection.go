@@ -25,8 +25,8 @@ func (ct ConnectionType) String() string {
 
 func (c *Connection) String() string {
 	s := "Connection: " + c.typ.String()
-	s += " from=" + fmt.Sprintf("%e", c.from)
-	s += " to=" + fmt.Sprintf("%e", c.to)
+	s += " from=" + fmt.Sprintf("%d", c.from)
+	s += " to=" + fmt.Sprintf("%d", c.to)
 	s += " property=" + c.property
 	return s
 }

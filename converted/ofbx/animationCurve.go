@@ -102,9 +102,9 @@ func (acn *AnimationCurveNode) String() string {
 	for _, curve := range acn.curves {
 		s += " " + curve.String()
 	}
-	s += "bone=" + acn.bone.String()
+	s += "bone=" + acn.bone.String() + "\n"
 	s += "bone_link_property=" + acn.bone_link_property
-	s += "mode= " + fmt.Sprintf("%e", acn.mode)
+	s += "mode= " + fmt.Sprintf("%d", acn.mode)
 	return s
 }
 

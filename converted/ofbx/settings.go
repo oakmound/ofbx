@@ -1,9 +1,5 @@
 package ofbx
 
-import (
-	"fmt"
-)
-
 type Settings struct {
 	UpAxis                  UpVector
 	UpAxisSign              int
@@ -19,12 +15,6 @@ type Settings struct {
 	TimeSpanStop            uint64
 	TimeMode                FrameRate
 	CustomFrameRate         float32
-}
-
-func (s Settings) String() string {
-	st := "Settings:"
-	st += fmt.Sprint(s)
-	return st + "\n"
 }
 
 // Default Settings

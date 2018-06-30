@@ -18,17 +18,16 @@ func resolveVec3Property(object Obj, name string, default_value Vec3) Vec3 {
 	if element == nil {
 		return default_value
 	}
-	x := element.getProperty(4)
-	if x == nil || x.next == nil || x.next.next == nil {
+	if len(element.properties) < 6 {
 		return default_value
 	}
 
 	return Vec3{
-		x.value.toDouble(),
-		x.next.value.toDouble(),
-		x.next.next.value.toDouble(),
+		element.getProperty(4).value.toDouble(),
+		element.getProperty(5).value.toDouble(),
+		element.getProperty(6).value.toDouble(),
 	}
-} 
+}
 
 func splatVec2(mapping VertexDataMapping, data []Vec2, indices []int, original_indices []int) (out []Vec2) {
 	if mapping == BY_POLYGON_VERTEX {

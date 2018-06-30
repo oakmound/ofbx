@@ -7,7 +7,7 @@ type Color struct {
 }
 
 func (c *Color) String() string {
-	return "Color: " + "r" + fmt.Sprintf("%e", c.r) +
-		"g" + fmt.Sprintf("%e", c.g) +
-		"b" + fmt.Sprintf("%e", c.b)
+	return "Color: " + "r" + fmt.Sprintf("%d", c.r) +
+		"g" + fmt.Sprintf("%d", c.g) +
+		"b" + fmt.Sprintf("%d", c.b)
 }

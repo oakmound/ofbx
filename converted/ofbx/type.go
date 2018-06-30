@@ -17,6 +17,7 @@ const (
 	ANIMATION_LAYER      Type = iota
 	ANIMATION_CURVE      Type = iota
 	ANIMATION_CURVE_NODE Type = iota
+	NOTYPE Type = iota
 )
 
 var (

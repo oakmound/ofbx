@@ -16,7 +16,7 @@ type TakeInfo struct {
 func (t *TakeInfo) String() string {
 	s := "TakeInfo: " + t.name.String()
 	s += "," + t.filename.String()
-	s += "times=" + fmt.Sprintf("%f,%f,%f,%f",
+	s += ", times=" + fmt.Sprintf("%f,%f,%f,%f",
 		t.local_time_from,
 		t.local_time_to,
 		t.reference_time_from,

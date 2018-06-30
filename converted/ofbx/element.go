@@ -1,9 +1,9 @@
 package ofbx
 
 type Element struct {
-	id             *DataView
-	children       []*Element
-	first_property *Property
+	id         *DataView
+	children   []*Element
+	properties []*Property
 }
 
 func (e *Element) getChildren() []*Element {
@@ -14,19 +14,11 @@ func (e *Element) getID() *DataView {
 	return e.id
 }
 
-func (e *Element) getFirstProperty() *Property {
-	return e.first_property
-}
-
 func (e *Element) getProperty(idx int) *Property {
-	prop := e.first_property
-	for i := 0; i < idx; i++ {
-		if prop == nil {
-			return nil
-		}
-		prop = prop.getNext()
+	if len(e.properties) <= idx {
+		return nil
 	}
-	return prop
+	return e.properties[idx]
 }
 
 func (e *Element) String() string {
@@ -34,12 +26,16 @@ func (e *Element) String() string {
 }
 
 func (e *Element) stringPrefix(prefix string) string {
-	s := prefix + "Element: " + e.id.String()
+	s := prefix + "Element: "
+	if e.id != nil {
+		s += e.id.String()
+	}
 	if len(e.children) != 0 {
-		s += ", children: "
+		s += " children: " + "\n"
 		for _, c := range e.children {
 			s += c.stringPrefix("\t" + prefix)
 		}
+		return s
 	}
 	return s + "\n"
 }

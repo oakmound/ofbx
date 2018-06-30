@@ -66,14 +66,14 @@ func (c *Cluster) postProcess() bool {
 	var err error
 	prop := findChildProperty(element, "Indexes")
 	if prop != nil {
-		if old_indices, err = parseBinaryArrayInt(prop); err != nil {
+		if old_indices, err = parseBinaryArrayInt(prop[0]); err != nil {
 			return false
 		}
 	}
 	var old_weights []float64
 	prop = findChildProperty(element, "Weights")
 	if prop != nil {
-		if old_weights, err = parseBinaryArrayFloat64(prop); err != nil {
+		if old_weights, err = parseBinaryArrayFloat64(prop[0]); err != nil {
 			return false
 		}
 	}
@@ -106,7 +106,7 @@ func parseCluster(scene *Scene, element *Element) (*Cluster, error) {
 
 	prop := findChildProperty(element, "TransformLink")
 	if prop != nil {
-		mx, err := parseArrayRawFloat64(prop)
+		mx, err := parseArrayRawFloat64(prop[0])
 		if err != nil {
 			return nil, errors.Wrap(err, "Failed to parse TransformLink")
 		}
@@ -117,7 +117,7 @@ func parseCluster(scene *Scene, element *Element) (*Cluster, error) {
 	}
 	prop = findChildProperty(element, "Transform")
 	if prop != nil {
-		mx, err := parseArrayRawFloat64(prop)
+		mx, err := parseArrayRawFloat64(prop[0])
 		if err != nil {
 			return nil, errors.Wrap(err, "Failed to parse TransformLink")
 		}
@@ -137,9 +137,9 @@ func (c *Cluster) String() string {
 	s := "Cluster: " + c.Object.String()
 	s += " link=" + c.link.String()
 	s += " skin=" + c.skin.String()
-	s += "indicies= " + fmt.Sprintf("%e", c.indices)
-	s += " weights=" + fmt.Sprintf("%e", c.weights)
-	s += " transform_matrix=" + c.transform_matrix.String()
-	s += " transform_link_matrix=" + c.transform_link_matrix.String()
+	s += "indicies= " + fmt.Sprintf("%d", c.indices)
+	s += " weights=" + fmt.Sprintf("%d", c.weights)
+	s += " transform_matrix=" + fmt.Sprint(c.transform_matrix)
+	s += " transform_link_matrix=" + fmt.Sprint(c.transform_link_matrix)
 	return s
 }

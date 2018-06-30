@@ -57,12 +57,16 @@ func (o *Object) Scene() *Scene {
 
 func (o *Object) String() string {
 	s := "Object: " + fmt.Sprintf("%d", o.id) + ", " + o.name
-	s += ", element=" + o.element.String()
-	if strn, ok := o.node_attribute.(fmt.Stringer); ok {
-		s += ", node=" + strn.String()
+	if o.element != nil {
+		s += ", element=" + o.element.String()
+	}
+	if o.node_attribute != nil {
+		if strn, ok := o.node_attribute.(fmt.Stringer); ok {
+			s += ", node=" + strn.String()
+		}
 	}
 	if o.is_node {
-		s += ", is_node"
+		s += "(is_node)"
 	}
 	return s
 }
@@ -73,41 +77,25 @@ func NewObject(scene *Scene, e *Element) *Object {
 		element: e,
 		is_node: false,
 	}
-	if e.first_property != nil && e.first_property.next != nil {
-		o.name = e.first_property.next.value.String()
+	if prop := e.getProperty(1); prop != nil {
+		o.name = prop.value.String()
 	}
 	return o
 }
 
 func resolveObjectLinkIndex(o Obj, idx int) Obj {
-	var id uint64
-	if o.Element().getFirstProperty() != nil {
-		id = o.Element().getFirstProperty().getValue().touint64()
-	}
-	for _, conn := range o.Scene().connections {
-		if conn.to == id && conn.from != 0 {
-			obj := o.Scene().objectMap[conn.from].object
-			if obj != nil {
-				if idx == 0 {
-					return obj
-				}
-				idx--
-			}
-		}
-	}
-	return nil
+	return resolveObjectLink(o, NOTYPE, "", idx)
 }
 
 func resolveObjectLink(o Obj, typ Type, property string, idx int) Obj {
 	var id uint64
-	if o.Element().getFirstProperty() != nil {
-		id = o.Element().getFirstProperty().getValue().touint64()
+	if prop := o.Element().getProperty(0); prop != nil {
+		id = prop.value.touint64()
 	}
 	for _, conn := range o.Scene().connections {
 		if conn.to == id && conn.from != 0 {
-			// obj here should not be *Object, but an interface with GetObject and GetType
 			obj := o.Scene().objectMap[conn.from].object
-			if obj != nil && obj.Type() == typ {
+			if obj != nil && (obj.Type() == typ || typ == NOTYPE) {
 				if property == "" || conn.property == property {
 					if idx == 0 {
 						return obj
@@ -122,8 +110,8 @@ func resolveObjectLink(o Obj, typ Type, property string, idx int) Obj {
 
 func resolveObjectLinkReverse(o Obj, typ Type) Obj {
 	var id uint64
-	if o.Element().getFirstProperty() != nil {
-		rdr := o.Element().getFirstProperty().getValue()
+	if prop := o.Element().getProperty(0); prop != nil {
+		rdr := prop.value
 		rdr.Seek(0, io.SeekStart)
 		id = rdr.touint64()
 	}

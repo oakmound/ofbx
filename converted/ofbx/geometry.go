@@ -136,27 +136,25 @@ func (g *Geometry) getType() Type {
 }
 
 func parseGeometry(scene *Scene, element *Element) (*Geometry, error) {
-	if element.first_property == nil {
+	if element.properties == nil {
 		return nil, errors.New("Geometry invalid")
 	}
 	geom := NewGeometry(scene, element)
 
 	verticesProp := findChildProperty(element, "Vertices")
-	if verticesProp == nil {
+	if len(verticesProp) == 0 {
 		return nil, errors.New("Geometry Vertices Missing")
 	}
 
 	polysProp := findChildProperty(element, "PolygonVertexIndex")
-	if polysProp == nil {
+	if len(polysProp) == 0 {
 		return nil, errors.New("Geometry Indicies missing")
 	}
-	//fmt.Println("Geometry parsing arrays")
-	vertices, err := parseDoubleVecDataVec3(verticesProp)
+	vertices, err := parseDoubleVecDataVec3(verticesProp[0])
 	if err != nil {
 		return nil, err
 	}
-	//fmt.Println("Parsing binary int array")
-	original_indices, err := parseBinaryArrayInt(polysProp)
+	original_indices, err := parseBinaryArrayInt(polysProp[0])
 	if err != nil {
 		return nil, err
 	}
@@ -180,14 +178,14 @@ func parseGeometry(scene *Scene, element *Element) (*Geometry, error) {
 	if len(layerMaterialElements) > 0 {
 		mappingProp := findChildProperty(layerMaterialElements[0], "MappingInformationType")
 		referenceProp := findChildProperty(layerMaterialElements[0], "ReferenceInformationType")
-		if mappingProp == nil || referenceProp == nil {
+		if len(mappingProp) == 0 || len(referenceProp) == 0 {
 			return nil, errors.New("Invalid LayerElementMaterial")
 		}
 		var err error
 		tmp := make([]int, 0)
 
-		if mappingProp.value.String() == "ByPolygon" &&
-			referenceProp.value.String() == "IndexToDirect" {
+		if mappingProp[0].value.String() == "ByPolygon" &&
+			referenceProp[0].value.String() == "IndexToDirect" {
 			geom.materials = make([]int, len(geom.vertices)/3)
 			for i := 0; i < len(geom.vertices)/3; i++ {
 				geom.materials[i] = -1
@@ -198,7 +196,7 @@ func parseGeometry(scene *Scene, element *Element) (*Geometry, error) {
 				return nil, errors.New("Invalid LayerElementMaterial")
 			}
 
-			tmp, err = parseBinaryArrayInt(indiciesProp)
+			tmp, err = parseBinaryArrayInt(indiciesProp[0])
 			if err != nil {
 				return nil, err
 			}
@@ -215,7 +213,7 @@ func parseGeometry(scene *Scene, element *Element) (*Geometry, error) {
 				}
 			}
 		} else {
-			if mappingProp.value.String() != "AllSame" {
+			if mappingProp[0].value.String() != "AllSame" {
 				return nil, errors.New("Mapping not supported")
 			}
 		}
@@ -225,8 +223,8 @@ func parseGeometry(scene *Scene, element *Element) (*Geometry, error) {
 				continue
 			}
 			uv_index := 0
-			if elem.first_property != nil {
-				uv_index = int(elem.first_property.getValue().toInt32())
+			if len(elem.properties) > 0 {
+				uv_index = int(elem.properties[0].value.toInt32())
 			}
 			if uv_index >= 0 && uv_index < geom.UVSMax() {
 				tmp, tmp_indices, mapping, err := parseVertexDataVec2(elem, "UV", "UVIndex")

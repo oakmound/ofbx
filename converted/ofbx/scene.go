@@ -10,8 +10,6 @@ type ObjectPair struct {
 	object  Obj
 }
 
-//const GlobalSettings* getGlobalSettings() const override { return &m_settings; }
-
 type Scene struct {
 	RootElement     *Element
 	RootNode        *Node
@@ -25,17 +23,41 @@ type Scene struct {
 	takeInfos       []TakeInfo
 }
 
-func (s *Scene) String() {
+func (s *Scene) String() string {
+	if s == nil {
+		return "nil Scene"
+	}
 	st := "Scene: "
-	st += "element=" + s.RootElement.String()
-	st += ", root=" + s.RootNode.String()
-	st += ", frameRate=" + fmt.Sprintf("%f", s.frameRate)
-	st += ", setttings=" + s.settings.String()
-	st += ", objects=" + fmt.Sprint(s.Objects)
-	st += ", meshes=" + fmt.Sprint(s.meshes)
-	st += ", animations=" + fmt.Sprint(s.AnimationStacks)
-	st += ", connections=" + fmt.Sprint(s.connections)
-	st += ", takeInfos=" + fmt.Sprint(s.takeInfos)
+	if s.RootElement != nil {
+		st += "element=" + s.RootElement.String()
+	}
+	if s.RootNode != nil {
+		st += "root=" + s.RootNode.String() + "\n"
+	}
+	st += "frameRate=" + fmt.Sprintf("%f", s.frameRate) + "\n"
+	st += "setttings=" + fmt.Sprint(s.settings) + "\n"
+	if s.Objects != nil {
+		st += "objects=" + fmt.Sprint(s.Objects) + "\n"
+	}
+	if s.meshes != nil {
+		st += "meshes=" + fmt.Sprint(s.meshes) + "\n"
+	}
+	if s.AnimationStacks != nil {
+		st += "animations=" + fmt.Sprint(s.AnimationStacks) + "\n"
+	}
+	if len(s.connections) > 0 {
+		st += "connections=" + "\n"
+		for _, c := range s.connections {
+			st += "\t" + c.String() + "\n"
+		}
+	}
+	if len(s.takeInfos) > 0 {
+		st += "takeInfos=" + "\n"
+		for _, tk := range s.takeInfos {
+			st += "\t" + tk.String()
+		}
+	}
+	return st
 }
 
 func (s *Scene) getTakeInfo(name string) *TakeInfo {

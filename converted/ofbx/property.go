@@ -45,20 +45,12 @@ type Property struct {
 	count            int
 	typ              PropertyType
 	value            *DataView
-	next             *Property
 	encoding         uint32
 	compressedLength uint32
 }
 
 func (p *Property) Type() PropertyType {
 	return p.typ
-}
-func (p *Property) getNext() *Property {
-	return p.next
-}
-
-func (p *Property) getValue() *DataView {
-	return p.value
 }
 
 func (p *Property) getCount() int {
@@ -87,26 +79,38 @@ func findChildren(element *Element, id string) []*Element {
 	return []*Element{}
 }
 
-func findChildProperty(element *Element, id string) *Property {
+func findSingleChildProperty(element *Element, id string) *Property {
 	iterables := element.children
 	for idx, val := range iterables {
 		if val.id.String() == id {
-			return iterables[idx].first_property
+			if len(iterables[idx].properties) > 0 {
+				return iterables[idx].properties[0]
+			}
+		}
+	}
+	return nil
+}
+
+func findChildProperty(element *Element, id string) []*Property {
+	iterables := element.children
+	for idx, val := range iterables {
+		if val.id.String() == id {
+			return iterables[idx].properties
 		}
 	}
 	return nil
 }
 
 func resolveProperty(obj Obj, name string) *Element {
-	props := findChildren(obj.Element(), "Properties70")
-	if props == nil {
+	elems := findChildren(obj.Element(), "Properties70")
+	if elems == nil {
 		return nil
 	}
 
-	props = props[0].children
-	for _, prop := range props {
-		if prop.first_property != nil && prop.first_property.value.String() == name {
-			return prop
+	elems = elems[0].children
+	for _, elem := range elems {
+		if prop := elem.getProperty(0); prop != nil && prop.value.String() == name {
+			return elem
 		}
 	}
 	return nil
@@ -127,11 +131,11 @@ func isLong(prop *Property) bool {
 }
 
 func (p *Property) String() string {
-	s := "Property: count=" + fmt.Sprintf("%e", p.count)
-	s += ", PropType= " + fmt.Sprintf("%e", p.typ)
+	s := "Property: count=" + fmt.Sprintf("%d", p.count)
+	s += ", PropType= " + fmt.Sprintf("%d", p.typ)
 	s += ", value= " + p.value.String()
 
-	s += ", encoding=" + fmt.Sprintf("%e", p.encoding)
-	s += ", compressedLen=" + fmt.Sprintf("%e", p.compressedLength)
+	s += ", encoding=" + fmt.Sprintf("%d", p.encoding)
+	s += ", compressedLen=" + fmt.Sprintf("%d", p.compressedLength)
 	return s
 }
