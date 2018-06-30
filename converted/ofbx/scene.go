@@ -30,7 +30,7 @@ type Scene struct {
 	m_root_element     *Element
 	m_root             *Node
 	m_scene_frame_rate float32 // = -1
-	m_settings         GlobalSettings
+	m_settings         Settings
 	m_object_map       map[uint64]ObjectPair // Slice or map?
 	m_all_objects      []Obj
 	m_meshes           []*Mesh
