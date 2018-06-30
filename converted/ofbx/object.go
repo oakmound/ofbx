@@ -25,6 +25,7 @@ type Obj interface {
 	IsNode() bool
 	Scene() *Scene
 	Type() Type
+	String() string
 }
 
 func (o *Object) ID() uint64 {
@@ -83,9 +84,9 @@ func resolveObjectLinkIndex(o Obj, idx int) Obj {
 	if o.Element().getFirstProperty() != nil {
 		id = o.Element().getFirstProperty().getValue().touint64()
 	}
-	for _, conn := range o.Scene().m_connections {
+	for _, conn := range o.Scene().connections {
 		if conn.to == id && conn.from != 0 {
-			obj := o.Scene().m_object_map[conn.from].object
+			obj := o.Scene().objectMap[conn.from].object
 			if obj != nil {
 				if idx == 0 {
 					return obj
@@ -102,10 +103,10 @@ func resolveObjectLink(o Obj, typ Type, property string, idx int) Obj {
 	if o.Element().getFirstProperty() != nil {
 		id = o.Element().getFirstProperty().getValue().touint64()
 	}
-	for _, conn := range o.Scene().m_connections {
+	for _, conn := range o.Scene().connections {
 		if conn.to == id && conn.from != 0 {
 			// obj here should not be *Object, but an interface with GetObject and GetType
-			obj := o.Scene().m_object_map[conn.from].object
+			obj := o.Scene().objectMap[conn.from].object
 			if obj != nil && obj.Type() == typ {
 				if property == "" || conn.property == property {
 					if idx == 0 {
@@ -126,10 +127,10 @@ func resolveObjectLinkReverse(o Obj, typ Type) Obj {
 		rdr.Seek(0, io.SeekStart)
 		id = rdr.touint64()
 	}
-	for _, conn := range o.Scene().m_connections {
+	for _, conn := range o.Scene().connections {
 		//fmt.Println("Connection iterated", id, conn.from, conn.to)
 		if conn.from == id && conn.to != 0 {
-			obj := o.Scene().m_object_map[conn.to].object
+			obj := o.Scene().objectMap[conn.to].object
 			if obj != nil && obj.Type() == typ {
 				return obj
 			}
@@ -139,9 +140,9 @@ func resolveObjectLinkReverse(o Obj, typ Type) Obj {
 }
 
 func getParent(o Obj) Obj {
-	for _, con := range o.Scene().m_connections {
+	for _, con := range o.Scene().connections {
 		if con.from == o.ID() {
-			obj := o.Scene().m_object_map[con.to].object
+			obj := o.Scene().objectMap[con.to].object
 
 			if obj != nil && obj.IsNode() {
 				return obj

@@ -475,13 +475,13 @@ func parseConnection(root *Element, scene *Scene) (bool, error) {
 		} else {
 			return false, errors.New("Not supported")
 		}
-		scene.m_connections = append(scene.m_connections, c)
+		scene.connections = append(scene.connections, c)
 	}
 	return true, nil
 }
 
 func parseTakes(scene *Scene) (bool, error) {
-	takes := findChildren(scene.getRootElement(), "Takes")
+	takes := findChildren(scene.RootElement, "Takes")
 	if takes == nil {
 		return true, nil
 	}
@@ -521,7 +521,7 @@ func parseTakes(scene *Scene) (bool, error) {
 			take.reference_time_from = fbxTimeToSeconds(reference_time.value.toint64())
 			take.reference_time_to = fbxTimeToSeconds(reference_time.next.value.toint64())
 		}
-		scene.m_take_infos = append(scene.m_take_infos, take)
+		scene.takeInfos = append(scene.takeInfos, take)
 	}
 	return true, nil
 }
@@ -544,7 +544,7 @@ func parseGlobalSettings(root *Element, scene *Scene) {
 					prop := node.getProperty(4)
 					if prop != nil {
 						value := prop.getValue()
-						scene.m_settings.UpAxis = UpVector(int(value.toInt32()))
+						scene.settings.UpAxis = UpVector(int(value.toInt32()))
 					}
 				}
 
@@ -552,7 +552,7 @@ func parseGlobalSettings(root *Element, scene *Scene) {
 					prop := node.getProperty(4)
 					if prop != nil {
 						value := prop.getValue()
-						scene.m_settings.UpAxisSign = int(value.toInt32())
+						scene.settings.UpAxisSign = int(value.toInt32())
 					}
 				}
 
@@ -560,7 +560,7 @@ func parseGlobalSettings(root *Element, scene *Scene) {
 					prop := node.getProperty(4)
 					if prop != nil {
 						value := prop.getValue()
-						scene.m_settings.FrontAxis = FrontVector(int(value.toInt32()))
+						scene.settings.FrontAxis = FrontVector(int(value.toInt32()))
 					}
 				}
 
@@ -568,7 +568,7 @@ func parseGlobalSettings(root *Element, scene *Scene) {
 					prop := node.getProperty(4)
 					if prop != nil {
 						value := prop.getValue()
-						scene.m_settings.FrontAxisSign = int(value.toInt32())
+						scene.settings.FrontAxisSign = int(value.toInt32())
 					}
 				}
 
@@ -576,7 +576,7 @@ func parseGlobalSettings(root *Element, scene *Scene) {
 					prop := node.getProperty(4)
 					if prop != nil {
 						value := prop.getValue()
-						scene.m_settings.CoordAxis = CoordSystem(int(value.toInt32()))
+						scene.settings.CoordAxis = CoordSystem(int(value.toInt32()))
 					}
 				}
 
@@ -584,7 +584,7 @@ func parseGlobalSettings(root *Element, scene *Scene) {
 					prop := node.getProperty(4)
 					if prop != nil {
 						value := prop.getValue()
-						scene.m_settings.CoordAxisSign = int(value.toInt32())
+						scene.settings.CoordAxisSign = int(value.toInt32())
 					}
 				}
 
@@ -592,7 +592,7 @@ func parseGlobalSettings(root *Element, scene *Scene) {
 					prop := node.getProperty(4)
 					if prop != nil {
 						value := prop.getValue()
-						scene.m_settings.OriginalUpAxis = int(value.toInt32())
+						scene.settings.OriginalUpAxis = int(value.toInt32())
 					}
 				}
 
@@ -600,7 +600,7 @@ func parseGlobalSettings(root *Element, scene *Scene) {
 					prop := node.getProperty(4)
 					if prop != nil {
 						value := prop.getValue()
-						scene.m_settings.OriginalUpAxisSign = int(value.toInt32())
+						scene.settings.OriginalUpAxisSign = int(value.toInt32())
 					}
 				}
 
@@ -608,7 +608,7 @@ func parseGlobalSettings(root *Element, scene *Scene) {
 					prop := node.getProperty(4)
 					if prop != nil {
 						value := prop.getValue()
-						scene.m_settings.UnitScaleFactor = value.toFloat()
+						scene.settings.UnitScaleFactor = value.toFloat()
 					}
 				}
 
@@ -616,7 +616,7 @@ func parseGlobalSettings(root *Element, scene *Scene) {
 					prop := node.getProperty(4)
 					if prop != nil {
 						value := prop.getValue()
-						scene.m_settings.OriginalUnitScaleFactor = value.toFloat()
+						scene.settings.OriginalUnitScaleFactor = value.toFloat()
 					}
 				}
 
@@ -624,7 +624,7 @@ func parseGlobalSettings(root *Element, scene *Scene) {
 					prop := node.getProperty(4)
 					if prop != nil {
 						value := prop.getValue()
-						scene.m_settings.TimeSpanStart = value.touint64()
+						scene.settings.TimeSpanStart = value.touint64()
 					}
 				}
 
@@ -632,7 +632,7 @@ func parseGlobalSettings(root *Element, scene *Scene) {
 					prop := node.getProperty(4)
 					if prop != nil {
 						value := prop.getValue()
-						scene.m_settings.TimeSpanStop = value.touint64()
+						scene.settings.TimeSpanStop = value.touint64()
 					}
 				}
 
@@ -640,7 +640,7 @@ func parseGlobalSettings(root *Element, scene *Scene) {
 					prop := node.getProperty(4)
 					if prop != nil {
 						value := prop.getValue()
-						scene.m_settings.TimeMode = FrameRate(int(value.toInt32()))
+						scene.settings.TimeMode = FrameRate(int(value.toInt32()))
 					}
 				}
 
@@ -648,11 +648,11 @@ func parseGlobalSettings(root *Element, scene *Scene) {
 					prop := node.getProperty(4)
 					if prop != nil {
 						value := prop.getValue()
-						scene.m_settings.CustomFrameRate = value.toFloat()
+						scene.settings.CustomFrameRate = value.toFloat()
 					}
 				}
 
-				scene.m_scene_frame_rate = GetFramerateFromTimeMode(scene.m_settings.TimeMode, scene.m_settings.CustomFrameRate)
+				scene.frameRate = GetFramerateFromTimeMode(scene.settings.TimeMode, scene.settings.CustomFrameRate)
 			}
 			break
 
@@ -668,8 +668,8 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 	if objs == nil {
 		return true, nil
 	}
-	scene.m_root = NewNode(scene, root, ROOT)
-	scene.m_object_map[0] = ObjectPair{root, scene.m_root}
+	scene.RootNode = NewNode(scene, root, ROOT)
+	scene.objectMap[0] = ObjectPair{root, scene.RootNode}
 
 	objs = objs[0].children
 	for _, object := range objs {
@@ -677,14 +677,14 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 			return false, errors.New("Invalid")
 		}
 		id := object.first_property.value.touint64()
-		scene.m_object_map[id] = ObjectPair{object, nil}
+		scene.objectMap[id] = ObjectPair{object, nil}
 	}
 
 	fmt.Println("Iterating through the object map")
-	for k, iter := range scene.m_object_map {
+	for k, iter := range scene.objectMap {
 		var obj Obj
 		var err error
-		if iter.object == scene.m_root {
+		if iter.object == scene.RootNode {
 			continue
 		}
 		fmt.Println("Printing for ", iter.element.id.String())
@@ -705,7 +705,7 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 		} else if iter.element.id.String() == "AnimationStack" {
 			obj = NewAnimationStack(scene, iter.element)
 			stack := obj.(*AnimationStack)
-			scene.m_animation_stacks = append(scene.m_animation_stacks, stack)
+			scene.AnimationStacks = append(scene.AnimationStacks, stack)
 		} else if iter.element.id.String() == "AnimationLayer" {
 			obj = NewAnimationLayer(scene, iter.element)
 		} else if iter.element.id.String() == "AnimationCurve" {
@@ -741,7 +741,7 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 					obj, err = parseMesh(scene, iter.element)
 					if err != nil {
 						mesh := obj.(*Mesh)
-						scene.m_meshes = append(scene.m_meshes, mesh)
+						scene.meshes = append(scene.meshes, mesh)
 						obj = mesh
 					}
 				} else if v == "LimbNode" {
@@ -757,17 +757,17 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 			obj = parseTexture(scene, iter.element)
 		}
 
-		scene.m_object_map[k] = ObjectPair{iter.element, obj}
+		scene.objectMap[k] = ObjectPair{iter.element, obj}
 		if obj != nil {
-			scene.m_all_objects = append(scene.m_all_objects, obj)
+			scene.Objects = append(scene.Objects, obj)
 			obj.SetID(k)
 		}
 	}
 
 	fmt.Println("Parsing connections")
-	for _, con := range scene.m_connections {
-		parent := scene.m_object_map[con.to].object
-		child := scene.m_object_map[con.from].object
+	for _, con := range scene.connections {
+		parent := scene.objectMap[con.to].object
+		child := scene.objectMap[con.from].object
 		if child == nil || parent == nil {
 			continue
 		}
@@ -871,7 +871,7 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 	}
 
 	fmt.Println("Parsing clusters?")
-	for _, iter := range scene.m_object_map {
+	for _, iter := range scene.objectMap {
 		obj := iter.object
 		if obj == nil {
 			continue

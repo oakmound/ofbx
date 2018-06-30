@@ -27,27 +27,33 @@ type ObjectPair struct {
 //const GlobalSettings* getGlobalSettings() const override { return &m_settings; }
 
 type Scene struct {
-	m_root_element     *Element
-	m_root             *Node
-	m_scene_frame_rate float32 // = -1
-	m_settings         Settings
-	m_object_map       map[uint64]ObjectPair // Slice or map?
-	m_all_objects      []Obj
-	m_meshes           []*Mesh
-	m_animation_stacks []*AnimationStack
-	m_connections      []Connection
-	m_data             []byte
-	m_take_infos       []TakeInfo
+	RootElement     *Element
+	RootNode        *Node
+	frameRate       float32 // = -1
+	settings        Settings
+	objectMap       map[uint64]ObjectPair // Slice or map?
+	Objects         []Obj
+	meshes          []*Mesh
+	AnimationStacks []*AnimationStack
+	connections     []Connection
+	takeInfos       []TakeInfo
 }
 
-func (s *Scene) getRootElement() *Element {
-	return s.m_root_element
+func (s *Scene) String() {
+	st := "Scene: "
+	st += "element=" + s.RootElement.String()
+	st += ", root=" + s.RootNode.String()
+	st += ", frameRate=" + fmt.Sprintf("%f", s.frameRate)
+	st += ", setttings=" + s.settings.String()
+	st += ", objects=" + fmt.Sprint(s.Objects)
+	st += ", meshes=" + fmt.Sprint(s.meshes)
+	st += ", animations=" + fmt.Sprint(s.AnimationStacks)
+	st += ", connections=" + fmt.Sprint(s.connections)
+	st += ", takeInfos=" + fmt.Sprint(s.takeInfos)
 }
-func (s *Scene) getRoot() Obj {
-	return s.m_root
-}
+
 func (s *Scene) getTakeInfo(name string) *TakeInfo {
-	for _, info := range s.m_take_infos {
+	for _, info := range s.takeInfos {
 		if info.name.String() == name {
 			return &info
 		}
@@ -55,27 +61,15 @@ func (s *Scene) getTakeInfo(name string) *TakeInfo {
 	return nil
 }
 func (s *Scene) getSceneFrameRate() float32 {
-	return s.m_scene_frame_rate
+	return s.frameRate
 }
 func (s *Scene) getMesh(index int) *Mesh {
-	return s.m_meshes[index]
-}
-
-func (s *Scene) GetAnimationStacks() []*AnimationStack {
-	return s.m_animation_stacks
-}
-
-func (s *Scene) GetAnimationStack(index int) *AnimationStack {
-	return s.m_animation_stacks[index]
-
-}
-func (s *Scene) getAllObjects() []Obj {
-	return s.m_all_objects
+	return s.meshes[index]
 }
 
 func Load(r io.Reader) (*Scene, error) {
 	s := &Scene{}
-	s.m_object_map = make(map[uint64]ObjectPair)
+	s.objectMap = make(map[uint64]ObjectPair)
 	fmt.Println("Starting tokenize")
 	root, err := tokenize(r)
 	fmt.Println("Tokenize completed")
@@ -89,11 +83,8 @@ func Load(r io.Reader) (*Scene, error) {
 		}
 	}
 
-	s.m_root_element = root
-	//assert(scene.m_root_element);
+	s.RootElement = root
 
-	// This was commented out already I didn't do it
-	//if (parseTemplates(*root.getValue()).isError()) return nil
 	fmt.Println("Starting parse connection")
 	if ok, err := parseConnection(root, s); !ok {
 		return nil, err
