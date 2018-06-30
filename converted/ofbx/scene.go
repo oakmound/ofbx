@@ -5,20 +5,6 @@ import (
 	"io"
 )
 
-type Connection struct {
-	typ      ConnectionType
-	from, to uint64
-	property string
-}
-
-type ConnectionType int
-
-// Connection Types
-const (
-	OBJECT_OBJECT   ConnectionType = iota
-	OBJECT_PROPERTY ConnectionType = iota
-)
-
 type ObjectPair struct {
 	element *Element
 	object  Obj
