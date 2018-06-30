@@ -1,5 +1,7 @@
 package ofbx
 
+import "fmt"
+
 type CurveMode int
 
 const (
@@ -102,7 +104,7 @@ func (acn *AnimationCurveNode) String() string {
 	}
 	s += "bone=" + acn.bone.String()
 	s += "bone_link_property=" + acn.bone_link_property
-	s += "mode= " + acn.mode.String()
+	s += "mode= " + fmt.Sprintf("%e", acn.mode)
 	return s
 }
 
