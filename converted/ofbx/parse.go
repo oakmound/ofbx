@@ -381,14 +381,14 @@ func parseTexture(scene *Scene, element *Element) *Texture {
 	return texture
 }
 
-func parseLimbNode(scene *Scene, element *Element) (*LimbNode, error) {
+func parseLimbNode(scene *Scene, element *Element) (*Node, error) {
 	if element.first_property == nil ||
 		element.first_property.next == nil ||
 		element.first_property.next.next == nil ||
 		element.first_property.next.next.value.String() != "LimbNode" {
 		return nil, errors.New("Invalid limb node")
 	}
-	return NewLimbNode(scene, element), nil
+	return NewNode(scene, element, LIMB_NODE), nil
 }
 
 func parseMesh(scene *Scene, element *Element) (*Mesh, error) {
@@ -668,7 +668,7 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 	if objs == nil {
 		return true, nil
 	}
-	scene.m_root = NewRoot(scene, root)
+	scene.m_root = NewNode(scene, root, ROOT)
 	scene.m_object_map[0] = ObjectPair{root, scene.m_root}
 
 	objs = objs[0].children
@@ -750,7 +750,7 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 						return false, err
 					}
 				} else if v == "Null" || v == "Root" {
-					obj = NewNull(scene, iter.element)
+					obj = NewNode(scene, iter.element, NULL_NODE)
 				}
 			}
 		} else if iter.element.id.String() == "Texture" {

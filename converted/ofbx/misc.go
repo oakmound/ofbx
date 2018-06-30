@@ -28,54 +28,7 @@ func resolveVec3Property(object Obj, name string, default_value Vec3) Vec3 {
 		x.next.value.toDouble(),
 		x.next.next.value.toDouble(),
 	}
-}
-
-type LimbNode struct {
-	Object
-}
-
-func NewLimbNode(scene *Scene, element *Element) *LimbNode {
-	ln := &LimbNode{}
-	ln.Object = *NewObject(scene, element)
-	ln.is_node = true
-	return ln
-}
-
-func (ln *LimbNode) Type() Type {
-	return LIMB_NODE
-}
-
-type Null struct {
-	Object
-}
-
-func NewNull(scene *Scene, element *Element) *Null {
-	n := &Null{}
-	n.Object = *NewObject(scene, element)
-	n.is_node = true
-	return n
-}
-
-func (n *Null) Type() Type {
-	return NULL_NODE
-}
-
-type Root struct {
-	Object
-	name string
-}
-
-func NewRoot(scene *Scene, element *Element) *Root {
-	r := &Root{}
-	r.Object = *NewObject(scene, element)
-	r.name = "RootNode" // might not need this
-	r.is_node = true
-	return r
-}
-
-func (r *Root) Type() Type {
-	return ROOT
-}
+} 
 
 func splatVec2(mapping VertexDataMapping, data []Vec2, indices []int, original_indices []int) (out []Vec2) {
 	if mapping == BY_POLYGON_VERTEX {

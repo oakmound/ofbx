@@ -9,15 +9,14 @@ import (
 )
 
 func main() {
-	fmt.Println("Starting main")
-	f, err := os.Open("character3.FBX")
+	f, err := os.Open("cuberotateblend.FBX")
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("File opened")
 	scene, err := ofbx.Load(f)
 	if err != nil {
 		log.Fatal(err)
 	}
+	fmt.Print("\n\n\n~~~\n\n\n")
 	fmt.Println(scene)
 }

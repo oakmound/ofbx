@@ -34,7 +34,7 @@ func (t *Texture) getRelativeFileName() *DataView {
 }
 
 func (t *Texture) String() string {
-	s := "Texture: " + Object.String()
+	s := "Texture: " + t.Object.String()
 	s += ", filename: " + t.filename.String()
 	s += ", relative_filename: " + t.relative_filename.String()
 	return s

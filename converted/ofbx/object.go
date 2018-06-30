@@ -1,6 +1,7 @@
 package ofbx
 
 import (
+	"fmt"
 	"io"
 )
 
@@ -51,6 +52,18 @@ func (o *Object) IsNode() bool {
 }
 func (o *Object) Scene() *Scene {
 	return o.scene
+}
+
+func (o *Object) String() string {
+	s := "Object: " + fmt.Sprintf("%d", o.id) + ", " + o.name
+	s += ", element=" + o.element.String()
+	if strn, ok := o.node_attribute.(fmt.Stringer); ok {
+		s += ", node=" + strn.String()
+	}
+	if o.is_node {
+		s += ", is_node"
+	}
+	return s
 }
 
 func NewObject(scene *Scene, e *Element) *Object {
