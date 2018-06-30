@@ -23,3 +23,9 @@ func (m *Material) getDiffuseColor() Color {
 func (m *Material) getTexture(typ TextureType) *Texture {
 	return m.textures[typ]
 }
+
+func (m *Material) String() string {
+	s := "Material: " + m.Object.String()
+	s += " color= " + m.diffuse_color.String()
+	return s
+}
