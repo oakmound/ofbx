@@ -1,6 +1,10 @@
 package ofbx
 
-import "github.com/pkg/errors"
+import (
+	"fmt"
+
+	"github.com/pkg/errors"
+)
 
 type Cluster struct {
 	Object
@@ -127,4 +131,15 @@ func parseCluster(scene *Scene, element *Element) (*Cluster, error) {
 
 func (c *Cluster) getType() Type {
 	return c.Type()
+}
+
+func (c *Cluster) String() string {
+	s := "Cluster: " + c.Object.String()
+	s += " link=" + c.link.String()
+	s += " skin=" + c.skin.String()
+	s += "indicies= " + fmt.Sprintf("%e", c.indices)
+	s += " weights=" + fmt.Sprintf("%e", c.weights)
+	s += " transform_matrix=" + c.transform_matrix.String()
+	s += " transform_link_matrix=" + c.transform_link_matrix.String()
+	return s
 }
