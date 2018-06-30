@@ -22,3 +22,12 @@ func (s *Skin) getCluster(idx int) *Cluster {
 func (s *Skin) getClusterCount() int {
 	return len(s.clusters)
 }
+
+func (s *Skin) String() string {
+	str := "Skin: " + s.Object.String()
+	for _, cluster := range s.clusters {
+		str += "\t" + cluster.String() + "\n"
+	}
+
+	return str
+}
