@@ -93,3 +93,21 @@ func (acn *AnimationCurveNode) getNodeLocalTransform(time float64) Vec3 {
 func (acn *AnimationCurveNode) getBone() Obj {
 	return acn.bone
 }
+
+func (acn *AnimationCurveNode) String() string {
+	s := "AnimationCurveNode: " + acn.Object.String()
+	s += "curves= "
+	for _, curve := range acn.curves {
+		s += " " + curve.String()
+	}
+	s += "bone=" + acn.bone.String()
+	s += "bone_link_property=" + acn.bone_link_property
+	s += "mode= " + acn.mode.String()
+	return s
+}
+
+func (c *Curve) String() string {
+	s := "Curve= " + c.curve.String()
+	s += "Connections= " + c.connection.String()
+	return s
+}

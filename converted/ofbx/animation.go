@@ -43,3 +43,15 @@ func (as *AnimationLayer) getCurveNode(bone Obj, property string) *AnimationCurv
 	}
 	return nil
 }
+
+func (as *AnimationLayer) String() string {
+	s := "AnimationLayer: " + as.Object.String()
+	if len(as.curve_nodes) != 0 {
+		s += " curveNodes="
+		for _, curve := range as.curve_nodes {
+			s += " " + curve.String()
+		}
+	}
+	return s
+
+}

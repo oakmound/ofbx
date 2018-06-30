@@ -130,15 +130,8 @@ func (p *Property) String() string {
 	s := "Property: count=" + fmt.Sprintf("%e", p.count)
 	s += ", PropType= " + fmt.Sprintf("%e", p.typ)
 	s += ", value= " + p.value.String()
-	// TODO: However we reimplement next
+
 	s += ", encoding=" + fmt.Sprintf("%e", p.encoding)
 	s += ", compressedLen=" + fmt.Sprintf("%e", p.compressedLength)
 	return s
 }
-
-// count            int
-// 	typ              PropertyType
-// 	value            *DataView
-// 	next             *Property
-// 	encoding         uint32
-// 	compressedLength uint32
