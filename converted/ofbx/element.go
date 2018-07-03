@@ -1,5 +1,7 @@
 package ofbx
 
+import "strconv"
+
 type Element struct {
 	id         *DataView
 	children   []*Element
@@ -30,8 +32,16 @@ func (e *Element) stringPrefix(prefix string) string {
 	if e.id != nil {
 		s += e.id.String()
 	}
+	if len(e.properties) > 1 {
+		for idx, p := range e.properties {
+			s += "\n" + p.stringPrefix("\t"+prefix+"prop"+strconv.Itoa(idx)+"=")
+		}
+
+	} else if len(e.properties) == 1 {
+		s += e.properties[0].stringPrefix(", prop=")
+	}
 	if len(e.children) != 0 {
-		s += " children: " + "\n"
+		s += "\n" + prefix + "children: " + "\n"
 		for _, c := range e.children {
 			s += c.stringPrefix("\t" + prefix)
 		}

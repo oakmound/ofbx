@@ -28,14 +28,14 @@ func (s *Scene) String() string {
 		return "nil Scene"
 	}
 	st := "Scene: "
-	if s.RootElement != nil {
-		st += "element=" + s.RootElement.String()
-	}
-	if s.RootNode != nil {
-		st += "root=" + s.RootNode.String() + "\n"
-	}
+	// if s.RootElement != nil {
+	// 	st += "element=" + s.RootElement.String()
+	// }
+	// if s.RootNode != nil {
+	// 	st += "root=" + s.RootNode.String() + "\n"
+	// }
 	st += "frameRate=" + fmt.Sprintf("%f", s.frameRate) + "\n"
-	st += "setttings=" + fmt.Sprint(s.settings) + "\n"
+	st += "setttings=" + fmt.Sprintf("%+v", s.settings) + "\n"
 	if s.Objects != nil {
 		st += "objects=" + fmt.Sprint(s.Objects) + "\n"
 	}
