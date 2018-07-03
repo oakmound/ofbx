@@ -5,19 +5,26 @@ import "fmt"
 type PropertyType rune
 
 const (
+	BOOL         PropertyType = 'C'
+	INT16        PropertyType = 'Y'
 	LONG         PropertyType = 'L'
 	INTEGER      PropertyType = 'I'
 	STRING       PropertyType = 'S'
+	RAWSTRING    PropertyType = 'R'
 	FLOAT        PropertyType = 'F'
 	DOUBLE       PropertyType = 'D'
 	ARRAY_DOUBLE PropertyType = 'd'
 	ARRAY_INT    PropertyType = 'i'
 	ARRAY_LONG   PropertyType = 'l'
 	ARRAY_FLOAT  PropertyType = 'f'
+	ARRAY_BOOL   PropertyType = 'b'
+	ARRAY_BYTE   PropertyType = 'c'
 )
 
 var (
 	propertyTypeSizes = map[PropertyType]int{
+		BOOL:         1,
+		INT16:        2,
 		DOUBLE:       8,
 		INTEGER:      4,
 		LONG:         8,
@@ -26,8 +33,60 @@ var (
 		ARRAY_INT:    4,
 		ARRAY_LONG:   8,
 		ARRAY_FLOAT:  4,
+		ARRAY_BOOL:   1,
+		ARRAY_BYTE:   1,
 	}
 )
+
+func (p *Property) stringValue() string {
+
+	switch p.typ {
+	case BOOL:
+		return fmt.Sprintf("%v", p.value.toBool())
+	case LONG:
+		return fmt.Sprintf("%d", p.value.toint64())
+	case INTEGER:
+		return fmt.Sprintf("%d", p.value.toInt32())
+	case STRING:
+		return p.value.String()
+	case RAWSTRING:
+		return p.value.String()
+	case FLOAT:
+		return fmt.Sprintf("%f", p.value.toFloat())
+	case DOUBLE:
+		return fmt.Sprintf("%f", p.value.toDouble())
+	case ARRAY_DOUBLE:
+		sli, err := parseArrayRawFloat64(p)
+		if err != nil {
+			return "Bad Format" + err.Error()
+		}
+		return fmt.Sprintf("%v", sli)
+	case ARRAY_INT:
+		sli, err := parseArrayRawInt(p)
+		if err != nil {
+			return "Bad Format" + err.Error()
+		}
+		return fmt.Sprintf("%v", sli)
+	case ARRAY_LONG:
+		sli, err := parseArrayRawInt64(p)
+		if err != nil {
+			return "Bad Format" + err.Error()
+		}
+		return fmt.Sprintf("%v", sli)
+	case ARRAY_FLOAT:
+		sli, err := parseArrayRawFloat32(p)
+		if err != nil {
+			return "Bad Format" + err.Error()
+		}
+		return fmt.Sprintf("%v", sli)
+	case ARRAY_BOOL:
+		return "Bool array not implemented"
+	case ARRAY_BYTE:
+		return "Byte array not implemented"
+	}
+
+	return "Error: Not a known property Type " + string(p.typ)
+}
 
 func (pt PropertyType) Size() int {
 	return propertyTypeSizes[pt]
@@ -131,11 +190,14 @@ func isLong(prop *Property) bool {
 }
 
 func (p *Property) String() string {
-	s := "Property: count=" + fmt.Sprintf("%d", p.count)
-	s += ", PropType= " + fmt.Sprintf("%d", p.typ)
-	s += ", value= " + p.value.String()
+	return p.stringPrefix("")
+}
 
-	s += ", encoding=" + fmt.Sprintf("%d", p.encoding)
-	s += ", compressedLen=" + fmt.Sprintf("%d", p.compressedLength)
+func (p *Property) stringPrefix(prefix string) string {
+	s := prefix + p.stringValue()
+	// s += ", proptype= " + fmt.Sprintf("%q", p.typ)
+	// s += "count=" + fmt.Sprintf("%d", p.count)
+	// s += ", encoding=" + fmt.Sprintf("%d", p.encoding)
+	// s += ", compressedLen=" + fmt.Sprintf("%d", p.compressedLength)
 	return s
 }
