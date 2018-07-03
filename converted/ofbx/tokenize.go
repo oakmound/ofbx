@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"io"
 	"strconv"
 	"unicode"
@@ -46,7 +45,7 @@ func (c *Cursor) readShortString() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	fmt.Print("slength is ", length)
+	//fmt.Print("slength is ", length)
 	byt := make([]byte, int(length))
 	_, err = io.ReadFull(c, byt)
 	if err != nil {
@@ -65,14 +64,14 @@ func (c *Cursor) readLongString() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	fmt.Print(" |S Prop had ", length, "|")
+	//fmt.Print(" |S Prop had ", length, "|")
 	return string(byt), nil
 }
 
 func (c *Cursor) isEndLine() bool {
 	by, err := c.Peek(1)
 	if err != nil {
-		fmt.Println(err)
+		//fmt.Println(err)
 	}
 	return by[0] == '\n'
 }
@@ -161,7 +160,7 @@ func (c *Cursor) readBytes(length int) []byte {
 	tempArr := make([]byte, length)
 	_, err := io.ReadFull(c, tempArr)
 	if err != nil {
-		fmt.Println(err)
+		//fmt.Println(err)
 	}
 	return tempArr
 }
@@ -173,11 +172,11 @@ func (c *Cursor) readProperty() (*Property, error) {
 	prop := Property{}
 	typ, _, err := c.ReadRune()
 	if err != nil {
-		fmt.Println(err)
+		//fmt.Println(err)
 	}
 	prop.typ = PropertyType(typ)
 	var val string
-	fmt.Println("Got property type:", string(prop.typ))
+	//fmt.Println("Got property type:", string(prop.typ))
 	switch prop.typ {
 	case 'S':
 		val, err = c.readLongString()
@@ -214,13 +213,13 @@ func (c *Cursor) readProperty() (*Property, error) {
 		prop.encoding = binary.LittleEndian.Uint32(encoding)
 		prop.compressedLength = binary.LittleEndian.Uint32(compressedLength)
 		prop.count = int(binary.LittleEndian.Uint32(unCompressedLength))
-		fmt.Println("prop lengths", unCompressedLength, compressedLength, "props encoding", encoding)
+		//fmt.Println("prop lengths", unCompressedLength, compressedLength, "props encoding", encoding)
 		val = string(c.readBytes(length))
 	default:
 		return nil, errors.New("Did not know this property:" + string(prop.typ))
 	}
 	if err != nil {
-		fmt.Println(err)
+		//fmt.Println(err)
 	}
 
 	prop.value = NewDataView(val)
@@ -240,7 +239,7 @@ func (c *Cursor) readElement(version uint16) (*Element, error) {
 	if footer {
 		// Note we don't actually read the footer contents yet,
 		// as far as we know the footer holds no useful information
-		fmt.Println("Returning footer")
+		//fmt.Println("Returning footer")
 		return nil, nil
 	}
 
@@ -248,22 +247,22 @@ func (c *Cursor) readElement(version uint16) (*Element, error) {
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("Obtained element end offset", end_offset)
+	//fmt.Println("Obtained element end offset", end_offset)
 	prop_count, err := c.readElementOffset(version)
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("Obtained element prop count", prop_count)
-	prop_list_length, err := c.readElementOffset(version)
+	//fmt.Println("Obtained element prop count", prop_count)
+	_, err = c.readElementOffset(version)
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("Obtained property list length", prop_list_length)
+	//fmt.Println("Obtained property list length", prop_list_length)
 	id, err := c.readShortString()
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("Read short string", id)
+	//fmt.Println("Read short string", id)
 
 	element := Element{}
 	element.id = NewDataView(id)
@@ -274,7 +273,7 @@ func (c *Cursor) readElement(version uint16) (*Element, error) {
 	}
 
 	if uint64(c.ReadSoFar()) >= end_offset {
-		fmt.Println("NO Sentinel sizes ", c.ReadSoFar(), end_offset)
+		//fmt.Println("NO Sentinel sizes ", c.ReadSoFar(), end_offset)
 		return &element, nil
 	}
 	blockSentinelLength := 13
@@ -282,7 +281,7 @@ func (c *Cursor) readElement(version uint16) (*Element, error) {
 		blockSentinelLength = 25
 	}
 
-	fmt.Print("sizes pre children ", c.ReadSoFar(), end_offset, uint64(blockSentinelLength))
+	//fmt.Print("sizes pre children ", c.ReadSoFar(), end_offset, uint64(blockSentinelLength))
 	for uint64(c.ReadSoFar()) < end_offset-uint64(blockSentinelLength) {
 		child, err := c.readElement(version)
 		if err != nil {
@@ -290,19 +289,19 @@ func (c *Cursor) readElement(version uint16) (*Element, error) {
 		}
 		element.children = append(element.children, child)
 		if uint64(c.ReadSoFar()) > end_offset {
-			fmt.Println("Read past where we were supposed to!!", c.ReadSoFar(), end_offset)
+			//fmt.Println("Read past where we were supposed to!!", c.ReadSoFar(), end_offset)
 		}
 	}
 	if uint64(c.ReadSoFar()) > end_offset {
-		fmt.Println("Read past where we were supposed to!!", c.ReadSoFar(), end_offset)
+		//fmt.Println("Read past where we were supposed to!!", c.ReadSoFar(), end_offset)
 	}
 	c.Discard(blockSentinelLength)
-	fmt.Println("With Sentinel", uint64(c.ReadSoFar()), "versus", end_offset)
+	//fmt.Println("With Sentinel", uint64(c.ReadSoFar()), "versus", end_offset)
 	return &element, nil
 }
 
 func (c *Cursor) readTextProperty() (*Property, error) {
-	fmt.Println("Reading text property")
+	//fmt.Println("Reading text property")
 	prop := &Property{}
 
 	r, _, err := c.ReadRune()
@@ -310,7 +309,7 @@ func (c *Cursor) readTextProperty() (*Property, error) {
 		return nil, err
 	}
 	if r == '"' {
-		fmt.Println("Quote start")
+		//fmt.Println("Quote start")
 		prop.typ = 'S'
 		val := bytes.NewBuffer([]byte{})
 		for {
@@ -327,12 +326,12 @@ func (c *Cursor) readTextProperty() (*Property, error) {
 			val.WriteRune(r)
 		}
 		prop.value = BufferDataView(val)
-		fmt.Println("Quote end", prop.value.String())
+		//fmt.Println("Quote end", prop.value.String())
 		return prop, nil
 	}
 
 	if unicode.IsDigit(r) || r == '-' {
-		fmt.Println("Digit start")
+		//fmt.Println("Digit start")
 		prop.typ = 'L'
 		if r != '-' {
 			c.UnreadRune()
@@ -383,7 +382,7 @@ func (c *Cursor) readTextProperty() (*Property, error) {
 					r, _, err := c.ReadRune()
 					if err != nil {
 						if err == io.EOF {
-							fmt.Println("EOF?")
+							//fmt.Println("EOF?")
 							break //?
 						}
 						return nil, err
@@ -396,21 +395,21 @@ func (c *Cursor) readTextProperty() (*Property, error) {
 			}
 		}
 		prop.value = BufferDataView(val)
-		fmt.Println("Digits end", prop.value.String())
+		//fmt.Println("Digits end", prop.value.String())
 		return prop, nil
 	}
 
 	if r == 'T' || r == 'Y' {
 		// WTF is this
-		fmt.Println("WTF start")
+		//fmt.Println("WTF start")
 		prop.typ = PropertyType(r)
 		b, err := c.ReadByte()
 		prop.value = NewDataView(string(b))
-		fmt.Println("WTF end", b)
+		//fmt.Println("WTF end", b)
 		return prop, err
 	}
 	if r == '*' {
-		fmt.Println("Asterisk start")
+		//fmt.Println("Asterisk start")
 		prop.typ = 'l'
 		// Vertices: *10740 { a: 14.2760353088379,... } //Pulled from original...
 		pBytes := bytes.NewBuffer([]byte{})
@@ -449,29 +448,29 @@ func (c *Cursor) readTextProperty() (*Property, error) {
 			prop.count++
 		}
 		prop.value = BufferDataView(pBytes)
-		fmt.Println("Asterisk end", prop.value.String())
+		//fmt.Println("Asterisk end", prop.value.String())
 		return prop, err
 	}
-	fmt.Println("r was", string(r))
+	//fmt.Println("r was", string(r))
 	return nil, errors.New("TODO")
 }
 
 func (c *Cursor) readTextElement() (*Element, error) {
-	fmt.Println("Read text token start")
+	//fmt.Println("Read text token start")
 	id, err := c.readTextToken()
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("Read rune start")
+	//fmt.Println("Read rune start")
 	r, _, err := c.ReadRune()
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("Read rune complete")
+	//fmt.Println("Read rune complete")
 	if r != ':' {
 		return nil, errors.New("Unexpected end of file")
 	}
-	fmt.Println("Skip whitespaces start")
+	//fmt.Println("Skip whitespaces start")
 	if err = c.skipWhitespaces(); err != nil {
 		return nil, err
 	}
@@ -479,9 +478,9 @@ func (c *Cursor) readTextElement() (*Element, error) {
 	element := &Element{}
 	element.id = id
 
-	fmt.Println("Looping over properties")
+	//fmt.Println("Looping over properties")
 	for {
-		fmt.Println("Property loop")
+		//fmt.Println("Property loop")
 		by, err := c.Peek(1)
 		if err != nil {
 			if err == io.EOF {
@@ -586,7 +585,7 @@ func tokenize(r io.Reader) (*Element, error) {
 	countReader := NewCountReader(r)
 	r2 := bufio.NewReader(countReader)
 	cursor := &Cursor{r2, countReader}
-	fmt.Println("initial stats: ", r2.Buffered(), cursor.ReadSoFar())
+	//fmt.Println("initial stats: ", r2.Buffered(), cursor.ReadSoFar())
 
 	var header Header
 	err := binary.Read(cursor, binary.LittleEndian, &header)
@@ -594,15 +593,15 @@ func tokenize(r io.Reader) (*Element, error) {
 		return nil, err
 	}
 
-	fmt.Println("Header:", header)
+	//fmt.Println("Header:", header)
 
 	root := &Element{}
 
 	for {
-		fmt.Println("Reading element")
+		//fmt.Println("Reading element")
 		child, err := cursor.readElement(uint16(header.Version))
 		if err != nil {
-			fmt.Println("Read element failure", err)
+			//fmt.Println("Read element failure", err)
 			return nil, err
 		}
 

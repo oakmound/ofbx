@@ -17,6 +17,5 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Print("\n\n\n~~~\n\n\n")
 	fmt.Println(scene)
 }

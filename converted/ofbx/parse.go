@@ -3,7 +3,6 @@ package ofbx
 import (
 	"compress/zlib"
 	"encoding/binary"
-	"fmt"
 	"io"
 	"io/ioutil"
 
@@ -23,7 +22,7 @@ func parseTemplates(root *Element) {
 			prop1 := def.getProperty(0).value
 			prop1Data, err := ioutil.ReadAll(prop1)
 			if err != nil && err != io.EOF {
-				fmt.Println(err)
+				//fmt.Println(err)
 				continue
 			}
 			subdefs := def.children
@@ -32,7 +31,7 @@ func parseTemplates(root *Element) {
 					prop2 := subdef.getProperty(0).value
 					prop2Data, err := ioutil.ReadAll(prop2)
 					if err != nil && err != io.EOF {
-						fmt.Println(err)
+						//fmt.Println(err)
 						continue
 					}
 					templates[string(prop1Data)+string(prop2Data)] = subdef
@@ -97,7 +96,7 @@ func parseBinaryArrayVec3(property *Property) ([]Vec3, error) {
 	vs := make([]Vec3, len(f64s)/3)
 	// len(f64s) should probably be divisible by 3
 	if len(f64s)%3 != 0 {
-		fmt.Println("Vec3 binary array not made up of Vec3s")
+		//fmt.Println("Vec3 binary array not made up of Vec3s")
 	}
 	for i := 0; (i + 2) < len(f64s); i += 3 {
 		vs[i/3].X = f64s[i]
@@ -584,7 +583,7 @@ func parseGlobalSettings(root *Element, scene *Scene) {
 }
 
 func parseObjects(root *Element, scene *Scene) (bool, error) {
-	fmt.Println("Starting object Parse")
+	//fmt.Println("Starting object Parse")
 	objs := findChildren(root, "Objects")
 	if objs == nil {
 		return true, nil
@@ -601,14 +600,14 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 		scene.objectMap[id] = ObjectPair{object, nil}
 	}
 
-	fmt.Println("Iterating through the object map")
+	//fmt.Println("Iterating through the object map")
 	for k, iter := range scene.objectMap {
 		var obj Obj
 		var err error
 		if iter.object == scene.RootNode {
 			continue
 		}
-		fmt.Println("Printing for ", iter.element.id.String())
+		//fmt.Println("Printing for ", iter.element.id.String())
 
 		if iter.element.id.String() == "Geometry" {
 			last_prop := iter.element.getProperty(len(iter.element.properties) - 1)
@@ -682,7 +681,7 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 		}
 	}
 
-	fmt.Println("Parsing connections")
+	//fmt.Println("Parsing connections")
 	for _, con := range scene.connections {
 		parent := scene.objectMap[con.to].object
 		child := scene.objectMap[con.from].object
@@ -788,7 +787,7 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 		}
 	}
 
-	fmt.Println("Parsing clusters?")
+	//fmt.Println("Parsing clusters?")
 	for _, iter := range scene.objectMap {
 		obj := iter.object
 		if obj == nil {
