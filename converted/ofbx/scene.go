@@ -37,8 +37,12 @@ func (s *Scene) String() string {
 	st += "frameRate=" + fmt.Sprintf("%f", s.frameRate) + "\n"
 	st += "setttings=" + fmt.Sprintf("%+v", s.settings) + "\n"
 	if s.Objects != nil {
-		st += "objects=" + fmt.Sprint(s.Objects) + "\n"
+		st += "objects=" + "\n" //perhaps this should output the object types?
 	}
+	for _, o := range s.Objects {
+		st += o.stringPrefix("\t") + "\n"
+	}
+
 	if s.meshes != nil {
 		st += "meshes=" + fmt.Sprint(s.meshes) + "\n"
 	}

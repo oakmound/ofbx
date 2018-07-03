@@ -26,6 +26,7 @@ type Obj interface {
 	Scene() *Scene
 	Type() Type
 	String() string
+	stringPrefix(string) string
 }
 
 func (o *Object) ID() uint64 {
@@ -56,9 +57,12 @@ func (o *Object) Scene() *Scene {
 }
 
 func (o *Object) String() string {
-	s := "Object: " + fmt.Sprintf("%d", o.id) + ", " + o.name
+	return o.stringPrefix("")
+}
+func (o *Object) stringPrefix(prefix string) string {
+	s := prefix + "Object: " + fmt.Sprintf("%d", o.id) + ", " + o.name
 	if o.element != nil {
-		s += ", element=" + o.element.String()
+		s += ", \n" + o.element.stringPrefix(prefix+"\t")
 	}
 	if o.node_attribute != nil {
 		if strn, ok := o.node_attribute.(fmt.Stringer); ok {

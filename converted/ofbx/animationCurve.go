@@ -97,14 +97,19 @@ func (acn *AnimationCurveNode) getBone() Obj {
 }
 
 func (acn *AnimationCurveNode) String() string {
-	s := "AnimationCurveNode: " + acn.Object.String()
-	s += "curves= "
-	for _, curve := range acn.curves {
-		s += " " + curve.String()
-	}
-	s += "bone=" + acn.bone.String() + "\n"
+	return acn.stringPrefix("")
+}
+func (acn *AnimationCurveNode) stringPrefix(prefix string) string {
+	s := "AnimationCurveNode: "
+	s += "\n\tbone=" + acn.bone.stringPrefix(prefix) + "\n"
 	s += "bone_link_property=" + acn.bone_link_property
-	s += "mode= " + fmt.Sprintf("%d", acn.mode)
+	s += " mode=" + fmt.Sprintf("%d", acn.mode)
+	s += acn.Object.stringPrefix(prefix)
+	s += "curves="
+	for _, curve := range acn.curves {
+		s += "\n" + prefix + "\t" + curve.String()
+	}
+
 	return s
 }
 
