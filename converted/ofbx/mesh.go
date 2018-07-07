@@ -40,3 +40,11 @@ func (m *Mesh) getGeometricMatrix() Matrix {
 func (m *Mesh) getMaterial(idx int) *Material {
 	return m.materials[idx]
 }
+
+func (m *Mesh) String() string {
+	return m.stringPrefix("")
+}
+
+func (m *Mesh) stringPrefix(prefix string) string {
+	return prefix + "Todo"
+}

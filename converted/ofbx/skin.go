@@ -28,6 +28,5 @@ func (s *Skin) String() string {
 	for _, cluster := range s.clusters {
 		str += "\t" + cluster.String() + "\n"
 	}
-
 	return str
 }

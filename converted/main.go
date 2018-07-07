@@ -18,4 +18,5 @@ func main() {
 		log.Fatal(err)
 	}
 	fmt.Println(scene)
+	//fmt.Println(scene.Geometries())
 }

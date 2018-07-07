@@ -60,18 +60,18 @@ func (o *Object) String() string {
 	return o.stringPrefix("")
 }
 func (o *Object) stringPrefix(prefix string) string {
-	s := prefix + "Object: " + fmt.Sprintf("%d", o.id) + ", " + o.name
+	s := "" //:= prefix //+ "Object: " + fmt.Sprintf("%d", o.id) + ", " + o.name
 	if o.element != nil {
-		s += ", \n" + o.element.stringPrefix(prefix+"\t")
+		s += o.element.stringPrefix(prefix)
 	}
 	if o.node_attribute != nil {
 		if strn, ok := o.node_attribute.(fmt.Stringer); ok {
 			s += ", node=" + strn.String()
 		}
 	}
-	if o.is_node {
-		s += "(is_node)"
-	}
+	// if o.is_node {
+	// 	s += "(is_node)"
+	// }
 	return s
 }
 

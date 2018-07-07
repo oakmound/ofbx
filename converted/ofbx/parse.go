@@ -683,6 +683,7 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 
 	//fmt.Println("Parsing connections")
 	for _, con := range scene.connections {
+		con := con
 		parent := scene.objectMap[con.to].object
 		child := scene.objectMap[con.from].object
 		if child == nil || parent == nil {
@@ -707,29 +708,26 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 
 		switch parent.Type() {
 		case MESH:
-			{
-				mesh := parent.(*Mesh)
-				switch ctyp {
-				case GEOMETRY:
-					if mesh.geometry != nil {
-						return false, errors.New("Invalid mesh")
-					}
-					mesh.geometry = child.(*Geometry)
-				case MATERIAL:
-					mesh.materials = append(mesh.materials, (child.(*Material)))
+			mesh := parent.(*Mesh)
+			switch ctyp {
+			case GEOMETRY:
+				if mesh.geometry != nil {
+					return false, errors.New("Invalid mesh")
 				}
+				mesh.geometry = child.(*Geometry)
+			case MATERIAL:
+				mesh.materials = append(mesh.materials, (child.(*Material)))
 			}
+			scene.meshes = append(scene.meshes, mesh)
 		case SKIN:
-			{
-				skin := parent.(*Skin)
-				if ctyp == CLUSTER {
-					cluster := child.(*Cluster)
-					skin.clusters = append(skin.clusters, cluster)
-					if cluster.skin != nil {
-						return false, errors.New("Invalid cluster")
-					}
-					cluster.skin = skin
+			skin := parent.(*Skin)
+			if ctyp == CLUSTER {
+				cluster := child.(*Cluster)
+				skin.clusters = append(skin.clusters, cluster)
+				if cluster.skin != nil {
+					return false, errors.New("Invalid cluster")
 				}
+				cluster.skin = skin
 			}
 		case MATERIAL:
 			mat := parent.(*Material)

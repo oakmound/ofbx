@@ -1,6 +1,9 @@
 package ofbx
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 type CurveMode int
 
@@ -33,6 +36,19 @@ func (ac *AnimationCurve) getKeyValue() []float32 {
 	return ac.values
 }
 
+func (ac *AnimationCurve) String() string {
+	return ac.stringPrefix("")
+}
+
+func (ac *AnimationCurve) stringPrefix(prefix string) string {
+
+	strs := make([]string, len(ac.times))
+	for i := 0; i < len(ac.times); i++ {
+		strs[i] = fmt.Sprintf("%d:%f", ac.times[i], ac.values[i])
+	}
+	return prefix + "AnimCurve: " + strings.Join(strs, ",") + " "
+}
+
 type AnimationCurveNode struct {
 	Object
 	curves             [3]Curve
@@ -44,6 +60,12 @@ type AnimationCurveNode struct {
 type Curve struct {
 	curve      *AnimationCurve
 	connection *Connection
+}
+
+func (c *Curve) String() string {
+	s := c.curve.String() + " "
+	s += c.connection.String()
+	return s
 }
 
 func NewAnimationCurveNode(s *Scene, e *Element) *AnimationCurveNode {
@@ -100,21 +122,17 @@ func (acn *AnimationCurveNode) String() string {
 	return acn.stringPrefix("")
 }
 func (acn *AnimationCurveNode) stringPrefix(prefix string) string {
-	s := "AnimationCurveNode: "
-	s += "\n\tbone=" + acn.bone.stringPrefix(prefix) + "\n"
+	s := prefix + "AnimationCurveNode: "
+	if printRecursiveObjects {
+		s += "\n\tbone=" + acn.bone.stringPrefix(prefix) + "\n"
+	}
 	s += "bone_link_property=" + acn.bone_link_property
 	s += " mode=" + fmt.Sprintf("%d", acn.mode)
 	s += acn.Object.stringPrefix(prefix)
-	s += "curves="
+	s += prefix + "curves="
 	for _, curve := range acn.curves {
 		s += "\n" + prefix + "\t" + curve.String()
 	}
 
-	return s
-}
-
-func (c *Curve) String() string {
-	s := "Curve= " + c.curve.String()
-	s += "Connections= " + c.connection.String()
 	return s
 }

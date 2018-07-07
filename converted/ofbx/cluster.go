@@ -23,6 +23,21 @@ func NewCluster(scene *Scene, element *Element) *Cluster {
 	return &c
 }
 
+func (c *Cluster) String() string {
+	return c.stringPrefix("")
+}
+
+func (c *Cluster) stringPrefix(prefix string) string {
+	s := prefix + "Cluster:" + "\n"
+	s += c.Object.stringPrefix(prefix+"\t") + "," + "\n"
+	s += prefix + "link:" + c.link.stringPrefix(prefix+"\t") + "," + "\n"
+	s += prefix + "indices:" + fmt.Sprintf("%v", c.indices) + "," + "\n"
+	s += prefix + "weights:" + fmt.Sprintf("%v", c.weights) + "," + "\n"
+	s += prefix + "transform_matrix:" + fmt.Sprintf("%v", c.transform_matrix) + "," + "\n"
+	s += prefix + "transform_link_matrix:" + fmt.Sprintf("%v", c.transform_link_matrix) + "," + "\n"
+	return s
+}
+
 func (c *Cluster) Type() Type {
 	return CLUSTER
 }
@@ -131,15 +146,4 @@ func parseCluster(scene *Scene, element *Element) (*Cluster, error) {
 
 func (c *Cluster) getType() Type {
 	return c.Type()
-}
-
-func (c *Cluster) String() string {
-	s := "Cluster: " + c.Object.String()
-	s += " link=" + c.link.String()
-	s += " skin=" + c.skin.String()
-	s += "indicies= " + fmt.Sprintf("%d", c.indices)
-	s += " weights=" + fmt.Sprintf("%d", c.weights)
-	s += " transform_matrix=" + fmt.Sprint(c.transform_matrix)
-	s += " transform_link_matrix=" + fmt.Sprint(c.transform_link_matrix)
-	return s
 }

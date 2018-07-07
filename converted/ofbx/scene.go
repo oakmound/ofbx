@@ -23,6 +23,10 @@ type Scene struct {
 	takeInfos       []TakeInfo
 }
 
+var (
+	printRecursiveObjects = false
+)
+
 func (s *Scene) String() string {
 	if s == nil {
 		return "nil Scene"
@@ -46,9 +50,9 @@ func (s *Scene) String() string {
 	if s.meshes != nil {
 		st += "meshes=" + fmt.Sprint(s.meshes) + "\n"
 	}
-	if s.AnimationStacks != nil {
-		st += "animations=" + fmt.Sprint(s.AnimationStacks) + "\n"
-	}
+	// if s.AnimationStacks != nil {
+	// 	st += "animations=" + fmt.Sprint(s.AnimationStacks) + "\n"
+	// }
 	if len(s.connections) > 0 {
 		st += "connections=" + "\n"
 		for _, c := range s.connections {
@@ -62,6 +66,20 @@ func (s *Scene) String() string {
 		}
 	}
 	return st
+}
+
+func (s *Scene) Geometries() []Obj {
+	out := make([]Obj, 0)
+	for _, o := range s.Objects {
+		elem := o.Element()
+		if elem == nil {
+			continue
+		}
+		if elem.id.String() == "Geometry" {
+			out = append(out, o)
+		}
+	}
+	return out
 }
 
 func (s *Scene) getTakeInfo(name string) *TakeInfo {

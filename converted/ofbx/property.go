@@ -61,25 +61,25 @@ func (p *Property) stringValue() string {
 	case ARRAY_DOUBLE:
 		sli, err := parseArrayRawFloat64(p)
 		if err != nil {
-			return "Bad Format" + err.Error()
+			return "Bad Format F64s " + err.Error()
 		}
 		return fmt.Sprintf("%v", sli)
 	case ARRAY_INT:
 		sli, err := parseArrayRawInt(p)
 		if err != nil {
-			return "Bad Format" + err.Error()
+			return "Bad Format Ints " + err.Error()
 		}
 		return fmt.Sprintf("%v", sli)
 	case ARRAY_LONG:
 		sli, err := parseArrayRawInt64(p)
 		if err != nil {
-			return "Bad Format" + err.Error()
+			return "Bad Format I64s " + err.Error()
 		}
 		return fmt.Sprintf("%v", sli)
 	case ARRAY_FLOAT:
 		sli, err := parseArrayRawFloat32(p)
 		if err != nil {
-			return "Bad Format" + err.Error()
+			return "Bad Format F32s " + err.Error()
 		}
 		return fmt.Sprintf("%v", sli)
 	case ARRAY_BOOL:
@@ -197,11 +197,14 @@ func (p *Property) String() string {
 }
 
 func (p *Property) stringPrefix(prefix string) string {
+	p.value.Seek(0, io.SeekStart)
+	if p.value.Len() == 0 {
+		return ""
+	}
 	s := prefix + p.stringValue()
 	// s += ", proptype= " + fmt.Sprintf("%q", p.typ)
 	// s += "count=" + fmt.Sprintf("%d", p.count)
 	// s += ", encoding=" + fmt.Sprintf("%d", p.encoding)
 	// s += ", compressedLen=" + fmt.Sprintf("%d", p.compressedLength)
-	p.value.Seek(0, io.SeekStart)
 	return s
 }
