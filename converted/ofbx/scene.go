@@ -27,7 +27,7 @@ func (s *Scene) String() string {
 	if s == nil {
 		return "nil Scene"
 	}
-	st := "Scene: "
+	st := "Scene: " + "\n"
 	// if s.RootElement != nil {
 	// 	st += "element=" + s.RootElement.String()
 	// }

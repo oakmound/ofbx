@@ -1,6 +1,9 @@
 package ofbx
 
-import "fmt"
+import (
+	"fmt"
+	"io"
+)
 
 type PropertyType rune
 
@@ -199,5 +202,6 @@ func (p *Property) stringPrefix(prefix string) string {
 	// s += "count=" + fmt.Sprintf("%d", p.count)
 	// s += ", encoding=" + fmt.Sprintf("%d", p.encoding)
 	// s += ", compressedLen=" + fmt.Sprintf("%d", p.compressedLength)
+	p.value.Seek(0, io.SeekStart)
 	return s
 }
