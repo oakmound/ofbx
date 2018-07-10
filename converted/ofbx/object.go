@@ -192,7 +192,7 @@ func getGlobalTransform(o Obj) Matrix {
 		return evalLocal(o, getLocalTranslation(o), getLocalRotation(o))
 	}
 
-	return getGlobalTransform(parent).Mul(evalLocal(o, getLocalTranslation(o), getLocalRotation(o)))
+	return getGlobalTransform(parent).MulConst(evalLocal(o, getLocalTranslation(o), getLocalRotation(o)))
 }
 
 func getLocalTransform(o Obj) Matrix {
@@ -209,9 +209,9 @@ func evalLocalScaling(o Obj, translation, rotation, scaling floatgeom.Point3) Ma
 	rotation_order := getRotationOrder(o)
 
 	s := makeIdentity()
-	s.m[0] = scaling.X
-	s.m[5] = scaling.Y
-	s.m[10] = scaling.Z
+	s.m[0] = scaling.X()
+	s.m[5] = scaling.Y()
+	s.m[10] = scaling.Z()
 
 	t := makeIdentity()
 	setTranslation(translation, &t)
@@ -220,7 +220,7 @@ func evalLocalScaling(o Obj, translation, rotation, scaling floatgeom.Point3) Ma
 	pr := getPreRotation(o)
 	r_pre := getRotationMatrix(&pr, EULER_XYZ)
 	psr := getPostRotation(o)
-	r_post_inv := getRotationMatrix(psr.Mul(-1), EULER_ZYX)
+	r_post_inv := getRotationMatrix(psr.MulConst(-1), EULER_ZYX)
 
 	r_off := makeIdentity()
 	setTranslation(getRotationOffset(o), &r_off)
@@ -229,7 +229,7 @@ func evalLocalScaling(o Obj, translation, rotation, scaling floatgeom.Point3) Ma
 	setTranslation(rotation_pivot, &r_p)
 
 	r_p_inv := makeIdentity()
-	setTranslation(*rotation_pivot.Mul(-1), &r_p_inv)
+	setTranslation(*rotation_pivot.MulConst(-1), &r_p_inv)
 
 	s_off := makeIdentity()
 	setTranslation(getScalingOffset(o), &s_off)
@@ -238,8 +238,8 @@ func evalLocalScaling(o Obj, translation, rotation, scaling floatgeom.Point3) Ma
 	setTranslation(scaling_pivot, &s_p)
 
 	s_p_inv := makeIdentity()
-	setTranslation(*scaling_pivot.Mul(-1), &s_p_inv)
+	setTranslation(*scaling_pivot.MulConst(-1), &s_p_inv)
 
 	// http://help.autodesk.com/view/FBX/2017/ENU/?guid=__files_GUID_10CDD63C_79C1_4F2D_BB28_AD2BE65A02ED_htm
-	return t.Mul(r_off).Mul(r_p).Mul(r_pre).Mul(r).Mul(r_post_inv).Mul(r_p_inv).Mul(s_off).Mul(s_p).Mul(s).Mul(s_p_inv)
+	return t.MulConst(r_off).MulConst(r_p).MulConst(r_pre).MulConst(r).MulConst(r_post_inv).MulConst(r_p_inv).MulConst(s_off).MulConst(s_p).MulConst(s).MulConst(s_p_inv)
 }

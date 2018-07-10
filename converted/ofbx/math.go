@@ -127,17 +127,17 @@ func getRotationMatrix(euler *floatgeom.Point3, order RotationOrder) Matrix {
 	case SPHERIC_XYZ:
 		panic("This should not happen")
 	case EULER_XYZ:
-		return rz.Mul(ry).Mul(rx)
+		return rz.MulConst(ry).MulConst(rx)
 	case EULER_XZY:
-		return ry.Mul(rz).Mul(rx)
+		return ry.MulConst(rz).MulConst(rx)
 	case EULER_YXZ:
-		return rz.Mul(rx).Mul(ry)
+		return rz.MulConst(rx).MulConst(ry)
 	case EULER_YZX:
-		return rx.Mul(rz).Mul(ry)
+		return rx.MulConst(rz).MulConst(ry)
 	case EULER_ZXY:
-		return ry.Mul(rx).Mul(rz)
+		return ry.MulConst(rx).MulConst(rz)
 	case EULER_ZYX:
-		return rx.Mul(ry).Mul(rz)
+		return rx.MulConst(ry).MulConst(rz)
 	}
 	panic("This shouldn't happen either")
 }

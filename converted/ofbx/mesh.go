@@ -36,7 +36,7 @@ func (m *Mesh) getGeometricMatrix() Matrix {
 	mtx := getRotationMatrix(&rotation, EULER_XYZ)
 	setTranslation(translation, &mtx)
 
-	return scale_mtx.Mul(mtx)
+	return scale_mtx.MulConst(mtx)
 }
 
 func (m *Mesh) getMaterial(idx int) *Material {
