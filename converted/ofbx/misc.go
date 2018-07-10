@@ -33,7 +33,7 @@ func splatVec2(mapping VertexDataMapping, data []Vec2, indices []int, original_i
 	if mapping == BY_POLYGON_VERTEX {
 		if len(indices) == 0 {
 			out = make([]Vec2, len(data))
-			copy(data, out)
+			copy(out, data)
 		} else {
 			out = make([]Vec2, len(indices))
 			for i := 0; i < len(indices); i++ {
@@ -71,7 +71,7 @@ func splatVec3(mapping VertexDataMapping, data []Vec3, indices []int, original_i
 	if mapping == BY_POLYGON_VERTEX {
 		if len(indices) == 0 {
 			out = make([]Vec3, len(data))
-			copy(data, out)
+			copy(out, data)
 		} else {
 			out = make([]Vec3, len(indices))
 			for i := 0; i < len(indices); i++ {
@@ -109,7 +109,7 @@ func splatVec4(mapping VertexDataMapping, data []Vec4, indices []int, original_i
 	if mapping == BY_POLYGON_VERTEX {
 		if len(indices) == 0 {
 			out = make([]Vec4, len(data))
-			copy(data, out)
+			copy(out, data)
 		} else {
 			out = make([]Vec4, len(indices))
 			for i := 0; i < len(indices); i++ {

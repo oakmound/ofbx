@@ -25,6 +25,7 @@ type Geometry struct {
 	colors                     []Vec4
 	materials, to_old_vertices []int
 	to_new_vertices            []Vertex
+	faces                      [][]int
 }
 
 func (g *Geometry) String() string {
@@ -80,6 +81,31 @@ func (g *Geometry) stringPrefix(prefix string) string {
 				s += ","
 			}
 			s += fmt.Sprintf("%+v", v)
+		}
+		s += "\n"
+	}
+
+	if len(g.faces) != 0 {
+		s += prefix + "Faces:"
+		for i, v := range g.faces {
+			if i != 0 {
+				s += ", "
+			}
+			s += fmt.Sprintf("%v", v)
+		}
+		s += "\n"
+	}
+
+	s += prefix + "UVs:"
+	for _, v := range g.uvs {
+		if len(v) == 0 {
+			continue
+		}
+		for i, v2 := range v {
+			if i != 0 {
+				s += ","
+			}
+			s += fmt.Sprintf("%+v", v2)
 		}
 		s += "\n"
 	}
@@ -217,6 +243,19 @@ func parseGeometry(scene *Scene, element *Element) (*Geometry, error) {
 	original_indices, err := parseBinaryArrayInt(polysProp[0])
 	if err != nil {
 		return nil, err
+	}
+
+	geom.faces = make([][]int, 0)
+	curFace := []int{}
+	//Parse out the polygons. List of vertex references with a negative value indicating the last vertex of a face.
+	for _, v := range original_indices {
+		if v < 0 {
+			curFace = append(curFace, (v*-1)-1)
+			geom.faces = append(geom.faces, curFace)
+			curFace = []int{}
+		} else {
+			curFace = append(curFace, v)
+		}
 	}
 
 	to_old_indices := geom.triangulate(original_indices)
