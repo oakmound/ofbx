@@ -117,7 +117,7 @@ func getTriCountFromPoly(indices []int, idx int) (int, int) {
 	return count, idx
 }
 
-func getRotationMatrix(euler *floatgeom.Point3, order RotationOrder) Matrix {
+func getRotationMatrix(euler floatgeom.Point3, order RotationOrder) Matrix {
 	TO_RAD := 3.1415926535897932384626433832795028 / 180.0 //TODO: Update this
 	rx := rotationX(euler.X() * TO_RAD)
 	ry := rotationY(euler.Y() * TO_RAD)
@@ -127,17 +127,17 @@ func getRotationMatrix(euler *floatgeom.Point3, order RotationOrder) Matrix {
 	case SPHERIC_XYZ:
 		panic("This should not happen")
 	case EULER_XYZ:
-		return rz.MulConst(ry).MulConst(rx)
+		return rz.Mul(ry).Mul(rx)
 	case EULER_XZY:
-		return ry.MulConst(rz).MulConst(rx)
+		return ry.Mul(rz).Mul(rx)
 	case EULER_YXZ:
-		return rz.MulConst(rx).MulConst(ry)
+		return rz.Mul(rx).Mul(ry)
 	case EULER_YZX:
-		return rx.MulConst(rz).MulConst(ry)
+		return rx.Mul(rz).Mul(ry)
 	case EULER_ZXY:
-		return ry.MulConst(rx).MulConst(rz)
+		return ry.Mul(rx).Mul(rz)
 	case EULER_ZYX:
-		return rx.MulConst(ry).MulConst(rz)
+		return rx.Mul(ry).Mul(rz)
 	}
 	panic("This shouldn't happen either")
 }
