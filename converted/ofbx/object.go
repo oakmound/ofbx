@@ -216,9 +216,9 @@ func evalLocalScaling(o Obj, translation, rotation, scaling floatgeom.Point3) Ma
 	t := makeIdentity()
 	setTranslation(translation, &t)
 
-	r := getRotationMatrix(&rotation, rotation_order)
+	r := getRotationMatrix(rotation, rotation_order)
 	pr := getPreRotation(o)
-	r_pre := getRotationMatrix(&pr, EULER_XYZ)
+	r_pre := getRotationMatrix(pr, EULER_XYZ)
 	psr := getPostRotation(o)
 	r_post_inv := getRotationMatrix(psr.MulConst(-1), EULER_ZYX)
 

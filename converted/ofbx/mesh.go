@@ -33,7 +33,7 @@ func (m *Mesh) getGeometricMatrix() Matrix {
 	scale_mtx.m[0] = scale.X()
 	scale_mtx.m[5] = scale.Y()
 	scale_mtx.m[10] = scale.Z()
-	mtx := getRotationMatrix(&rotation, EULER_XYZ)
+	mtx := getRotationMatrix(rotation, EULER_XYZ)
 	setTranslation(translation, &mtx)
 
 	return scale_mtx.Mul(mtx)
