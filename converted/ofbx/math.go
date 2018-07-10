@@ -119,9 +119,9 @@ func getTriCountFromPoly(indices []int, idx int) (int, int) {
 
 func getRotationMatrix(euler *floatgeom.Point3, order RotationOrder) Matrix {
 	TO_RAD := 3.1415926535897932384626433832795028 / 180.0 //TODO: Update this
-	rx := rotationX(euler.X * TO_RAD)
-	ry := rotationY(euler.Y * TO_RAD)
-	rz := rotationZ(euler.Z * TO_RAD)
+	rx := rotationX(euler.X() * TO_RAD)
+	ry := rotationY(euler.Y() * TO_RAD)
+	rz := rotationZ(euler.Z() * TO_RAD)
 	switch order {
 	default:
 	case SPHERIC_XYZ:
