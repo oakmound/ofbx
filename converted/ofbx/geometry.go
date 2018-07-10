@@ -2,6 +2,7 @@ package ofbx
 
 import (
 	"errors"
+	"fmt"
 )
 
 type VertexDataMapping int
@@ -24,6 +25,65 @@ type Geometry struct {
 	colors                     []Vec4
 	materials, to_old_vertices []int
 	to_new_vertices            []Vertex
+}
+
+func (g *Geometry) String() string {
+	return g.stringPrefix("")
+}
+
+func (g *Geometry) stringPrefix(prefix string) string {
+	s := prefix + "Geometry:\n"
+	if len(g.vertices) != 0 {
+		s += prefix + "Verts:"
+		for i, v := range g.vertices {
+			if i != 0 {
+				s += ","
+			}
+			s += fmt.Sprintf("%+v", v)
+		}
+		s += "\n"
+	}
+	if len(g.normals) != 0 {
+		s += prefix + "Norms:"
+		for i, v := range g.normals {
+			if i != 0 {
+				s += ","
+			}
+			s += fmt.Sprintf("%+v", v)
+		}
+		s += "\n"
+	}
+	if len(g.tangents) != 0 {
+		s += prefix + "Tangents:"
+		for i, v := range g.tangents {
+			if i != 0 {
+				s += ","
+			}
+			s += fmt.Sprintf("%+v", v)
+		}
+		s += "\n"
+	}
+	if len(g.materials) != 0 {
+		s += prefix + "Materials:"
+		for i, v := range g.materials {
+			if i != 0 {
+				s += ","
+			}
+			s += fmt.Sprintf("%v", v)
+		}
+		s += "\n"
+	}
+	if len(g.colors) != 0 {
+		s += prefix + "Colors:"
+		for i, v := range g.colors {
+			if i != 0 {
+				s += ","
+			}
+			s += fmt.Sprintf("%+v", v)
+		}
+		s += "\n"
+	}
+	return s
 }
 
 //Hey its a linked list of indices!.....

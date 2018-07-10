@@ -46,5 +46,10 @@ func (m *Mesh) String() string {
 }
 
 func (m *Mesh) stringPrefix(prefix string) string {
-	return prefix + "Todo"
+	s := prefix + "Mesh:\n"
+	s += m.geometry.stringPrefix(prefix+"\t") + "\n"
+	for _, mat := range m.materials {
+		s += mat.stringPrefix(prefix+"\t") + "\n"
+	}
+	return s
 }

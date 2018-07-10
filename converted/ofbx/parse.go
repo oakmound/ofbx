@@ -397,19 +397,58 @@ func parseMesh(scene *Scene, element *Element) (*Mesh, error) {
 func parseMaterial(scene *Scene, element *Element) *Material {
 	material := NewMaterial(scene, element)
 	elems := findChildren(element, "Properties70")
-	material.diffuse_color = Color{1, 1, 1}
+	material.DiffuseColor = Color{1, 1, 1}
 	if len(elems) == 0 {
 		return material
 	}
 	elems = elems[0].children
-	//For some reason materials inherit the last diffuse color in the property list?
-	for i := len(elems) - 1; i >= 0; i-- {
-		elem := elems[i]
-		if elem.id.String() == "p" && elem.getProperty(0) != nil && elem.getProperty(0).value.String() == "DiffuseColor" {
-			material.diffuse_color.r = float32(elem.getProperty(4).value.toDouble())
-			material.diffuse_color.g = float32(elem.getProperty(5).value.toDouble())
-			material.diffuse_color.b = float32(elem.getProperty(6).value.toDouble())
-			return material
+	// Todo: reflection / struct tags for these types of values
+	for _, elem := range elems {
+		if elem.getProperty(0) == nil {
+			continue
+		}
+		v := elem.getProperty(0).value.String()
+		// Commented out cases are things I (200sc) think might exist
+		// but haven't seen
+		switch v {
+		case "EmissiveColor":
+			material.EmissiveColor.r = float32(elem.getProperty(4).value.toDouble())
+			material.EmissiveColor.g = float32(elem.getProperty(5).value.toDouble())
+			material.EmissiveColor.b = float32(elem.getProperty(6).value.toDouble())
+		case "AmbientColor":
+			material.AmbientColor.r = float32(elem.getProperty(4).value.toDouble())
+			material.AmbientColor.g = float32(elem.getProperty(5).value.toDouble())
+			material.AmbientColor.b = float32(elem.getProperty(6).value.toDouble())
+		case "DiffuseColor":
+			material.DiffuseColor.r = float32(elem.getProperty(4).value.toDouble())
+			material.DiffuseColor.g = float32(elem.getProperty(5).value.toDouble())
+			material.DiffuseColor.b = float32(elem.getProperty(6).value.toDouble())
+		case "TransparentColor":
+			material.TransparentColor.r = float32(elem.getProperty(4).value.toDouble())
+			material.TransparentColor.g = float32(elem.getProperty(5).value.toDouble())
+			material.TransparentColor.b = float32(elem.getProperty(6).value.toDouble())
+		case "SpecularColor":
+			material.SpecularColor.r = float32(elem.getProperty(4).value.toDouble())
+			material.SpecularColor.g = float32(elem.getProperty(5).value.toDouble())
+			material.SpecularColor.b = float32(elem.getProperty(6).value.toDouble())
+		case "ReflectionColor":
+			material.ReflectionColor.r = float32(elem.getProperty(4).value.toDouble())
+			material.ReflectionColor.g = float32(elem.getProperty(5).value.toDouble())
+			material.ReflectionColor.b = float32(elem.getProperty(6).value.toDouble())
+		case "EmissiveFactor":
+			material.EmissiveFactor = elem.getProperty(4).value.toDouble()
+		// case "AmbientFactor":
+		case "DiffuseFactor":
+			material.DiffuseFactor = elem.getProperty(4).value.toDouble()
+		// case "TransparentFactor":
+		case "SpecularFactor":
+			material.SpecularFactor = elem.getProperty(4).value.toDouble()
+		case "ReflectionFactor":
+			material.ReflectionFactor = elem.getProperty(4).value.toDouble()
+		case "Shininess":
+			material.Shininess = elem.getProperty(4).value.toDouble()
+		case "ShininessExponent":
+			material.ShininessExponent = elem.getProperty(4).value.toDouble()
 		}
 	}
 	return material
@@ -656,7 +695,7 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 				v := class_prop.value.String()
 				if v == "Mesh" {
 					obj, err = parseMesh(scene, iter.element)
-					if err != nil {
+					if err == nil {
 						mesh := obj.(*Mesh)
 						scene.meshes = append(scene.meshes, mesh)
 						obj = mesh
@@ -718,7 +757,6 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 			case MATERIAL:
 				mesh.materials = append(mesh.materials, (child.(*Material)))
 			}
-			scene.meshes = append(scene.meshes, mesh)
 		case SKIN:
 			skin := parent.(*Skin)
 			if ctyp == CLUSTER {
@@ -741,10 +779,10 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 				if ttyp == TextureCOUNT {
 					break
 				}
-				if mat.textures[ttyp] != nil {
+				if mat.Textures[ttyp] != nil {
 					break
 				}
-				mat.textures[ttyp] = child.(*Texture)
+				mat.Textures[ttyp] = child.(*Texture)
 			}
 		case GEOMETRY:
 			geom := parent.(*Geometry)
