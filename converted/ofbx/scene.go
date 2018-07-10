@@ -68,15 +68,15 @@ func (s *Scene) String() string {
 	return st
 }
 
-func (s *Scene) Geometries() []Obj {
-	out := make([]Obj, 0)
+func (s *Scene) Geometries() []*Geometry {
+	out := make([]*Geometry, 0)
 	for _, o := range s.Objects {
 		elem := o.Element()
 		if elem == nil {
 			continue
 		}
 		if elem.id.String() == "Geometry" {
-			out = append(out, o)
+			out = append(out, o.(*Geometry))
 		}
 	}
 	return out
