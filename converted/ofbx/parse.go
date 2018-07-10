@@ -319,7 +319,7 @@ func parseVertexDataVec2(element *Element, name, index_name string) ([]floatgeom
 func parseVertexDataVec3(element *Element, name, index_name string) ([]floatgeom.Point3, []int, VertexDataMapping, error) {
 	idxs, mapping, dataProp, err := parseVertexDataInner(element, name, index_name)
 	vcs, err := parseDoubleVecDataVec3(dataProp)
-	return vcs, idxs, mapping, err
+	return vcs, idxs, mapping, err 
 }
 
 func parseVertexDataVec4(element *Element, name, index_name string) ([]floatgeom.Point4, []int, VertexDataMapping, error) {
