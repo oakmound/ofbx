@@ -161,7 +161,7 @@ func remapVec2(out *[]floatgeom.Point2, m []int) {
 	}
 }
 
-func remapVect3(out *[]floatgeom.Point3, m []int) {
+func remapVec3(out *[]floatgeom.Point3, m []int) {
 	if len(*out) == 0 {
 		return
 	}
