@@ -1,5 +1,7 @@
 package ofbx
 
+import "github.com/oakmound/oak/alg/floatgeom"
+
 type Mesh struct {
 	Object
 	geometry  *Geometry
@@ -23,9 +25,9 @@ func (m *Mesh) getGeometry() *Geometry {
 }
 
 func (m *Mesh) getGeometricMatrix() Matrix {
-	translation := resolvefloatgeom.Point3Property(m, "GeometricTranslation", floatgeom.Point3{0, 0, 0})
-	rotation := resolvefloatgeom.Point3Property(m, "GeometricRotation", floatgeom.Point3{0, 0, 0})
-	scale := resolvefloatgeom.Point3Property(m, "GeometricScaling", floatgeom.Point3{1, 1, 1})
+	translation := resolveVec3Property(m, "GeometricTranslation", floatgeom.Point3{0, 0, 0})
+	rotation := resolveVec3Property(m, "GeometricRotation", floatgeom.Point3{0, 0, 0})
+	scale := resolveVec3Property(m, "GeometricScaling", floatgeom.Point3{1, 1, 1})
 
 	scale_mtx := makeIdentity()
 	scale_mtx.m[0] = scale.X

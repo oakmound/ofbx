@@ -151,39 +151,39 @@ func getRotationOrder(o Obj) RotationOrder {
 }
 
 func getRotationOffset(o Obj) floatgeom.Point3 {
-	return resolvefloatgeom.Point3Property(o, "RotationOffset", floatgeom.Point3{})
+	return resolveVec3Property(o, "RotationOffset", floatgeom.Point3{})
 }
 
 func getRotationPivot(o Obj) floatgeom.Point3 {
-	return resolvefloatgeom.Point3Property(o, "RotationPivot", floatgeom.Point3{})
+	return resolveVec3Property(o, "RotationPivot", floatgeom.Point3{})
 }
 
 func getPostRotation(o Obj) floatgeom.Point3 {
-	return resolvefloatgeom.Point3Property(o, "PostRotation", floatgeom.Point3{})
+	return resolveVec3Property(o, "PostRotation", floatgeom.Point3{})
 }
 
 func getScalingOffset(o Obj) floatgeom.Point3 {
-	return resolvefloatgeom.Point3Property(o, "ScalingOffset", floatgeom.Point3{})
+	return resolveVec3Property(o, "ScalingOffset", floatgeom.Point3{})
 }
 
 func getScalingPivot(o Obj) floatgeom.Point3 {
-	return resolvefloatgeom.Point3Property(o, "ScalingPivot", floatgeom.Point3{})
+	return resolveVec3Property(o, "ScalingPivot", floatgeom.Point3{})
 }
 
 func getPreRotation(o Obj) floatgeom.Point3 {
-	return resolvefloatgeom.Point3Property(o, "PreRotation", floatgeom.Point3{})
+	return resolveVec3Property(o, "PreRotation", floatgeom.Point3{})
 }
 
 func getLocalTranslation(o Obj) floatgeom.Point3 {
-	return resolvefloatgeom.Point3Property(o, "Lcl Translation", floatgeom.Point3{})
+	return resolveVec3Property(o, "Lcl Translation", floatgeom.Point3{})
 }
 
 func getLocalRotation(o Obj) floatgeom.Point3 {
-	return resolvefloatgeom.Point3Property(o, "Lcl Rotation", floatgeom.Point3{})
+	return resolveVec3Property(o, "Lcl Rotation", floatgeom.Point3{})
 }
 
 func getLocalScaling(o Obj) floatgeom.Point3 {
-	return resolvefloatgeom.Point3Property(o, "Lcl Scaling", floatgeom.Point3{1, 1, 1})
+	return resolveVec3Property(o, "Lcl Scaling", floatgeom.Point3{1, 1, 1})
 }
 
 func getGlobalTransform(o Obj) Matrix {
