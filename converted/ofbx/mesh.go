@@ -23,9 +23,9 @@ func (m *Mesh) getGeometry() *Geometry {
 }
 
 func (m *Mesh) getGeometricMatrix() Matrix {
-	translation := resolveVec3Property(m, "GeometricTranslation", Vec3{0, 0, 0})
-	rotation := resolveVec3Property(m, "GeometricRotation", Vec3{0, 0, 0})
-	scale := resolveVec3Property(m, "GeometricScaling", Vec3{1, 1, 1})
+	translation := resolvefloatgeom.Point3Property(m, "GeometricTranslation", floatgeom.Point3{0, 0, 0})
+	rotation := resolvefloatgeom.Point3Property(m, "GeometricRotation", floatgeom.Point3{0, 0, 0})
+	scale := resolvefloatgeom.Point3Property(m, "GeometricScaling", floatgeom.Point3{1, 1, 1})
 
 	scale_mtx := makeIdentity()
 	scale_mtx.m[0] = scale.X

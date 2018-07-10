@@ -3,6 +3,8 @@ package ofbx
 import (
 	"fmt"
 	"strings"
+
+	"github.com/oakmound/oak/alg/floatgeom"
 )
 
 type CurveMode int
@@ -80,7 +82,7 @@ func (acn *AnimationCurveNode) Type() Type {
 	return ANIMATION_CURVE_NODE
 }
 
-func (acn *AnimationCurveNode) getNodeLocalTransform(time float64) Vec3 {
+func (acn *AnimationCurveNode) getNodeLocalTransform(time float64) floatgeom.Point3 {
 	fbx_time := secondsToFbxTime(time)
 
 	getCoord := func(curve *Curve, fbx_time int64) float32 {
@@ -107,7 +109,7 @@ func (acn *AnimationCurveNode) getNodeLocalTransform(time float64) Vec3 {
 		return values[0]
 	}
 
-	return Vec3{
+	return floatgeom.Point3{
 		float64(getCoord(&acn.curves[0], fbx_time)),
 		float64(getCoord(&acn.curves[1], fbx_time)),
 		float64(getCoord(&acn.curves[2], fbx_time)),

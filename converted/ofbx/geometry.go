@@ -3,6 +3,8 @@ package ofbx
 import (
 	"errors"
 	"fmt"
+
+	"github.com/oakmound/oak/alg/floatgeom"
 )
 
 type VertexDataMapping int
@@ -19,10 +21,10 @@ type Geometry struct {
 	Object
 	skin *Skin
 
-	vertices, normals, tangents []Vec3
+	vertices, normals, tangents []floatgeom.Point3
 
-	uvs                        [s_uvs_max][]Vec2
-	colors                     []Vec4
+	uvs                        [s_uvs_max][]floatgeom.Point2
+	colors                     []floatgeom.Point4
 	materials, to_old_vertices []int
 	to_new_vertices            []Vertex
 	faces                      [][]int
@@ -149,33 +151,33 @@ func (g *Geometry) UVSMax() int {
 	return s_uvs_max
 }
 
-func (g *Geometry) getVertices() []Vec3 {
+func (g *Geometry) getVertices() []floatgeom.Point3 {
 	return g.vertices
 }
 func (g *Geometry) getVertexCount() int {
 	return len(g.vertices)
 }
 
-func (g *Geometry) getNormals() []Vec3 {
+func (g *Geometry) getNormals() []floatgeom.Point3 {
 	return g.normals
 }
 
-func (g *Geometry) getUVs() []Vec2 {
+func (g *Geometry) getUVs() []floatgeom.Point2 {
 	return g.getUVsIndex(0)
 }
 
-func (g *Geometry) getUVsIndex(index int) []Vec2 {
+func (g *Geometry) getUVsIndex(index int) []floatgeom.Point2 {
 	if index < 0 || index > len(g.uvs) {
 		return nil
 	}
 	return g.uvs[index]
 }
 
-func (g *Geometry) getColors() []Vec4 {
+func (g *Geometry) getColors() []floatgeom.Point4 {
 	return g.colors
 }
 
-func (g *Geometry) getTangents() []Vec3 {
+func (g *Geometry) getTangents() []floatgeom.Point3 {
 	return g.tangents
 }
 
@@ -236,7 +238,7 @@ func parseGeometry(scene *Scene, element *Element) (*Geometry, error) {
 	if len(polysProp) == 0 {
 		return nil, errors.New("Geometry Indicies missing")
 	}
-	vertices, err := parseDoubleVecDataVec3(verticesProp[0])
+	vertices, err := parseDoubleVecDatafloatgeom.Point3(verticesProp[0])
 	if err != nil {
 		return nil, err
 	}
@@ -259,7 +261,7 @@ func parseGeometry(scene *Scene, element *Element) (*Geometry, error) {
 	}
 
 	to_old_indices := geom.triangulate(original_indices)
-	geom.vertices = make([]Vec3, len(geom.to_old_vertices))
+	geom.vertices = make([]floatgeom.Point3, len(geom.to_old_vertices))
 
 	for i, vIdx := range geom.to_old_vertices {
 		v := vertices[vIdx]
@@ -331,7 +333,7 @@ func parseGeometry(scene *Scene, element *Element) (*Geometry, error) {
 					return nil, err
 				}
 				if tmp != nil && len(tmp) > 0 {
-					//uvs = [4]Vec2{} //resize(tmp_indices.empty() ? tmp.size() : tmp_indices.size());
+					//uvs = [4]floatgeom.Point2{} //resize(tmp_indices.empty() ? tmp.size() : tmp_indices.size());
 					geom.uvs[uv_index] = splatVec2(mapping, tmp, tmp_indices, original_indices)
 					remapVec2(&geom.uvs[uv_index], to_old_indices)
 				}
@@ -342,7 +344,7 @@ func parseGeometry(scene *Scene, element *Element) (*Geometry, error) {
 		layerTangentElems := findChildren(element, "LayerElementTangents")
 		if len(layerTangentElems) > 0 {
 			tans := findChildren(layerTangentElems[0], "Tangents")
-			var tmp []Vec3
+			var tmp []floatgeom.Point3
 			var tmp_indices []int
 			var mapping VertexDataMapping
 			var err error

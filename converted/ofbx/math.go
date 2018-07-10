@@ -3,6 +3,8 @@ package ofbx
 import (
 	"fmt"
 	"math"
+
+	"github.com/oakmound/oak/alg/floatgeom"
 )
 
 type UpVector int
@@ -30,18 +32,6 @@ const (
 	CoordSystem_LeftHanded  CoordSystem = iota
 )
 
-type Vec2 struct {
-	X, Y float64
-}
-
-type Vec3 struct {
-	X, Y, Z float64
-}
-
-type Vec4 struct {
-	X, Y, Z, w float64
-}
-
 type Matrix struct {
 	m [16]float64 // last 4 are translation
 }
@@ -59,18 +49,6 @@ type Quat struct {
 	X, Y, Z, w float64
 }
 
-func (v *Vec3) Minus() *Vec3 {
-	return &Vec3{-v.X, -v.Y, -v.Z}
-}
-
-func (v *Vec3) Mul(f float64) *Vec3 {
-	return &Vec3{v.X * f, v.Y * f, v.Z * f}
-}
-
-func (v *Vec3) Add(v2 *Vec3) *Vec3 {
-	return &Vec3{v.X + v2.X, v.Y + v2.Y, v.Z + v2.Z}
-}
-
 func (m1 Matrix) Mul(m2 Matrix) Matrix {
 	res := [16]float64{}
 	for j := 0; j < 4; j++ {
@@ -85,10 +63,10 @@ func (m1 Matrix) Mul(m2 Matrix) Matrix {
 	return Matrix{res}
 }
 
-func setTranslation(v Vec3, m *Matrix) {
-	m.m[12] = v.X
-	m.m[13] = v.Y
-	m.m[14] = v.Z
+func setTranslation(v floatgeom.Point3, m *Matrix) {
+	m.m[12] = v.X()
+	m.m[13] = v.Y()
+	m.m[14] = v.Z()
 }
 
 func makeIdentity() Matrix {
@@ -139,7 +117,7 @@ func getTriCountFromPoly(indices []int, idx int) (int, int) {
 	return count, idx
 }
 
-func getRotationMatrix(euler *Vec3, order RotationOrder) Matrix {
+func getRotationMatrix(euler *floatgeom.Point3, order RotationOrder) Matrix {
 	TO_RAD := 3.1415926535897932384626433832795028 / 180.0 //TODO: Update this
 	rx := rotationX(euler.X * TO_RAD)
 	ry := rotationY(euler.Y * TO_RAD)

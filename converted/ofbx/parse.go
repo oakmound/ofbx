@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 
+	"github.com/oakmound/oak/alg/floatgeom"
 	"github.com/pkg/errors"
 )
 
@@ -76,27 +77,27 @@ func parseBinaryArrayFloat32(property *Property) ([]float32, error) {
 	}
 	return f32s, nil
 }
-func parseBinaryArrayVec2(property *Property) ([]Vec2, error) {
+func parseBinaryArrayVec2(property *Property) ([]floatgeom.Point2, error) {
 	f64s, err := parseBinaryArrayFloat64(property)
 	if err != nil {
 		return nil, err
 	}
-	vs := make([]Vec2, len(f64s)/2)
+	vs := make([]floatgeom.Point2, len(f64s)/2)
 	for i := 0; i < len(f64s); i += 2 {
 		vs[i/2].X = f64s[i]
 		vs[i/2].Y = f64s[i+1]
 	}
 	return vs, nil
 }
-func parseBinaryArrayVec3(property *Property) ([]Vec3, error) {
+func parseBinaryArrayVec3(property *Property) ([]floatgeom.Point3, error) {
 	f64s, err := parseBinaryArrayFloat64(property)
 	if err != nil {
 		return nil, err
 	}
-	vs := make([]Vec3, len(f64s)/3)
+	vs := make([]floatgeom.Point3, len(f64s)/3)
 	// len(f64s) should probably be divisible by 3
 	if len(f64s)%3 != 0 {
-		//fmt.Println("Vec3 binary array not made up of Vec3s")
+		//fmt.Println("Vec3 binary array not made up of floatgeom.Point3s")
 	}
 	for i := 0; (i + 2) < len(f64s); i += 3 {
 		vs[i/3].X = f64s[i]
@@ -105,12 +106,12 @@ func parseBinaryArrayVec3(property *Property) ([]Vec3, error) {
 	}
 	return vs, nil
 }
-func parseBinaryArrayVec4(property *Property) ([]Vec4, error) {
+func parseBinaryArrayVec4(property *Property) ([]floatgeom.Point4, error) {
 	f64s, err := parseBinaryArrayFloat64(property)
 	if err != nil {
 		return nil, err
 	}
-	vs := make([]Vec4, len(f64s)/4)
+	vs := make([]floatgeom.Point4, len(f64s)/4)
 	for i := 0; i < len(f64s); i += 4 {
 		vs[i/4].X = f64s[i]
 		vs[i/4].Y = f64s[i+1]
@@ -252,16 +253,16 @@ func parseArrayRawFloat64End(r io.Reader, ln int, elem_size int) []float64 {
 	return out
 }
 
-func parseDoubleVecDataVec2(property *Property) ([]Vec2, error) {
+func parseDoubleVecDataVec2(property *Property) ([]floatgeom.Point2, error) {
 	if property.typ == 'd' {
-		return parseBinaryArrayVec2(property)
+		return parseBinaryArrayfloatgeom.Point2(property)
 	}
 	tmp, err := parseBinaryArrayFloat32(property)
 	if err != nil {
 		return nil, err
 	}
 	size := 2
-	out_vec := make([]Vec2, len(tmp)/size)
+	out_vec := make([]floatgeom.Point2, len(tmp)/size)
 	for i := 0; i < len(tmp); i += size {
 		j := i / size
 		out_vec[j].X = float64(tmp[i])
@@ -270,16 +271,16 @@ func parseDoubleVecDataVec2(property *Property) ([]Vec2, error) {
 	return out_vec, nil
 }
 
-func parseDoubleVecDataVec3(property *Property) ([]Vec3, error) {
+func parseDoubleVecDataVec3(property *Property) ([]floatgeom.Point3, error) {
 	if property.typ == 'd' {
-		return parseBinaryArrayVec3(property)
+		return parseBinaryArrayfloatgeom.Point3(property)
 	}
 	tmp, err := parseBinaryArrayFloat32(property)
 	if err != nil {
 		return nil, err
 	}
 	size := 3
-	out_vec := make([]Vec3, len(tmp)/size)
+	out_vec := make([]floatgeom.Point3, len(tmp)/size)
 	for i := 0; i < len(tmp); i += size {
 		j := i / size
 		out_vec[j].X = float64(tmp[i])
@@ -289,16 +290,16 @@ func parseDoubleVecDataVec3(property *Property) ([]Vec3, error) {
 	return out_vec, nil
 }
 
-func parseDoubleVecDataVec4(property *Property) ([]Vec4, error) {
+func parseDoubleVecDataVec4(property *Property) ([]floatgeom.Point4, error) {
 	if property.typ == 'd' {
-		return parseBinaryArrayVec4(property)
+		return parseBinaryArrayfloatgeom.Point4(property)
 	}
 	tmp, err := parseBinaryArrayFloat32(property)
 	if err != nil {
 		return nil, err
 	}
 	size := 4
-	out_vec := make([]Vec4, len(tmp)/size)
+	out_vec := make([]floatgeom.Point4, len(tmp)/size)
 	for i := 0; i < len(tmp); i += size {
 		j := i / size
 		out_vec[j].X = float64(tmp[i])
@@ -309,22 +310,22 @@ func parseDoubleVecDataVec4(property *Property) ([]Vec4, error) {
 	return out_vec, nil
 }
 
-func parseVertexDataVec2(element *Element, name, index_name string) ([]Vec2, []int, VertexDataMapping, error) {
+func parseVertexDataVec2(element *Element, name, index_name string) ([]floatgeom.Point2, []int, VertexDataMapping, error) {
 	idxs, mapping, dataProp, err := parseVertexDataInner(element, name, index_name)
-	vcs, err := parseDoubleVecDataVec2(dataProp)
+	vcs, err := parseDoubleVecDatafloatgeom.Point2(dataProp)
 	return vcs, idxs, mapping, err
 }
 
-func parseVertexDataVec3(element *Element, name, index_name string) ([]Vec3, []int, VertexDataMapping, error) {
+func parseVertexDataVec3(element *Element, name, index_name string) ([]floatgeom.Point3, []int, VertexDataMapping, error) {
 	idxs, mapping, dataProp, err := parseVertexDataInner(element, name, index_name)
-	vcs, err := parseDoubleVecDataVec3(dataProp)
+	vcs, err := parseDoubleVecDatafloatgeom.Point3(dataProp)
 	return vcs, idxs, mapping, err
 }
 
-func parseVertexDataVec4(element *Element, name, index_name string) ([]Vec4, []int, VertexDataMapping, error) {
+func parseVertexDataVec4(element *Element, name, index_name string) ([]floatgeom.Point4, []int, VertexDataMapping, error) {
 
 	idxs, mapping, dataProp, err := parseVertexDataInner(element, name, index_name)
-	vcs, err := parseDoubleVecDataVec4(dataProp)
+	vcs, err := parseDoubleVecDatafloatgeom.Point4(dataProp)
 	return vcs, idxs, mapping, err
 }
 

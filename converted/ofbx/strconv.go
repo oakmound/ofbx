@@ -1,6 +1,10 @@
 package ofbx
 
-import "strconv"
+import (
+	"strconv"
+
+	"github.com/oakmound/oak/alg/floatgeom"
+)
 
 func intFromString(str, end string, val *int) string {
 	v, err := strconv.Atoi(str)
@@ -107,15 +111,15 @@ func fromString(str, end string, val *float64, count int) string {
 }
 
 //Todo: Convert from using pointer math...
-func vec2FromString(str, end string, val *Vec2) string {
+func Vec2FromString(str, end string, val *floatgeom.Point2) string {
 	return fromString(str, end, &val.X, 2)
 }
 
-func vec3FromString(str, end string, val *Vec3) string {
+func Vec3FromString(str, end string, val *floatgeom.Point3) string {
 	return fromString(str, end, &val.X, 3)
 }
 
-func vec4FromString(str, end string, val *Vec4) string {
+func Vec4FromString(str, end string, val *floatgeom.Point4) string {
 	return fromString(str, end, &val.X, 4)
 }
 
