@@ -15,7 +15,7 @@ const (
 	BY_VERTEX         = iota
 )
 
-const s_uvs_max = 4
+const MaxUvs = 4
 
 type Geometry struct {
 	Object
@@ -23,11 +23,11 @@ type Geometry struct {
 
 	vertices, normals, tangents []floatgeom.Point3
 
-	uvs                        [s_uvs_max][]floatgeom.Point2
+	uvs                        [MaxUvs][]floatgeom.Point2
 	colors                     []floatgeom.Point4
 	materials, to_old_vertices []int
 	to_new_vertices            []Vertex
-	faces                      [][]int
+	Faces                      [][]int
 }
 
 func (g *Geometry) String() string {
@@ -87,9 +87,9 @@ func (g *Geometry) stringPrefix(prefix string) string {
 		s += "\n"
 	}
 
-	if len(g.faces) != 0 {
+	if len(g.Faces) != 0 {
 		s += prefix + "Faces:"
-		for i, v := range g.faces {
+		for i, v := range g.Faces {
 			if i != 0 {
 				s += ", "
 			}
@@ -148,44 +148,44 @@ func (g *Geometry) Type() Type {
 }
 
 func (g *Geometry) UVSMax() int {
-	return s_uvs_max
+	return MaxUvs
 }
 
-func (g *Geometry) getVertices() []floatgeom.Point3 {
+func (g *Geometry) GetVertices() []floatgeom.Point3 {
 	return g.vertices
 }
-func (g *Geometry) getVertexCount() int {
+func (g *Geometry) GetVertexCount() int {
 	return len(g.vertices)
 }
 
-func (g *Geometry) getNormals() []floatgeom.Point3 {
+func (g *Geometry) GetNormals() []floatgeom.Point3 {
 	return g.normals
 }
 
-func (g *Geometry) getUVs() []floatgeom.Point2 {
-	return g.getUVsIndex(0)
+func (g *Geometry) GetUVs() [MaxUvs][]floatgeom.Point2 {
+	return g.uvs
 }
 
-func (g *Geometry) getUVsIndex(index int) []floatgeom.Point2 {
+func (g *Geometry) GetUVsIndex(index int) []floatgeom.Point2 {
 	if index < 0 || index > len(g.uvs) {
 		return nil
 	}
 	return g.uvs[index]
 }
 
-func (g *Geometry) getColors() []floatgeom.Point4 {
+func (g *Geometry) GetColors() []floatgeom.Point4 {
 	return g.colors
 }
 
-func (g *Geometry) getTangents() []floatgeom.Point3 {
+func (g *Geometry) GetTangents() []floatgeom.Point3 {
 	return g.tangents
 }
 
-func (g *Geometry) getSkin() *Skin {
+func (g *Geometry) GetSkin() *Skin {
 	return g.skin
 }
 
-func (g *Geometry) getMaterials() []int {
+func (g *Geometry) GetMaterials() []int {
 	return g.materials
 }
 
@@ -247,13 +247,13 @@ func parseGeometry(scene *Scene, element *Element) (*Geometry, error) {
 		return nil, err
 	}
 
-	geom.faces = make([][]int, 0)
+	geom.Faces = make([][]int, 0)
 	curFace := []int{}
 	//Parse out the polygons. List of vertex references with a negative value indicating the last vertex of a face.
 	for _, v := range original_indices {
 		if v < 0 {
 			curFace = append(curFace, (v*-1)-1)
-			geom.faces = append(geom.faces, curFace)
+			geom.Faces = append(geom.Faces, curFace)
 			curFace = []int{}
 		} else {
 			curFace = append(curFace, v)
