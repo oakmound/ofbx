@@ -238,7 +238,7 @@ func parseGeometry(scene *Scene, element *Element) (*Geometry, error) {
 	if len(polysProp) == 0 {
 		return nil, errors.New("Geometry Indicies missing")
 	}
-	vertices, err := parseDoubleVecDatafloatgeom.Point3(verticesProp[0])
+	vertices, err := parseDoubleVecDataVec3(verticesProp[0])
 	if err != nil {
 		return nil, err
 	}
