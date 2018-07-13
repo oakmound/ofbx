@@ -19,13 +19,13 @@ const MaxUvs = 4
 
 type Geometry struct {
 	Object
-	skin *Skin
+	Skin *Skin
 
-	vertices, normals, tangents []floatgeom.Point3
+	Vertices, Normals, Tangents []floatgeom.Point3
 
-	uvs                        [MaxUvs][]floatgeom.Point2
-	colors                     []floatgeom.Point4
-	materials, to_old_vertices []int
+	UVs                        [MaxUvs][]floatgeom.Point2
+	Colors                     []floatgeom.Point4
+	Materials, to_old_vertices []int
 	to_new_vertices            []Vertex
 	Faces                      [][]int
 }
@@ -36,9 +36,10 @@ func (g *Geometry) String() string {
 
 func (g *Geometry) stringPrefix(prefix string) string {
 	s := prefix + "Geometry:\n"
-	if len(g.vertices) != 0 {
+	s += g.Object.String() + "\n"
+	if len(g.Vertices) != 0 {
 		s += prefix + "Verts:"
-		for i, v := range g.vertices {
+		for i, v := range g.Vertices {
 			if i != 0 {
 				s += ","
 			}
@@ -46,9 +47,9 @@ func (g *Geometry) stringPrefix(prefix string) string {
 		}
 		s += "\n"
 	}
-	if len(g.normals) != 0 {
+	if len(g.Normals) != 0 {
 		s += prefix + "Norms:"
-		for i, v := range g.normals {
+		for i, v := range g.Normals {
 			if i != 0 {
 				s += ","
 			}
@@ -56,9 +57,9 @@ func (g *Geometry) stringPrefix(prefix string) string {
 		}
 		s += "\n"
 	}
-	if len(g.tangents) != 0 {
+	if len(g.Tangents) != 0 {
 		s += prefix + "Tangents:"
-		for i, v := range g.tangents {
+		for i, v := range g.Tangents {
 			if i != 0 {
 				s += ","
 			}
@@ -66,9 +67,9 @@ func (g *Geometry) stringPrefix(prefix string) string {
 		}
 		s += "\n"
 	}
-	if len(g.materials) != 0 {
+	if len(g.Materials) != 0 {
 		s += prefix + "Materials:"
-		for i, v := range g.materials {
+		for i, v := range g.Materials {
 			if i != 0 {
 				s += ","
 			}
@@ -76,9 +77,9 @@ func (g *Geometry) stringPrefix(prefix string) string {
 		}
 		s += "\n"
 	}
-	if len(g.colors) != 0 {
+	if len(g.Colors) != 0 {
 		s += prefix + "Colors:"
-		for i, v := range g.colors {
+		for i, v := range g.Colors {
 			if i != 0 {
 				s += ","
 			}
@@ -99,7 +100,7 @@ func (g *Geometry) stringPrefix(prefix string) string {
 	}
 
 	s += prefix + "UVs:"
-	for _, v := range g.uvs {
+	for _, v := range g.UVs {
 		if len(v) == 0 {
 			continue
 		}
@@ -151,44 +152,6 @@ func (g *Geometry) UVSMax() int {
 	return MaxUvs
 }
 
-func (g *Geometry) GetVertices() []floatgeom.Point3 {
-	return g.vertices
-}
-func (g *Geometry) GetVertexCount() int {
-	return len(g.vertices)
-}
-
-func (g *Geometry) GetNormals() []floatgeom.Point3 {
-	return g.normals
-}
-
-func (g *Geometry) GetUVs() [MaxUvs][]floatgeom.Point2 {
-	return g.uvs
-}
-
-func (g *Geometry) GetUVsIndex(index int) []floatgeom.Point2 {
-	if index < 0 || index > len(g.uvs) {
-		return nil
-	}
-	return g.uvs[index]
-}
-
-func (g *Geometry) GetColors() []floatgeom.Point4 {
-	return g.colors
-}
-
-func (g *Geometry) GetTangents() []floatgeom.Point3 {
-	return g.tangents
-}
-
-func (g *Geometry) GetSkin() *Skin {
-	return g.skin
-}
-
-func (g *Geometry) GetMaterials() []int {
-	return g.materials
-}
-
 func (g *Geometry) triangulate(old_indices []int) []int {
 	to_old := make([]int, 0)
 	in_polygon_idx := 0
@@ -215,12 +178,6 @@ func (g *Geometry) triangulate(old_indices []int) []int {
 		}
 	}
 	return to_old
-}
-
-//From CPP
-
-func (g *Geometry) getType() Type {
-	return g.Type()
 }
 
 func parseGeometry(scene *Scene, element *Element) (*Geometry, error) {
@@ -261,14 +218,14 @@ func parseGeometry(scene *Scene, element *Element) (*Geometry, error) {
 	}
 
 	to_old_indices := geom.triangulate(original_indices)
-	geom.vertices = make([]floatgeom.Point3, len(geom.to_old_vertices))
+	geom.Vertices = make([]floatgeom.Point3, len(geom.to_old_vertices))
 
 	for i, vIdx := range geom.to_old_vertices {
 		v := vertices[vIdx]
-		geom.vertices[i] = v
+		geom.Vertices[i] = v
 	}
 
-	geom.to_new_vertices = make([]Vertex, len(geom.vertices))
+	geom.to_new_vertices = make([]Vertex, len(geom.Vertices))
 
 	for i := 0; i < len(geom.to_old_vertices); i++ {
 		old := geom.to_old_vertices[i]
@@ -287,9 +244,9 @@ func parseGeometry(scene *Scene, element *Element) (*Geometry, error) {
 
 		if mappingProp[0].value.String() == "ByPolygon" &&
 			referenceProp[0].value.String() == "IndexToDirect" {
-			geom.materials = make([]int, len(geom.vertices)/3)
-			for i := 0; i < len(geom.vertices)/3; i++ {
-				geom.materials[i] = -1
+			geom.Materials = make([]int, len(geom.Vertices)/3)
+			for i := 0; i < len(geom.Vertices)/3; i++ {
+				geom.Materials[i] = -1
 			}
 
 			indiciesProp := findChildProperty(layerMaterialElements[0], "Materials")
@@ -309,7 +266,7 @@ func parseGeometry(scene *Scene, element *Element) (*Geometry, error) {
 				poly++
 				tri_count, tmp_i = getTriCountFromPoly(original_indices, tmp_i)
 				for i := 0; i < tri_count; i++ {
-					geom.materials[insertIdx] = tmp[poly]
+					geom.Materials[insertIdx] = tmp[poly]
 					insertIdx++
 				}
 			}
@@ -334,8 +291,8 @@ func parseGeometry(scene *Scene, element *Element) (*Geometry, error) {
 				}
 				if tmp != nil && len(tmp) > 0 {
 					//uvs = [4]floatgeom.Point2{} //resize(tmp_indices.empty() ? tmp.size() : tmp_indices.size());
-					geom.uvs[uv_index] = splatVec2(mapping, tmp, tmp_indices, original_indices)
-					remapVec2(&geom.uvs[uv_index], to_old_indices)
+					geom.UVs[uv_index] = splatVec2(mapping, tmp, tmp_indices, original_indices)
+					remapVec2(&geom.UVs[uv_index], to_old_indices)
 				}
 			}
 
@@ -357,8 +314,8 @@ func parseGeometry(scene *Scene, element *Element) (*Geometry, error) {
 				return nil, err
 			}
 			if tmp != nil && len(tmp) > 0 {
-				geom.tangents = splatVec3(mapping, tmp, tmp_indices, original_indices)
-				remapVec3(&geom.tangents, to_old_indices)
+				geom.Tangents = splatVec3(mapping, tmp, tmp_indices, original_indices)
+				remapVec3(&geom.Tangents, to_old_indices)
 			}
 		}
 
@@ -369,8 +326,8 @@ func parseGeometry(scene *Scene, element *Element) (*Geometry, error) {
 				return nil, err
 			}
 			if len(tmp) > 0 {
-				geom.colors = splatVec4(mapping, tmp, tmp_indices, original_indices)
-				remapVec4(&geom.colors, to_old_indices)
+				geom.Colors = splatVec4(mapping, tmp, tmp_indices, original_indices)
+				remapVec4(&geom.Colors, to_old_indices)
 			}
 		}
 
@@ -381,10 +338,15 @@ func parseGeometry(scene *Scene, element *Element) (*Geometry, error) {
 				return nil, err
 			}
 			if len(tmp) > 0 {
-				geom.normals = splatVec3(mapping, tmp, tmp_indices, original_indices)
-				remapVec3(&geom.normals, to_old_indices)
+				geom.Normals = splatVec3(mapping, tmp, tmp_indices, original_indices)
+				remapVec3(&geom.Normals, to_old_indices)
 			}
 		}
 	}
+
+	// Todo: undo / redo some work above to not require redoing vertices
+
+	geom.Vertices = vertices
+
 	return geom, nil
 }

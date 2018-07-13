@@ -28,11 +28,6 @@ func parseNodeAttribute(scene *Scene, element *Element) (*NodeAttribute, error) 
 	return na, nil
 }
 
-// From CPP
-func (na *NodeAttribute) getType() Type {
-	return na.Type()
-}
-
 func (na *NodeAttribute) String() string {
 	s := "NodeAttribute: " + na.Object.String()
 	s += ", attribute_type=" + na.attribute_type.String()

@@ -143,7 +143,3 @@ func parseCluster(scene *Scene, element *Element) (*Cluster, error) {
 	}
 	return obj, nil
 }
-
-func (c *Cluster) getType() Type {
-	return c.Type()
-}
