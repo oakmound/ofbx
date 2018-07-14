@@ -89,15 +89,16 @@ func NewObject(scene *Scene, e *Element) *Object {
 	return o
 }
 
+func resolveAllObjectLinks(o Obj) []Obj {
+	return resolveObjectLinks(o, NOTYPE, []string{""})
+}
+
 func resolveObjectLinkIndex(o Obj, idx int) Obj {
 	return resolveObjectLink(o, NOTYPE, "", idx)
 }
 
 func resolveObjectLink(o Obj, typ Type, property string, idx int) Obj {
-	var id uint64
-	if prop := o.Element().getProperty(0); prop != nil {
-		id = prop.value.touint64()
-	}
+	id := o.ID()
 	for _, conn := range o.Scene().connections {
 		if conn.to == id && conn.from != 0 {
 			obj := o.Scene().objectMap[conn.from].object
@@ -112,6 +113,25 @@ func resolveObjectLink(o Obj, typ Type, property string, idx int) Obj {
 		}
 	}
 	return nil
+}
+
+func resolveObjectLinks(o Obj, typ Type, properties []string) []Obj {
+	id := o.ID()
+	out := make([]Obj, 0)
+	for _, conn := range o.Scene().connections {
+		if conn.to == id && conn.from != 0 {
+			obj := o.Scene().objectMap[conn.from].object
+			if obj != nil && (obj.Type() == typ || typ == NOTYPE) {
+				for _, prop2 := range properties {
+					if prop2 == "" || conn.property == prop2 {
+						out = append(out, obj)
+						break
+					}
+				}
+			}
+		}
+	}
+	return out
 }
 
 func resolveObjectLinkReverse(o Obj, typ Type) Obj {

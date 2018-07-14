@@ -3,11 +3,11 @@ package ofbx
 import "fmt"
 
 type Color struct {
-	r, g, b float32
+	R, G, B float32
 }
 
 func (c *Color) String() string {
-	return "R=" + fmt.Sprintf("%f", c.r) +
-		" G=" + fmt.Sprintf("%f", c.g) +
-		" B=" + fmt.Sprintf("%f", c.b)
+	return "R=" + fmt.Sprintf("%f", c.R) +
+		" G=" + fmt.Sprintf("%f", c.G) +
+		" B=" + fmt.Sprintf("%f", c.B)
 }

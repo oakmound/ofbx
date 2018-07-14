@@ -58,12 +58,11 @@ type Curve struct {
 
 func (c *Curve) String() string {
 	s := c.curve.String() + " "
-	s += c.connection.String()
+	//s += c.connection.String()
 	return s
 }
 
 func NewAnimationCurveNode(s *Scene, e *Element) *AnimationCurveNode {
-
 	acn := AnimationCurveNode{}
 	obj := *NewObject(s, e)
 	acn.Object = obj
@@ -113,15 +112,22 @@ func (acn *AnimationCurveNode) String() string {
 }
 func (acn *AnimationCurveNode) stringPrefix(prefix string) string {
 	s := prefix + "AnimationCurveNode: "
-	if printRecursiveObjects {
-		s += "\n\tbone=" + acn.Bone.stringPrefix(prefix) + "\n"
+	if acn.Bone != nil {
+		s += "boneID=" + fmt.Sprintf("%v ", acn.Bone.ID())
 	}
-	s += "bone_link_property=" + acn.boneLinkProp
+	s += "bone_link_property=\"" + acn.boneLinkProp + "\""
 	s += " mode=" + fmt.Sprintf("%d", acn.mode)
-	s += acn.Object.stringPrefix(prefix)
-	s += prefix + "curves="
-	for _, curve := range acn.curves {
-		s += "\n" + prefix + "\t" + curve.String()
+	for i, curve := range acn.curves {
+		s += "\n" + prefix + "\t"
+		switch i {
+		case 0:
+			s += " X: "
+		case 1:
+			s += " Y: "
+		case 2:
+			s += " Z: "
+		}
+		s += curve.String()
 	}
 
 	return s

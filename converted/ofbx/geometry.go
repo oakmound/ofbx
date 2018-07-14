@@ -35,7 +35,7 @@ func (g *Geometry) String() string {
 }
 
 func (g *Geometry) stringPrefix(prefix string) string {
-	s := prefix + "Geometry:\n"
+	s := prefix + "Geometry:" + fmt.Sprintf("%v", g.ID()) + "\n"
 	if len(g.Vertices) != 0 {
 		s += prefix + "Verts:"
 		for i, v := range g.Vertices {

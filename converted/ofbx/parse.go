@@ -3,6 +3,7 @@ package ofbx
 import (
 	"compress/zlib"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"io/ioutil"
 
@@ -412,29 +413,29 @@ func parseMaterial(scene *Scene, element *Element) *Material {
 		// but haven't seen
 		switch v {
 		case "EmissiveColor":
-			material.EmissiveColor.r = float32(elem.getProperty(4).value.toDouble())
-			material.EmissiveColor.g = float32(elem.getProperty(5).value.toDouble())
-			material.EmissiveColor.b = float32(elem.getProperty(6).value.toDouble())
+			material.EmissiveColor.R = float32(elem.getProperty(4).value.toDouble())
+			material.EmissiveColor.G = float32(elem.getProperty(5).value.toDouble())
+			material.EmissiveColor.B = float32(elem.getProperty(6).value.toDouble())
 		case "AmbientColor":
-			material.AmbientColor.r = float32(elem.getProperty(4).value.toDouble())
-			material.AmbientColor.g = float32(elem.getProperty(5).value.toDouble())
-			material.AmbientColor.b = float32(elem.getProperty(6).value.toDouble())
+			material.AmbientColor.R = float32(elem.getProperty(4).value.toDouble())
+			material.AmbientColor.G = float32(elem.getProperty(5).value.toDouble())
+			material.AmbientColor.B = float32(elem.getProperty(6).value.toDouble())
 		case "DiffuseColor":
-			material.DiffuseColor.r = float32(elem.getProperty(4).value.toDouble())
-			material.DiffuseColor.g = float32(elem.getProperty(5).value.toDouble())
-			material.DiffuseColor.b = float32(elem.getProperty(6).value.toDouble())
+			material.DiffuseColor.R = float32(elem.getProperty(4).value.toDouble())
+			material.DiffuseColor.G = float32(elem.getProperty(5).value.toDouble())
+			material.DiffuseColor.B = float32(elem.getProperty(6).value.toDouble())
 		case "TransparentColor":
-			material.TransparentColor.r = float32(elem.getProperty(4).value.toDouble())
-			material.TransparentColor.g = float32(elem.getProperty(5).value.toDouble())
-			material.TransparentColor.b = float32(elem.getProperty(6).value.toDouble())
+			material.TransparentColor.R = float32(elem.getProperty(4).value.toDouble())
+			material.TransparentColor.G = float32(elem.getProperty(5).value.toDouble())
+			material.TransparentColor.B = float32(elem.getProperty(6).value.toDouble())
 		case "SpecularColor":
-			material.SpecularColor.r = float32(elem.getProperty(4).value.toDouble())
-			material.SpecularColor.g = float32(elem.getProperty(5).value.toDouble())
-			material.SpecularColor.b = float32(elem.getProperty(6).value.toDouble())
+			material.SpecularColor.R = float32(elem.getProperty(4).value.toDouble())
+			material.SpecularColor.G = float32(elem.getProperty(5).value.toDouble())
+			material.SpecularColor.B = float32(elem.getProperty(6).value.toDouble())
 		case "ReflectionColor":
-			material.ReflectionColor.r = float32(elem.getProperty(4).value.toDouble())
-			material.ReflectionColor.g = float32(elem.getProperty(5).value.toDouble())
-			material.ReflectionColor.b = float32(elem.getProperty(6).value.toDouble())
+			material.ReflectionColor.R = float32(elem.getProperty(4).value.toDouble())
+			material.ReflectionColor.G = float32(elem.getProperty(5).value.toDouble())
+			material.ReflectionColor.B = float32(elem.getProperty(6).value.toDouble())
 		case "EmissiveFactor":
 			material.EmissiveFactor = elem.getProperty(4).value.toDouble()
 		// case "AmbientFactor":
@@ -697,7 +698,7 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 					obj, err = parseMesh(scene, iter.element)
 					if err == nil {
 						mesh := obj.(*Mesh)
-						scene.meshes = append(scene.meshes, mesh)
+						scene.Meshes = append(scene.Meshes, mesh)
 						obj = mesh
 					}
 				} else if v == "LimbNode" {
@@ -823,18 +824,22 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 		}
 	}
 
-	//fmt.Println("Parsing clusters?")
 	for _, iter := range scene.objectMap {
 		obj := iter.object
 		if obj == nil {
 			continue
 		}
-		if obj.Type() == CLUSTER {
-			if !iter.object.(*Cluster).postProcess() {
-				return false, errors.New("Failed to postprocess cluster")
+		if ppr, ok := obj.(NeedsPostProcessing); ok {
+			if !ppr.postProcess() {
+				return false, errors.New("Failed to postprocess object" + fmt.Sprintf("%v", obj.ID()))
 			}
 		}
 	}
 
 	return true, nil
+}
+
+// NeedsPostProcessing note objects that require post processing
+type NeedsPostProcessing interface {
+	postProcess() bool
 }

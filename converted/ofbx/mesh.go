@@ -1,6 +1,10 @@
 package ofbx
 
-import "github.com/oakmound/oak/alg/floatgeom"
+import (
+	"fmt"
+
+	"github.com/oakmound/oak/alg/floatgeom"
+)
 
 type Mesh struct {
 	Object
@@ -40,10 +44,11 @@ func (m *Mesh) String() string {
 }
 
 func (m *Mesh) stringPrefix(prefix string) string {
-	s := prefix + "Mesh:\n"
-	s += m.Geometry.stringPrefix(prefix+"\t") + "\n"
+	s := prefix + "Mesh:" + fmt.Sprintf("%v", m.ID()) + "\n"
+	s += m.Geometry.stringPrefix(prefix + "\t")
 	for _, mat := range m.Materials {
-		s += mat.stringPrefix(prefix+"\t") + "\n"
+		s += "\n"
+		s += mat.stringPrefix(prefix + "\t")
 	}
 	return s
 }

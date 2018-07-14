@@ -17,15 +17,11 @@ type Scene struct {
 	settings        Settings
 	objectMap       map[uint64]ObjectPair // Slice or map?
 	Objects         []Obj
-	meshes          []*Mesh
+	Meshes          []*Mesh
 	AnimationStacks []*AnimationStack
 	connections     []Connection
 	takeInfos       []TakeInfo
 }
-
-var (
-	printRecursiveObjects = false
-)
 
 func (s *Scene) String() string {
 	if s == nil {
@@ -40,19 +36,29 @@ func (s *Scene) String() string {
 	// }
 	st += "frameRate=" + fmt.Sprintf("%f", s.frameRate) + "\n"
 	st += "setttings=" + fmt.Sprintf("%+v", s.settings) + "\n"
-	if s.Objects != nil {
-		st += "objects=" + "\n" //perhaps this should output the object types?
-	}
-	for _, o := range s.Objects {
-		st += o.stringPrefix("\t") + "\n"
-	}
-
-	if s.meshes != nil {
-		st += "meshes=" + fmt.Sprint(s.meshes) + "\n"
-	}
-	// if s.AnimationStacks != nil {
-	// 	st += "animations=" + fmt.Sprint(s.AnimationStacks) + "\n"
+	// if s.Objects != nil {
+	// 	st += "objects=" + "\n" //perhaps this should output the object types?
 	// }
+	// for _, o := range s.Objects {
+	// 	st += o.stringPrefix("\t") + "\n"
+	// }
+
+	if s.Meshes != nil {
+		st += "meshes="
+		for _, mesh := range s.Meshes {
+			st += "\n"
+			st += mesh.stringPrefix("\t")
+		}
+		st += "\n"
+	}
+	if s.AnimationStacks != nil {
+		st += "animations="
+		for _, anim := range s.AnimationStacks {
+			st += "\n"
+			st += anim.stringPrefix("\t")
+		}
+		st += "\n"
+	}
 	if len(s.connections) > 0 {
 		st += "connections=" + "\n"
 		for _, c := range s.connections {
@@ -94,7 +100,7 @@ func (s *Scene) getSceneFrameRate() float32 {
 	return s.frameRate
 }
 func (s *Scene) getMesh(index int) *Mesh {
-	return s.meshes[index]
+	return s.Meshes[index]
 }
 
 func Load(r io.Reader) (*Scene, error) {
