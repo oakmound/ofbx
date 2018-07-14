@@ -457,19 +457,32 @@ func parseMaterial(scene *Scene, element *Element) *Material {
 
 func parseAnimationCurve(scene *Scene, element *Element) (*AnimationCurve, error) {
 	curve := &AnimationCurve{}
-
-	times := findSingleChildProperty(element, "KeyTime")
-	values := findSingleChildProperty(element, "KeyValueFloat")
-
-	if times != nil {
-		var err error
+	var err error
+	if attrFlags := findSingleChildProperty(element, "KeyAttrFlags"); attrFlags != nil {
+		curve.AttrFlags, err = attrFlags.getValuesInt64()
+		if err != nil {
+			return nil, errors.Wrap(err, "Invalid animation curve: attrFlags error")
+		}
+	}
+	if attrData := findSingleChildProperty(element, "KeyAttrDataFloat"); attrData != nil {
+		curve.AttrData, err = attrData.getValuesF32()
+		if err != nil {
+			return nil, errors.Wrap(err, "Invalid animation curve: attrFlags error")
+		}
+	}
+	if attrRefCt := findSingleChildProperty(element, "KeyAttrRefCount"); attrRefCt != nil {
+		curve.AttrRefCount, err = attrRefCt.getValuesInt64()
+		if err != nil {
+			return nil, errors.Wrap(err, "Invalid animation curve: attrFlags error")
+		}
+	}
+	if times := findSingleChildProperty(element, "KeyTime"); times != nil {
 		curve.Times, err = times.getValuesInt64()
 		if err != nil {
 			return nil, errors.Wrap(err, "Invalid animation curve: times error")
 		}
 	}
-	if values != nil {
-		var err error
+	if values := findSingleChildProperty(element, "KeyValueFloat"); values != nil {
 		curve.Values, err = values.getValuesF32()
 		if err != nil {
 			return nil, errors.New("Invalid animation curve: values error")

@@ -17,13 +17,16 @@ const (
 
 type AnimationCurve struct {
 	Object
-	Times  []int64
-	Values []float32
+	Times        []int64
+	Values       []float32
+	AttrFlags    []int64
+	AttrData     []float32
+	AttrRefCount []int64
 }
 
 func NewAnimationCurve(scene *Scene, element *Element) *AnimationCurve {
 	o := *NewObject(scene, element)
-	return &AnimationCurve{o, nil, nil}
+	return &AnimationCurve{Object: o}
 }
 
 func (ac *AnimationCurve) Type() Type {
