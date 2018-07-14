@@ -17,8 +17,8 @@ const (
 
 type AnimationCurve struct {
 	Object
-	times  []int64
-	values []float32
+	Times  []int64
+	Values []float32
 }
 
 func NewAnimationCurve(scene *Scene, element *Element) *AnimationCurve {
@@ -30,33 +30,25 @@ func (ac *AnimationCurve) Type() Type {
 	return ANIMATION_CURVE
 }
 
-func (ac *AnimationCurve) getKeyTime() []int64 {
-	return ac.times
-}
-
-func (ac *AnimationCurve) getKeyValue() []float32 {
-	return ac.values
-}
-
 func (ac *AnimationCurve) String() string {
 	return ac.stringPrefix("")
 }
 
 func (ac *AnimationCurve) stringPrefix(prefix string) string {
 
-	strs := make([]string, len(ac.times))
-	for i := 0; i < len(ac.times); i++ {
-		strs[i] = fmt.Sprintf("%d:%f", ac.times[i], ac.values[i])
+	strs := make([]string, len(ac.Times))
+	for i := 0; i < len(ac.Times); i++ {
+		strs[i] = fmt.Sprintf("%d:%f", ac.Times[i], ac.Values[i])
 	}
 	return prefix + "AnimCurve: " + strings.Join(strs, ",") + " "
 }
 
 type AnimationCurveNode struct {
 	Object
-	curves             [3]Curve
-	bone               Obj
-	bone_link_property string
-	mode               CurveMode
+	curves       [3]Curve
+	Bone         Obj
+	boneLinkProp string
+	mode         CurveMode
 }
 
 type Curve struct {
@@ -90,8 +82,8 @@ func (acn *AnimationCurveNode) getNodeLocalTransform(time float64) floatgeom.Poi
 			return 0.0
 		}
 
-		times := curve.curve.getKeyTime()
-		values := curve.curve.getKeyValue()
+		times := curve.curve.Times
+		values := curve.curve.Values
 		count := len(times)
 
 		if fbx_time < times[0] {
@@ -116,19 +108,15 @@ func (acn *AnimationCurveNode) getNodeLocalTransform(time float64) floatgeom.Poi
 	}
 }
 
-func (acn *AnimationCurveNode) getBone() Obj {
-	return acn.bone
-}
-
 func (acn *AnimationCurveNode) String() string {
 	return acn.stringPrefix("")
 }
 func (acn *AnimationCurveNode) stringPrefix(prefix string) string {
 	s := prefix + "AnimationCurveNode: "
 	if printRecursiveObjects {
-		s += "\n\tbone=" + acn.bone.stringPrefix(prefix) + "\n"
+		s += "\n\tbone=" + acn.Bone.stringPrefix(prefix) + "\n"
 	}
-	s += "bone_link_property=" + acn.bone_link_property
+	s += "bone_link_property=" + acn.boneLinkProp
 	s += " mode=" + fmt.Sprintf("%d", acn.mode)
 	s += acn.Object.stringPrefix(prefix)
 	s += prefix + "curves="

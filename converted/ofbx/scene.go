@@ -75,7 +75,7 @@ func (s *Scene) Geometries() []*Geometry {
 		if elem == nil {
 			continue
 		}
-		if elem.id.String() == "Geometry" {
+		if elem.ID.String() == "Geometry" {
 			out = append(out, o.(*Geometry))
 		}
 	}

@@ -43,7 +43,7 @@ var (
 
 func (p *Property) stringValue() string {
 
-	switch p.typ {
+	switch p.Type {
 	case BOOL:
 		return fmt.Sprintf("%v", p.value.toBool())
 	case LONG:
@@ -88,7 +88,7 @@ func (p *Property) stringValue() string {
 		return "Byte array not implemented"
 	}
 
-	return "Error: Not a known property Type " + string(p.typ)
+	return "Error: Not a known property Type " + string(p.Type)
 }
 
 func (pt PropertyType) Size() int {
@@ -104,23 +104,11 @@ func (pt PropertyType) IsArray() bool {
 }
 
 type Property struct {
-	count            int
-	typ              PropertyType
+	Count            int
+	Type             PropertyType
 	value            *DataView
-	encoding         uint32
+	Encoding         uint32
 	compressedLength uint32
-}
-
-func (p *Property) Type() PropertyType {
-	return p.typ
-}
-
-func (p *Property) getCount() int {
-	return p.count
-}
-
-func (p *Property) getEncoding() uint32 {
-	return p.encoding
 }
 
 func (p *Property) getValuesF32() ([]float32, error) {
@@ -132,9 +120,9 @@ func (p *Property) getValuesInt64() ([]int64, error) {
 }
 
 func findChildren(element *Element, id string) []*Element {
-	iterables := element.children
+	iterables := element.Children
 	for idx, val := range iterables {
-		if val.id.String() == id {
+		if val.ID.String() == id {
 			return iterables[idx:]
 		}
 	}
@@ -142,11 +130,11 @@ func findChildren(element *Element, id string) []*Element {
 }
 
 func findSingleChildProperty(element *Element, id string) *Property {
-	iterables := element.children
+	iterables := element.Children
 	for idx, val := range iterables {
-		if val.id.String() == id {
-			if len(iterables[idx].properties) > 0 {
-				return iterables[idx].properties[0]
+		if val.ID.String() == id {
+			if len(iterables[idx].Properties) > 0 {
+				return iterables[idx].Properties[0]
 			}
 		}
 	}
@@ -154,10 +142,10 @@ func findSingleChildProperty(element *Element, id string) *Property {
 }
 
 func findChildProperty(element *Element, id string) []*Property {
-	iterables := element.children
+	iterables := element.Children
 	for idx, val := range iterables {
-		if val.id.String() == id {
-			return iterables[idx].properties
+		if val.ID.String() == id {
+			return iterables[idx].Properties
 		}
 	}
 	return nil
@@ -169,7 +157,7 @@ func resolveProperty(obj Obj, name string) *Element {
 		return nil
 	}
 
-	elems = elems[0].children
+	elems = elems[0].Children
 	for _, elem := range elems {
 		if prop := elem.getProperty(0); prop != nil && prop.value.String() == name {
 			return elem
@@ -182,14 +170,14 @@ func isString(prop *Property) bool {
 	if prop == nil {
 		return false
 	}
-	return prop.Type() == STRING
+	return prop.Type == STRING
 }
 
 func isLong(prop *Property) bool {
 	if prop == nil {
 		return false
 	}
-	return prop.Type() == LONG
+	return prop.Type == LONG
 }
 
 func (p *Property) String() string {

@@ -4,9 +4,9 @@ import "github.com/oakmound/oak/alg/floatgeom"
 
 type Mesh struct {
 	Object
-	geometry  *Geometry
+	Geometry  *Geometry
 	scene     *Scene
-	materials []*Material
+	Materials []*Material
 }
 
 func NewMesh(scene *Scene, element *Element) *Mesh {
@@ -18,10 +18,6 @@ func NewMesh(scene *Scene, element *Element) *Mesh {
 
 func (m *Mesh) Type() Type {
 	return MESH
-}
-
-func (m *Mesh) getGeometry() *Geometry {
-	return m.geometry
 }
 
 func (m *Mesh) getGeometricMatrix() Matrix {
@@ -39,18 +35,14 @@ func (m *Mesh) getGeometricMatrix() Matrix {
 	return scale_mtx.Mul(mtx)
 }
 
-func (m *Mesh) getMaterial(idx int) *Material {
-	return m.materials[idx]
-}
-
 func (m *Mesh) String() string {
 	return m.stringPrefix("")
 }
 
 func (m *Mesh) stringPrefix(prefix string) string {
 	s := prefix + "Mesh:\n"
-	s += m.geometry.stringPrefix(prefix+"\t") + "\n"
-	for _, mat := range m.materials {
+	s += m.Geometry.stringPrefix(prefix+"\t") + "\n"
+	for _, mat := range m.Materials {
 		s += mat.stringPrefix(prefix+"\t") + "\n"
 	}
 	return s

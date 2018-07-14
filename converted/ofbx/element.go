@@ -3,24 +3,16 @@ package ofbx
 import "strconv"
 
 type Element struct {
-	id         *DataView
-	children   []*Element
-	properties []*Property
-}
-
-func (e *Element) getChildren() []*Element {
-	return e.children
-}
-
-func (e *Element) getID() *DataView {
-	return e.id
+	ID         *DataView
+	Children   []*Element
+	Properties []*Property
 }
 
 func (e *Element) getProperty(idx int) *Property {
-	if len(e.properties) <= idx {
+	if len(e.Properties) <= idx {
 		return nil
 	}
-	return e.properties[idx]
+	return e.Properties[idx]
 }
 
 func (e *Element) String() string {
@@ -29,14 +21,14 @@ func (e *Element) String() string {
 
 func (e *Element) stringPrefix(prefix string) string {
 	s := prefix + "Element: "
-	if e.id != nil {
-		s += e.id.String()
+	if e.ID != nil {
+		s += e.ID.String()
 	}
-	if len(e.properties) > 1 {
-		if fmter, ok := propFormats[e.properties[1].String()]; ok {
-			s += " " + fmter(e.properties)
+	if len(e.Properties) > 1 {
+		if fmter, ok := propFormats[e.Properties[1].String()]; ok {
+			s += " " + fmter(e.Properties)
 		} else {
-			for idx, p := range e.properties {
+			for idx, p := range e.Properties {
 				v := p.stringPrefix("\t" + prefix + "prop" + strconv.Itoa(idx) + "=")
 				if v == "" {
 					continue
@@ -44,13 +36,13 @@ func (e *Element) stringPrefix(prefix string) string {
 				s += "\n" + v
 			}
 		}
-	} else if len(e.properties) == 1 {
-		s += e.properties[0].stringPrefix(", prop=")
+	} else if len(e.Properties) == 1 {
+		s += e.Properties[0].stringPrefix(", prop=")
 	}
-	if len(e.children) != 0 {
+	if len(e.Children) != 0 {
 		s += "\n"
 		//s += "\n" + prefix + "children: " + "\n"
-		for _, c := range e.children {
+		for _, c := range e.Children {
 			s += c.stringPrefix(prefix + "\t")
 		}
 		return s
@@ -101,15 +93,5 @@ var (
 		"Lcl Scaling":     vectorPropFormat,
 		"Lcl Translation": vectorPropFormat,
 		"Lcl Rotation":    vectorPropFormat,
-		// "d|X":              numberPropFormat,
-		// "d|Y":              numberPropFormat,
-		// "d|Z":              numberPropFormat,
-		// "LocalStop":        numberPropFormat,
-		// "ReferenceStop":    numberPropFormat,
-		// "EmissiveColor":    colorPropFormat,
-		// "AmbientColor":     colorPropFormat,
-		// "DiffuseColor":     colorPropFormat,
-		// "TransparentColor": colorPropFormat,
-		// "SpecularColor":    colorPropFormat,
 	}
 )

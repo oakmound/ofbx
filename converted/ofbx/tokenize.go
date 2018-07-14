@@ -174,10 +174,10 @@ func (c *Cursor) readProperty() (*Property, error) {
 	if err != nil {
 		//fmt.Println(err)
 	}
-	prop.typ = PropertyType(typ)
+	prop.Type = PropertyType(typ)
 	var val string
 	//fmt.Println("Got property type:", string(prop.typ))
-	switch prop.typ {
+	switch prop.Type {
 	case 'S':
 		val, err = c.readLongString()
 	case 'Y':
@@ -203,20 +203,20 @@ func (c *Cursor) readProperty() (*Property, error) {
 		length := int(binary.LittleEndian.Uint32(compressedLength))
 		if int(binary.LittleEndian.Uint32(encoding)) == 0 {
 			elemCount := int(binary.LittleEndian.Uint32(unCompressedLength))
-			switch prop.typ {
+			switch prop.Type {
 			case 'f', 'i':
 				length = elemCount * 4
 			case 'd', 'l':
 				length = elemCount * 8
 			}
 		}
-		prop.encoding = binary.LittleEndian.Uint32(encoding)
+		prop.Encoding = binary.LittleEndian.Uint32(encoding)
 		prop.compressedLength = binary.LittleEndian.Uint32(compressedLength)
-		prop.count = int(binary.LittleEndian.Uint32(unCompressedLength))
+		prop.Count = int(binary.LittleEndian.Uint32(unCompressedLength))
 		//fmt.Println("prop lengths", unCompressedLength, compressedLength, "props encoding", encoding)
 		val = string(c.readBytes(length))
 	default:
-		return nil, errors.New("Did not know this property:" + string(prop.typ))
+		return nil, errors.New("Did not know this property:" + string(prop.Type))
 	}
 	if err != nil {
 		//fmt.Println(err)
@@ -265,11 +265,11 @@ func (c *Cursor) readElement(version uint16) (*Element, error) {
 	//fmt.Println("Read short string", id)
 
 	element := Element{}
-	element.id = NewDataView(id)
+	element.ID = NewDataView(id)
 
-	element.properties = make([]*Property, prop_count)
+	element.Properties = make([]*Property, prop_count)
 	for i := uint64(0); i < prop_count; i++ {
-		element.properties[i], err = c.readProperty()
+		element.Properties[i], err = c.readProperty()
 	}
 
 	if uint64(c.ReadSoFar()) >= end_offset {
@@ -287,7 +287,7 @@ func (c *Cursor) readElement(version uint16) (*Element, error) {
 		if err != nil {
 			return nil, errors.Wrap(err, "ReadingChild element failed")
 		}
-		element.children = append(element.children, child)
+		element.Children = append(element.Children, child)
 		if uint64(c.ReadSoFar()) > end_offset {
 			//fmt.Println("Read past where we were supposed to!!", c.ReadSoFar(), end_offset)
 		}
@@ -310,7 +310,7 @@ func (c *Cursor) readTextProperty() (*Property, error) {
 	}
 	if r == '"' {
 		//fmt.Println("Quote start")
-		prop.typ = 'S'
+		prop.Type = 'S'
 		val := bytes.NewBuffer([]byte{})
 		for {
 			r, _, err := c.ReadRune()
@@ -332,7 +332,7 @@ func (c *Cursor) readTextProperty() (*Property, error) {
 
 	if unicode.IsDigit(r) || r == '-' {
 		//fmt.Println("Digit start")
-		prop.typ = 'L'
+		prop.Type = 'L'
 		if r != '-' {
 			c.UnreadRune()
 		}
@@ -354,7 +354,7 @@ func (c *Cursor) readTextProperty() (*Property, error) {
 		r, _, err = c.ReadRune()
 
 		if err == nil && r == '.' {
-			prop.typ = 'D'
+			prop.Type = 'D'
 			val.WriteRune(r)
 			for {
 				r, _, err := c.ReadRune()
@@ -402,7 +402,7 @@ func (c *Cursor) readTextProperty() (*Property, error) {
 	if r == 'T' || r == 'Y' {
 		// WTF is this
 		//fmt.Println("WTF start")
-		prop.typ = PropertyType(r)
+		prop.Type = PropertyType(r)
 		b, err := c.ReadByte()
 		prop.value = NewDataView(string(b))
 		//fmt.Println("WTF end", b)
@@ -410,7 +410,7 @@ func (c *Cursor) readTextProperty() (*Property, error) {
 	}
 	if r == '*' {
 		//fmt.Println("Asterisk start")
-		prop.typ = 'l'
+		prop.Type = 'l'
 		// Vertices: *10740 { a: 14.2760353088379,... } //Pulled from original...
 		pBytes := bytes.NewBuffer([]byte{})
 		r2, _, _ := c.ReadRune()
@@ -422,30 +422,30 @@ func (c *Cursor) readTextProperty() (*Property, error) {
 			_, err = c.Peek(1)
 		}
 
-		c.skipInsignificantWhitespaces() //We assume it is insignificat so dont add to buff
+		c.skipInsignificantWhitespaces() //We assume it is insignificant, so we don't add to buffer
 
-		prop.count = 0
+		prop.Count = 0
 
 		is_any := false
 		_, err = c.Peek(1)
 		for err == nil && r2 != '}' {
 			if r2 == ',' {
 				if is_any {
-					prop.count++
+					prop.Count++
 				}
 				is_any = false
 			} else if !unicode.IsSpace(r2) && r2 != '\n' {
 				is_any = true
 			}
 			if r2 == '.' {
-				prop.typ = 'd'
+				prop.Type = 'd'
 			}
 			r2, _, _ = c.ReadRune()
 			pBytes.WriteRune(r2)
 			_, err = c.Peek(1)
 		}
 		if is_any {
-			prop.count++
+			prop.Count++
 		}
 		prop.value = BufferDataView(pBytes)
 		//fmt.Println("Asterisk end", prop.value.String())
@@ -476,7 +476,7 @@ func (c *Cursor) readTextElement() (*Element, error) {
 	}
 
 	element := &Element{}
-	element.id = id
+	element.ID = id
 
 	//fmt.Println("Looping over properties")
 	for {
@@ -507,7 +507,7 @@ func (c *Cursor) readTextElement() (*Element, error) {
 		}
 		c.skipInsignificantWhitespaces()
 
-		element.properties = append(element.properties, prop)
+		element.Properties = append(element.Properties, prop)
 	}
 
 	r, _, err = c.ReadRune()
@@ -534,7 +534,7 @@ func (c *Cursor) readTextElement() (*Element, error) {
 			}
 			c.skipWhitespaces()
 
-			element.children = append(element.children, child)
+			element.Children = append(element.Children, child)
 		}
 	} else {
 		c.UnreadRune()
@@ -608,6 +608,6 @@ func tokenize(r io.Reader) (*Element, error) {
 		if child == nil {
 			return root, nil
 		}
-		root.children = append(root.children, child)
+		root.Children = append(root.Children, child)
 	}
 }

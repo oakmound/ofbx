@@ -19,7 +19,7 @@ func (as *AnimationStack) getLayer(index int) *AnimationLayer {
 
 type AnimationLayer struct {
 	Object
-	curve_nodes []*AnimationCurveNode
+	CurveNodes []*AnimationCurveNode
 }
 
 func NewAnimationLayer(scene *Scene, element *Element) *AnimationLayer {
@@ -31,13 +31,9 @@ func (as *AnimationLayer) Type() Type {
 	return ANIMATION_LAYER
 }
 
-func (as *AnimationLayer) getCurveNodeIndex(index int) *AnimationCurveNode {
-	return as.curve_nodes[index]
-}
-
 func (as *AnimationLayer) getCurveNode(bone Obj, property string) *AnimationCurveNode {
-	for _, node := range as.curve_nodes {
-		if node.bone_link_property == property && node.bone == bone {
+	for _, node := range as.CurveNodes {
+		if node.boneLinkProp == property && node.Bone == bone {
 			return node
 		}
 	}
@@ -46,9 +42,9 @@ func (as *AnimationLayer) getCurveNode(bone Obj, property string) *AnimationCurv
 
 func (as *AnimationLayer) String() string {
 	s := "AnimationLayer: " + as.Object.String()
-	if len(as.curve_nodes) != 0 {
+	if len(as.CurveNodes) != 0 {
 		s += " curveNodes="
-		for _, curve := range as.curve_nodes {
+		for _, curve := range as.CurveNodes {
 			s += " " + curve.String()
 		}
 	}

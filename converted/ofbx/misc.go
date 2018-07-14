@@ -20,7 +20,7 @@ func resolveVec3Property(object Obj, name string, default_value floatgeom.Point3
 	if element == nil {
 		return default_value
 	}
-	if len(element.properties) < 6 {
+	if len(element.Properties) < 6 {
 		return default_value
 	}
 

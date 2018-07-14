@@ -36,7 +36,6 @@ func (g *Geometry) String() string {
 
 func (g *Geometry) stringPrefix(prefix string) string {
 	s := prefix + "Geometry:\n"
-	s += g.Object.String() + "\n"
 	if len(g.Vertices) != 0 {
 		s += prefix + "Verts:"
 		for i, v := range g.Vertices {
@@ -121,10 +120,6 @@ type Vertex struct {
 	next  *Vertex
 }
 
-func add(nv *Vertex, index int) {
-	nv.add(index)
-}
-
 func (nv *Vertex) add(index int) {
 	if nv.index == -1 {
 		//TODO: change this cuz we aint implementing it this way. Really its checking if the newvertex exists...
@@ -146,10 +141,6 @@ func NewGeometry(scene *Scene, element *Element) *Geometry {
 
 func (g *Geometry) Type() Type {
 	return GEOMETRY
-}
-
-func (g *Geometry) UVSMax() int {
-	return MaxUvs
 }
 
 func (g *Geometry) triangulate(old_indices []int) []int {
@@ -181,7 +172,7 @@ func (g *Geometry) triangulate(old_indices []int) []int {
 }
 
 func parseGeometry(scene *Scene, element *Element) (*Geometry, error) {
-	if element.properties == nil {
+	if element.Properties == nil {
 		return nil, errors.New("Geometry invalid")
 	}
 	geom := NewGeometry(scene, element)
@@ -276,15 +267,15 @@ func parseGeometry(scene *Scene, element *Element) (*Geometry, error) {
 			}
 		}
 
-		for _, elem := range element.children {
-			if elem.id.String() != "LayerElementUV" {
+		for _, elem := range element.Children {
+			if elem.ID.String() != "LayerElementUV" {
 				continue
 			}
 			uv_index := 0
-			if len(elem.properties) > 0 {
-				uv_index = int(elem.properties[0].value.toInt32())
+			if len(elem.Properties) > 0 {
+				uv_index = int(elem.Properties[0].value.toInt32())
 			}
-			if uv_index >= 0 && uv_index < geom.UVSMax() {
+			if uv_index >= 0 && uv_index < MaxUvs {
 				tmp, tmp_indices, mapping, err := parseVertexDataVec2(elem, "UV", "UVIndex")
 				if err != nil {
 					return nil, err

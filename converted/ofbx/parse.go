@@ -17,18 +17,18 @@ func parseTemplates(root *Element) {
 	}
 
 	templates := make(map[string]*Element)
-	defs = defs[0].children
+	defs = defs[0].Children
 	for _, def := range defs {
-		if def.id.String() == "ObjectType" {
+		if def.ID.String() == "ObjectType" {
 			prop1 := def.getProperty(0).value
 			prop1Data, err := ioutil.ReadAll(prop1)
 			if err != nil && err != io.EOF {
 				//fmt.Println(err)
 				continue
 			}
-			subdefs := def.children
+			subdefs := def.Children
 			for _, subdef := range subdefs {
-				if subdef.id.String() == "PropertyTemplate" {
+				if subdef.ID.String() == "PropertyTemplate" {
 					prop2 := subdef.getProperty(0).value
 					prop2Data, err := ioutil.ReadAll(prop2)
 					if err != nil && err != io.EOF {
@@ -44,22 +44,22 @@ func parseTemplates(root *Element) {
 }
 
 func parseBinaryArrayInt(property *Property) ([]int, error) {
-	count := property.getCount()
+	count := property.Count
 	if count == 0 {
 		return []int{}, nil
 	}
-	if !property.typ.IsArray() {
+	if !property.Type.IsArray() {
 		return nil, errors.New("Invalid type")
 	}
 	return parseArrayRawInt(property)
 }
 
 func parseBinaryArrayFloat64(property *Property) ([]float64, error) {
-	count := property.getCount()
+	count := property.Count
 	if count == 0 {
 		return []float64{}, nil
 	}
-	if !property.typ.IsArray() {
+	if !property.Type.IsArray() {
 		return nil, errors.New("Invalid type")
 	}
 	return parseArrayRawFloat64(property)
@@ -122,18 +122,18 @@ func parseBinaryArrayVec4(property *Property) ([]floatgeom.Point4, error) {
 }
 
 func parseArrayRawInt(property *Property) ([]int, error) {
-	if property.typ == 'd' || property.typ == 'f' {
+	if property.Type == 'd' || property.Type == 'f' {
 		return nil, errors.New("Invalid type, expected i or l")
 	}
-	if property.encoding == 0 {
-		return parseArrayRawIntEnd(property.value, property.count, property.typ.Size()), nil
-	} else if property.encoding == 1 {
+	if property.Encoding == 0 {
+		return parseArrayRawIntEnd(property.value, property.Count, property.Type.Size()), nil
+	} else if property.Encoding == 1 {
 		zr, err := zlib.NewReader(&property.value.Reader)
 		if err != nil {
 			return nil, errors.Wrap(err, "New Reader failed")
 		}
 		defer zr.Close()
-		return parseArrayRawIntEnd(zr, property.count, property.typ.Size()), nil
+		return parseArrayRawIntEnd(zr, property.Count, property.Type.Size()), nil
 	}
 	return nil, errors.New("Invalid encoding")
 }
@@ -158,18 +158,18 @@ func parseArrayRawIntEnd(r io.Reader, ln int, elem_size int) []int {
 }
 
 func parseArrayRawInt64(property *Property) ([]int64, error) {
-	if property.typ == 'd' || property.typ == 'f' {
+	if property.Type == 'd' || property.Type == 'f' {
 		return nil, errors.New("Invalid type, expected i or l")
 	}
-	if property.encoding == 0 {
-		return parseArrayRawInt64End(property.value, property.count, property.typ.Size()), nil
-	} else if property.encoding == 1 {
+	if property.Encoding == 0 {
+		return parseArrayRawInt64End(property.value, property.Count, property.Type.Size()), nil
+	} else if property.Encoding == 1 {
 		zr, err := zlib.NewReader(&property.value.Reader)
 		if err != nil {
 			return nil, errors.Wrap(err, "New Reader failed")
 		}
 		defer zr.Close()
-		return parseArrayRawInt64End(zr, property.count, property.typ.Size()), nil
+		return parseArrayRawInt64End(zr, property.Count, property.Type.Size()), nil
 	}
 	return nil, errors.New("Invalid encoding")
 }
@@ -190,18 +190,18 @@ func parseArrayRawInt64End(r io.Reader, ln int, elem_size int) []int64 {
 }
 
 func parseArrayRawFloat32(property *Property) ([]float32, error) {
-	if property.typ == 'i' || property.typ == 'l' {
+	if property.Type == 'i' || property.Type == 'l' {
 		return nil, errors.New("Invalid type, expected d or f")
 	}
-	if property.encoding == 0 {
-		return parseArrayRawFloat32End(property.value, property.count, property.typ.Size()), nil
-	} else if property.encoding == 1 {
+	if property.Encoding == 0 {
+		return parseArrayRawFloat32End(property.value, property.Count, property.Type.Size()), nil
+	} else if property.Encoding == 1 {
 		zr, err := zlib.NewReader(&property.value.Reader)
 		if err != nil {
 			return nil, errors.Wrap(err, "New Reader failed")
 		}
 		defer zr.Close()
-		return parseArrayRawFloat32End(zr, property.count, property.typ.Size()), nil
+		return parseArrayRawFloat32End(zr, property.Count, property.Type.Size()), nil
 	}
 	return nil, errors.New("Invalid encoding")
 }
@@ -222,18 +222,18 @@ func parseArrayRawFloat32End(r io.Reader, ln int, elem_size int) []float32 {
 }
 
 func parseArrayRawFloat64(property *Property) ([]float64, error) {
-	if property.typ == 'i' || property.typ == 'l' {
+	if property.Type == 'i' || property.Type == 'l' {
 		return nil, errors.New("Invalid type, expected d or f")
 	}
-	if property.encoding == 0 {
-		return parseArrayRawFloat64End(property.value, property.count, property.typ.Size()), nil
-	} else if property.encoding == 1 {
+	if property.Encoding == 0 {
+		return parseArrayRawFloat64End(property.value, property.Count, property.Type.Size()), nil
+	} else if property.Encoding == 1 {
 		zr, err := zlib.NewReader(&property.value.Reader)
 		if err != nil {
 			return nil, errors.Wrap(err, "New Reader failed")
 		}
 		defer zr.Close()
-		return parseArrayRawFloat64End(zr, property.count, property.typ.Size()), nil
+		return parseArrayRawFloat64End(zr, property.Count, property.Type.Size()), nil
 	}
 	return nil, errors.New("Invalid encoding")
 }
@@ -254,7 +254,7 @@ func parseArrayRawFloat64End(r io.Reader, ln int, elem_size int) []float64 {
 }
 
 func parseDoubleVecDataVec2(property *Property) ([]floatgeom.Point2, error) {
-	if property.typ == 'd' {
+	if property.Type == 'd' {
 		return parseBinaryArrayVec2(property)
 	}
 	tmp, err := parseBinaryArrayFloat32(property)
@@ -272,7 +272,7 @@ func parseDoubleVecDataVec2(property *Property) ([]floatgeom.Point2, error) {
 }
 
 func parseDoubleVecDataVec3(property *Property) ([]floatgeom.Point3, error) {
-	if property.typ == 'd' {
+	if property.Type == 'd' {
 		return parseBinaryArrayVec3(property)
 	}
 	tmp, err := parseBinaryArrayFloat32(property)
@@ -291,7 +291,7 @@ func parseDoubleVecDataVec3(property *Property) ([]floatgeom.Point3, error) {
 }
 
 func parseDoubleVecDataVec4(property *Property) ([]floatgeom.Point4, error) {
-	if property.typ == 'd' {
+	if property.Type == 'd' {
 		return parseBinaryArrayVec4(property)
 	}
 	tmp, err := parseBinaryArrayFloat32(property)
@@ -401,7 +401,7 @@ func parseMaterial(scene *Scene, element *Element) *Material {
 	if len(elems) == 0 {
 		return material
 	}
-	elems = elems[0].children
+	elems = elems[0].Children
 	// Todo: reflection / struct tags for these types of values
 	for _, elem := range elems {
 		if elem.getProperty(0) == nil {
@@ -462,19 +462,19 @@ func parseAnimationCurve(scene *Scene, element *Element) (*AnimationCurve, error
 
 	if times != nil {
 		var err error
-		curve.times, err = times.getValuesInt64()
+		curve.Times, err = times.getValuesInt64()
 		if err != nil {
 			return nil, errors.Wrap(err, "Invalid animation curve: times error")
 		}
 	}
 	if values != nil {
 		var err error
-		curve.values, err = values.getValuesF32()
+		curve.Values, err = values.getValuesF32()
 		if err != nil {
 			return nil, errors.New("Invalid animation curve: values error")
 		}
 	}
-	if len(curve.times) != len(curve.values) {
+	if len(curve.Times) != len(curve.Values) {
 		return nil, errors.New("Invalid animation curve: len error")
 	}
 	return curve, nil
@@ -486,7 +486,7 @@ func parseConnection(root *Element, scene *Scene) (bool, error) {
 		return true, nil
 	}
 
-	connections = connections[0].children
+	connections = connections[0].Children
 	for _, connection := range connections {
 		prop0 := connection.getProperty(0)
 		prop1 := connection.getProperty(1)
@@ -522,10 +522,10 @@ func parseTakes(scene *Scene) (bool, error) {
 		return true, nil
 	}
 
-	objects := takes[0].children
+	objects := takes[0].Children
 
 	for _, object := range objects {
-		if object.id.String() != "Take" {
+		if object.ID.String() != "Take" {
 			continue
 		}
 		if !isString(object.getProperty(0)) {
@@ -564,15 +564,15 @@ func parseTakes(scene *Scene) (bool, error) {
 
 func parseGlobalSettings(root *Element, scene *Scene) {
 
-	for _, settings := range root.children {
-		if settings.id.String() != "GlobalSettings" {
+	for _, settings := range root.Children {
+		if settings.ID.String() != "GlobalSettings" {
 			continue
 		}
-		for _, props70 := range settings.children {
-			if props70.id.String() != "Properties70" {
+		for _, props70 := range settings.Children {
+			if props70.ID.String() != "Properties70" {
 				continue
 			}
-			for _, node := range props70.children {
+			for _, node := range props70.Children {
 				p := node.getProperty(0)
 				if p == nil {
 					continue
@@ -630,7 +630,7 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 	scene.RootNode = NewNode(scene, root, ROOT)
 	scene.objectMap[0] = ObjectPair{root, scene.RootNode}
 
-	objs = objs[0].children
+	objs = objs[0].Children
 	for _, object := range objs {
 		if !isLong(object.getProperty(0)) {
 			return false, errors.New("Invalid")
@@ -648,30 +648,30 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 		}
 		//fmt.Println("Printing for ", iter.element.id.String())
 
-		if iter.element.id.String() == "Geometry" {
-			last_prop := iter.element.getProperty(len(iter.element.properties) - 1)
+		if iter.element.ID.String() == "Geometry" {
+			last_prop := iter.element.getProperty(len(iter.element.Properties) - 1)
 			if last_prop != nil && last_prop.value.String() == "Mesh" {
 				obj, err = parseGeometry(scene, iter.element)
 				if err != nil {
 					return false, err
 				}
 			}
-		} else if iter.element.id.String() == "Material" {
+		} else if iter.element.ID.String() == "Material" {
 			obj = parseMaterial(scene, iter.element)
-		} else if iter.element.id.String() == "AnimationStack" {
+		} else if iter.element.ID.String() == "AnimationStack" {
 			obj = NewAnimationStack(scene, iter.element)
 			stack := obj.(*AnimationStack)
 			scene.AnimationStacks = append(scene.AnimationStacks, stack)
-		} else if iter.element.id.String() == "AnimationLayer" {
+		} else if iter.element.ID.String() == "AnimationLayer" {
 			obj = NewAnimationLayer(scene, iter.element)
-		} else if iter.element.id.String() == "AnimationCurve" {
+		} else if iter.element.ID.String() == "AnimationCurve" {
 			obj, err = parseAnimationCurve(scene, iter.element)
 			if err != nil {
 				return false, err
 			}
-		} else if iter.element.id.String() == "AnimationCurveNode" {
+		} else if iter.element.ID.String() == "AnimationCurveNode" {
 			obj = NewAnimationCurveNode(scene, iter.element)
-		} else if iter.element.id.String() == "Deformer" {
+		} else if iter.element.ID.String() == "Deformer" {
 			class_prop := iter.element.getProperty(2)
 			if class_prop != nil {
 				v := class_prop.value.String()
@@ -684,12 +684,12 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 					obj = NewSkin(scene, iter.element)
 				}
 			}
-		} else if iter.element.id.String() == "NodeAttribute" {
+		} else if iter.element.ID.String() == "NodeAttribute" {
 			obj, err = parseNodeAttribute(scene, iter.element)
 			if err != nil {
 				return false, err
 			}
-		} else if iter.element.id.String() == "Model" {
+		} else if iter.element.ID.String() == "Model" {
 			class_prop := iter.element.getProperty(2)
 			if class_prop != nil {
 				v := class_prop.value.String()
@@ -709,7 +709,7 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 					obj = NewNode(scene, iter.element, NULL_NODE)
 				}
 			}
-		} else if iter.element.id.String() == "Texture" {
+		} else if iter.element.ID.String() == "Texture" {
 			obj = parseTexture(scene, iter.element)
 		}
 
@@ -740,8 +740,8 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 		case ANIMATION_CURVE_NODE:
 			if parent.IsNode() {
 				node := child.(*AnimationCurveNode)
-				node.bone = parent
-				node.bone_link_property = con.property
+				node.Bone = parent
+				node.boneLinkProp = con.property
 			}
 		}
 
@@ -750,22 +750,22 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 			mesh := parent.(*Mesh)
 			switch ctyp {
 			case GEOMETRY:
-				if mesh.geometry != nil {
+				if mesh.Geometry != nil {
 					return false, errors.New("Invalid mesh")
 				}
-				mesh.geometry = child.(*Geometry)
+				mesh.Geometry = child.(*Geometry)
 			case MATERIAL:
-				mesh.materials = append(mesh.materials, (child.(*Material)))
+				mesh.Materials = append(mesh.Materials, (child.(*Material)))
 			}
 		case SKIN:
 			skin := parent.(*Skin)
 			if ctyp == CLUSTER {
 				cluster := child.(*Cluster)
 				skin.clusters = append(skin.clusters, cluster)
-				if cluster.skin != nil {
+				if cluster.Skin != nil {
 					return false, errors.New("Invalid cluster")
 				}
-				cluster.skin = skin
+				cluster.Skin = skin
 			}
 		case MATERIAL:
 			mat := parent.(*Material)
@@ -792,16 +792,16 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 		case CLUSTER:
 			cluster := parent.(*Cluster)
 			if ctyp == LIMB_NODE || ctyp == MESH || ctyp == NULL_NODE {
-				if cluster.link != nil {
+				if cluster.Link != nil {
 					return false, errors.New("Invalid cluster")
 				}
-				cluster.link = child
+				cluster.Link = child
 			}
 
 		case ANIMATION_LAYER:
 			if ctyp == ANIMATION_CURVE_NODE {
 				p := parent.(*AnimationLayer)
-				p.curve_nodes = append(p.curve_nodes, child.(*AnimationCurveNode))
+				p.CurveNodes = append(p.CurveNodes, child.(*AnimationCurveNode))
 			}
 
 		case ANIMATION_CURVE_NODE:
