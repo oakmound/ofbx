@@ -2,6 +2,7 @@ package ofbx
 
 import "fmt"
 
+// Material stores texture pointers and how to apply them
 type Material struct {
 	Object
 	EmissiveColor     Color
@@ -19,12 +20,14 @@ type Material struct {
 	Textures          [TextureCOUNT]*Texture
 }
 
+// NewMaterial makes a stub Material
 func NewMaterial(scene *Scene, element *Element) *Material {
 	m := &Material{}
 	m.Object = *NewObject(scene, element)
 	return m
 }
 
+// Type returns MATERIAl
 func (m *Material) Type() Type {
 	return MATERIAL
 }

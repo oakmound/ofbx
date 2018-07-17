@@ -1,16 +1,18 @@
 package ofbx
 
+// NodeAttribute is an formattable Attribute on a Node
 type NodeAttribute struct {
 	Object
 	Attribute *DataView
 }
 
+// NewNodeAttribute creates a stube NodeAttribute
 func NewNodeAttribute(scene *Scene, element *Element) *NodeAttribute {
 	o := *NewObject(scene, element)
-
 	return &NodeAttribute{o, nil}
 }
 
+// Type returns NODE_ATTRIBUTE
 func (na *NodeAttribute) Type() Type {
 	return NODE_ATTRIBUTE
 }

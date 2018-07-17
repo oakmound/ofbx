@@ -7,6 +7,7 @@ import (
 	"github.com/oakmound/oak/alg/floatgeom"
 )
 
+// Object is the top level general class in fbx
 type Object struct {
 	id             uint64
 	name           string
@@ -17,6 +18,7 @@ type Object struct {
 	scene   *Scene
 }
 
+// Obj interface version of Object
 type Obj interface {
 	ID() uint64
 	SetID(uint64)
@@ -31,16 +33,22 @@ type Obj interface {
 	stringPrefix(string) string
 }
 
+// ID returns the Object's integer id value
 func (o *Object) ID() uint64 {
 	return o.id
 }
+
+// SetID sets the Objects ID
 func (o *Object) SetID(i uint64) {
 	o.id = i
 }
 
+// Name gets the Objects Name
 func (o *Object) Name() string {
 	return o.name
 }
+
+// Element gets the Element on the Object
 func (o *Object) Element() *Element {
 	return o.element
 }

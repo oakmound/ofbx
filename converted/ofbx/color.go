@@ -2,6 +2,7 @@ package ofbx
 
 import "fmt"
 
+// Color is a set of floats RGB
 type Color struct {
 	R, G, B float32
 }
