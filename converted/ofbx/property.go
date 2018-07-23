@@ -5,8 +5,10 @@ import (
 	"io"
 )
 
+// PropertyType is a mapping of letter to data type
 type PropertyType rune
 
+// Property types block
 const (
 	BOOL         PropertyType = 'C'
 	INT16        PropertyType = 'Y'
@@ -91,10 +93,12 @@ func (p *Property) stringValue() string {
 	return "Error: Not a known property Type " + string(p.Type)
 }
 
+// Size returns the current property type's size
 func (pt PropertyType) Size() int {
 	return propertyTypeSizes[pt]
 }
 
+// IsArray checks whether the property is an array
 func (pt PropertyType) IsArray() bool {
 	switch pt {
 	case ARRAY_DOUBLE, ARRAY_FLOAT, ARRAY_INT, ARRAY_LONG:
@@ -103,6 +107,7 @@ func (pt PropertyType) IsArray() bool {
 	return false
 }
 
+// A Property is template class is used to ensure that the data of a FbxObject is strongly typed
 type Property struct {
 	Count            int
 	Type             PropertyType

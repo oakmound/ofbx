@@ -110,15 +110,17 @@ func fromString(str, end string, val *float64, count int) string {
 	return str[iter:]
 }
 
-//Todo: Convert from using pointer math...
+// Vec2FromString gets a vec from string //Todo: Convert from using pointer math...
 func Vec2FromString(str, end string, val *floatgeom.Point2) string {
 	return fromString(str, end, &val[0], 2)
 }
 
+// Vec3FromString gets a vec from string
 func Vec3FromString(str, end string, val *floatgeom.Point3) string {
 	return fromString(str, end, &val[0], 3)
 }
 
+// Vec4FromString gets a vec from string
 func Vec4FromString(str, end string, val *floatgeom.Point4) string {
 	return fromString(str, end, &val[0], 4)
 }

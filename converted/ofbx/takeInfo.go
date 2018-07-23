@@ -4,6 +4,7 @@ import (
 	"fmt"
 )
 
+// TakeInfo is a set of data for a time data set
 type TakeInfo struct {
 	name                *DataView
 	filename            *DataView

@@ -1,7 +1,9 @@
 package ofbx
 
+// RotationOrder determines the dimension order for rotation
 type RotationOrder int
 
+// A block of rotation order sets
 const (
 	EULER_XYZ   RotationOrder = iota
 	EULER_XZY   RotationOrder = iota
