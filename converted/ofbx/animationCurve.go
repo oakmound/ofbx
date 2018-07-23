@@ -42,7 +42,7 @@ func (ac *AnimationCurve) stringPrefix(prefix string) string {
 
 	strs := make([]string, len(ac.Times))
 	for i := 0; i < len(ac.Times); i++ {
-		strs[i] = fmt.Sprintf("%d:%f", ac.Times[i], ac.Values[i])
+		strs[i] = fmt.Sprintf("%v:%f", ac.Times[i], ac.Values[i])
 	}
 	return prefix + "AnimCurve: " + strings.Join(strs, ",") + " "
 }
