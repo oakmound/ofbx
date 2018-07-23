@@ -3,6 +3,7 @@ package ofbx
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/oakmound/oak/alg/floatgeom"
 )
@@ -22,7 +23,7 @@ const (
 // AnimationCurve are a mapping of key frame times to a set of data. Basic need is to have Times mapping with Values while disregarding AttributeFlags and Data
 type AnimationCurve struct {
 	Object
-	Times        []int64
+	Times        []time.Duration
 	Values       []float32
 	AttrFlags    []int64
 	AttrData     []float32
@@ -50,7 +51,7 @@ func (ac *AnimationCurve) stringPrefix(prefix string) string {
 
 	strs := make([]string, len(ac.Times))
 	for i := 0; i < len(ac.Times); i++ {
-		strs[i] = fmt.Sprintf("%d:%f", ac.Times[i], ac.Values[i])
+		strs[i] = fmt.Sprintf("%v:%f", ac.Times[i], ac.Values[i])
 	}
 	return prefix + "AnimCurve: " + strings.Join(strs, ",") + " "
 }
@@ -90,10 +91,11 @@ func (acn *AnimationCurveNode) Type() Type {
 	return ANIMATION_CURVE_NODE
 }
 
-func (acn *AnimationCurveNode) getNodeLocalTransform(time float64) floatgeom.Point3 {
-	fbxTime := secondsToFbxTime(time)
 
-	getCoord := func(curve *Curve, fbxTime int64) float32 {
+func (acn *AnimationCurveNode) getNodeLocalTransform(t float64) floatgeom.Point3 {
+	fbx_time := fbxTimetoStdTime(secondsToFbxTime(t))
+
+	getCoord := func(curve *Curve, fbx_time time.Duration) float32 {
 		if curve.curve == nil {
 			return 0.0
 		}

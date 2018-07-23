@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"time"
 
 	"github.com/oakmound/oak/alg/floatgeom"
 	"github.com/pkg/errors"
@@ -477,9 +478,13 @@ func parseAnimationCurve(scene *Scene, element *Element) (*AnimationCurve, error
 		}
 	}
 	if times := findSingleChildProperty(element, "KeyTime"); times != nil {
-		curve.Times, err = times.getValuesInt64()
+		intTimes, err := times.getValuesInt64()
 		if err != nil {
 			return nil, errors.Wrap(err, "Invalid animation curve: times error")
+		}
+		curve.Times = make([]time.Duration, len(intTimes))
+		for i, v := range intTimes {
+			curve.Times[i] = fbxTimetoStdTime(v)
 		}
 	}
 	if values := findSingleChildProperty(element, "KeyValueFloat"); values != nil {
