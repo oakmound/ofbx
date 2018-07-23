@@ -114,7 +114,7 @@ func resolveObjectLinkIndex(o Obj, idx int) Obj {
 
 func resolveObjectLink(o Obj, typ Type, property string, idx int) Obj {
 	id := o.ID()
-	for _, conn := range o.Scene().connections {
+	for _, conn := range o.Scene().Connections {
 		if conn.to == id && conn.from != 0 {
 			obj := o.Scene().objectMap[conn.from].object
 			if obj != nil && (obj.Type() == typ || typ == NOTYPE) {
@@ -133,7 +133,7 @@ func resolveObjectLink(o Obj, typ Type, property string, idx int) Obj {
 func resolveObjectLinks(o Obj, typ Type, properties []string) []Obj {
 	id := o.ID()
 	out := make([]Obj, 0)
-	for _, conn := range o.Scene().connections {
+	for _, conn := range o.Scene().Connections {
 		if conn.to == id && conn.from != 0 {
 			obj := o.Scene().objectMap[conn.from].object
 			if obj != nil && (obj.Type() == typ || typ == NOTYPE) {
@@ -156,7 +156,7 @@ func resolveObjectLinkReverse(o Obj, typ Type) Obj {
 		rdr.Seek(0, io.SeekStart)
 		id = rdr.touint64()
 	}
-	for _, conn := range o.Scene().connections {
+	for _, conn := range o.Scene().Connections {
 		//fmt.Println("Connection iterated", id, conn.from, conn.to)
 		if conn.from == id && conn.to != 0 {
 			obj := o.Scene().objectMap[conn.to].object
@@ -169,7 +169,7 @@ func resolveObjectLinkReverse(o Obj, typ Type) Obj {
 }
 
 func getParent(o Obj) Obj {
-	for _, con := range o.Scene().connections {
+	for _, con := range o.Scene().Connections {
 		if con.from == o.ID() {
 			obj := o.Scene().objectMap[con.to].object
 

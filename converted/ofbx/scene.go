@@ -13,16 +13,16 @@ type ObjectPair struct {
 
 // A Scene is an overarching FBX costruct containing objects and animations
 type Scene struct {
-	RootElement     *Element
-	RootNode        *Node
-	FrameRate       float32 // = -1
-	settings        Settings
-	objectMap       map[uint64]ObjectPair // Slice or map?
-	Objects         []Obj
+	RootElement *Element
+	RootNode    *Node
+	FrameRate   float32 // = -1
+	Settings
+	objectMap       map[uint64]ObjectPair
+	objects         []Obj
 	Meshes          []*Mesh
 	AnimationStacks []*AnimationStack
-	connections     []Connection
-	takeInfos       []TakeInfo
+	Connections     []Connection
+	TakeInfos       []TakeInfo
 }
 
 func (s *Scene) String() string {
@@ -31,7 +31,7 @@ func (s *Scene) String() string {
 	}
 	st := "Scene: " + "\n"
 	st += "frameRate=" + fmt.Sprintf("%f", s.FrameRate) + "\n"
-	st += "setttings=" + fmt.Sprintf("%+v", s.settings) + "\n"
+	st += "setttings=" + fmt.Sprintf("%+v", s.Settings) + "\n"
 	if s.Meshes != nil {
 		st += "meshes="
 		for _, mesh := range s.Meshes {
@@ -48,25 +48,25 @@ func (s *Scene) String() string {
 		}
 		st += "\n"
 	}
-	if len(s.connections) > 0 {
+	if len(s.Connections) > 0 {
 		st += "connections=" + "\n"
-		for _, c := range s.connections {
+		for _, c := range s.Connections {
 			st += "\t" + c.String() + "\n"
 		}
 	}
-	if len(s.takeInfos) > 0 {
+	if len(s.TakeInfos) > 0 {
 		st += "takeInfos=" + "\n"
-		for _, tk := range s.takeInfos {
+		for _, tk := range s.TakeInfos {
 			st += "\t" + tk.String()
 		}
 	}
 	return st
 }
 
-// Geometries returns a scenes geometries
+// Geometries returns a scene's geometries
 func (s *Scene) Geometries() []*Geometry {
 	out := make([]*Geometry, 0)
-	for _, o := range s.Objects {
+	for _, o := range s.objects {
 		elem := o.Element()
 		if elem == nil {
 			continue
@@ -79,7 +79,7 @@ func (s *Scene) Geometries() []*Geometry {
 }
 
 func (s *Scene) getTakeInfo(name string) *TakeInfo {
-	for _, info := range s.takeInfos {
+	for _, info := range s.TakeInfos {
 		if info.name.String() == name {
 			return &info
 		}

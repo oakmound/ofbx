@@ -520,7 +520,7 @@ func parseConnection(root *Element, scene *Scene) (bool, error) {
 		} else {
 			return false, errors.New("Not supported")
 		}
-		scene.connections = append(scene.connections, c)
+		scene.Connections = append(scene.Connections, c)
 	}
 	return true, nil
 }
@@ -566,7 +566,7 @@ func parseTakes(scene *Scene) (bool, error) {
 			take.refTimeFrom = fbxTimeToSeconds(refTime[0].value.toint64())
 			take.refTimeTo = fbxTimeToSeconds(refTime[1].value.toint64())
 		}
-		scene.takeInfos = append(scene.takeInfos, take)
+		scene.TakeInfos = append(scene.TakeInfos, take)
 	}
 	return true, nil
 }
@@ -594,40 +594,40 @@ func parseGlobalSettings(root *Element, scene *Scene) {
 
 				switch p.value.String() {
 				case "UpAxis":
-					scene.settings.UpAxis = UpVector(int(value.toInt32()))
+					scene.Settings.UpAxis = UpVector(int(value.toInt32()))
 				case "UpAxisSign":
-					scene.settings.UpAxisSign = int(value.toInt32())
+					scene.Settings.UpAxisSign = int(value.toInt32())
 				case "FrontAxis":
-					scene.settings.FrontAxis = FrontVector(int(value.toInt32()))
+					scene.Settings.FrontAxis = FrontVector(int(value.toInt32()))
 				case "FrontAxisSign":
-					scene.settings.FrontAxisSign = int(value.toInt32())
+					scene.Settings.FrontAxisSign = int(value.toInt32())
 				case "CoordAxis":
-					scene.settings.CoordAxis = CoordSystem(int(value.toInt32()))
+					scene.Settings.CoordAxis = CoordSystem(int(value.toInt32()))
 				case "CoordAxisSign":
-					scene.settings.CoordAxisSign = int(value.toInt32())
+					scene.Settings.CoordAxisSign = int(value.toInt32())
 				case "OriginalUpAxis":
-					scene.settings.OriginalUpAxis = int(value.toInt32())
+					scene.Settings.OriginalUpAxis = int(value.toInt32())
 				case "OriginalUpAxisSign":
-					scene.settings.OriginalUpAxisSign = int(value.toInt32())
+					scene.Settings.OriginalUpAxisSign = int(value.toInt32())
 				case "UnitScaleFactor":
-					scene.settings.UnitScaleFactor = value.toFloat()
+					scene.Settings.UnitScaleFactor = value.toFloat()
 				case "OriginalUnitScaleFactor":
-					scene.settings.OriginalUnitScaleFactor = value.toFloat()
+					scene.Settings.OriginalUnitScaleFactor = value.toFloat()
 				case "TimeSpanStart":
-					scene.settings.TimeSpanStart = value.touint64()
+					scene.Settings.TimeSpanStart = value.touint64()
 				case "TimeSpanStop":
-					scene.settings.TimeSpanStop = value.touint64()
+					scene.Settings.TimeSpanStop = value.touint64()
 				case "TimeMode":
-					scene.settings.TimeMode = FrameRate(int(value.toInt32()))
+					scene.Settings.TimeMode = FrameRate(int(value.toInt32()))
 				case "CustomFrameRate":
-					scene.settings.CustomFrameRate = value.toFloat()
+					scene.Settings.CustomFrameRate = value.toFloat()
 				}
 			}
 			break
 		}
 		break
 	}
-	scene.FrameRate = GetFramerateFromTimeMode(scene.settings.TimeMode, scene.settings.CustomFrameRate)
+	scene.FrameRate = GetFramerateFromTimeMode(scene.Settings.TimeMode, scene.Settings.CustomFrameRate)
 }
 
 func parseObjects(root *Element, scene *Scene) (bool, error) {
@@ -724,13 +724,13 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 
 		scene.objectMap[k] = ObjectPair{iter.element, obj}
 		if obj != nil {
-			scene.Objects = append(scene.Objects, obj)
+			scene.objects = append(scene.objects, obj)
 			obj.SetID(k)
 		}
 	}
 
 	//fmt.Println("Parsing connections")
-	for _, con := range scene.connections {
+	for _, con := range scene.Connections {
 		con := con
 		parent := scene.objectMap[con.to].object
 		child := scene.objectMap[con.from].object
