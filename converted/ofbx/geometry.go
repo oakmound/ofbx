@@ -7,16 +7,20 @@ import (
 	"github.com/oakmound/oak/alg/floatgeom"
 )
 
+// VertexDataMapping dictates how the vertex is mapped
 type VertexDataMapping int
 
+// VertexDataMapping Options
 const (
 	BY_POLYGON_VERTEX = iota
 	BY_POLYGON        = iota
 	BY_VERTEX         = iota
 )
 
+// MaxUvs is the highest number of UVs allowed
 const MaxUvs = 4
 
+//Geometry is the base geometric shape objec that is implemented in forms such as meshes that dictate control point deformations
 type Geometry struct {
 	Object
 	Skin *Skin
@@ -114,7 +118,7 @@ func (g *Geometry) stringPrefix(prefix string) string {
 	return s
 }
 
-//Hey its a linked list of indices!.....
+// Vertex hey wit its a linked list of indices!.....
 type Vertex struct {
 	index int //should start as -1
 	next  *Vertex
@@ -132,6 +136,7 @@ func (nv *Vertex) add(index int) {
 	}
 }
 
+// NewGeometry makes a stub Geometry
 func NewGeometry(scene *Scene, element *Element) *Geometry {
 	g := &Geometry{}
 	g.Object = *NewObject(scene, element)
@@ -139,6 +144,7 @@ func NewGeometry(scene *Scene, element *Element) *Geometry {
 	return g
 }
 
+// Type returns GEOMETRY
 func (g *Geometry) Type() Type {
 	return GEOMETRY
 }

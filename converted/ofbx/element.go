@@ -2,6 +2,7 @@ package ofbx
 
 import "strconv"
 
+// Element stores a set of properties and a set of children
 type Element struct {
 	ID         *DataView
 	Children   []*Element

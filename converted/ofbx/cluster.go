@@ -6,6 +6,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+// Cluster is an entity which acts on a subset of a geometry's control points
+// For each control point that the cluster acts on, the intensity of the cluster's action is modulated by a weight. The link mode (ELinkMode) specifies how the weights are taken into account.
 type Cluster struct {
 	Object
 
@@ -17,16 +19,19 @@ type Cluster struct {
 	TransformLink Matrix
 }
 
+// NewCluster creates a new empty Cluster object
 func NewCluster(scene *Scene, element *Element) *Cluster {
 	c := Cluster{}
 	c.Object = *NewObject(scene, element)
 	return &c
 }
 
+// String pretty formats the Cluster for printing
 func (c *Cluster) String() string {
 	return c.stringPrefix("")
 }
 
+// stringPrefix pretty formats the Cluster while respecting the given prefix indentation
 func (c *Cluster) stringPrefix(prefix string) string {
 	s := prefix + "Cluster:" + "\n"
 	s += c.Object.stringPrefix(prefix+"\t") + "," + "\n"
@@ -38,6 +43,7 @@ func (c *Cluster) stringPrefix(prefix string) string {
 	return s
 }
 
+// Type returns CLUSTER
 func (c *Cluster) Type() Type {
 	return CLUSTER
 }
@@ -50,24 +56,24 @@ func (c *Cluster) postProcess() bool {
 	if !ok {
 		return false
 	}
-	var old_indices []int
+	var oldIndices []int
 	var err error
 	prop := findChildProperty(element, "Indexes")
 	if prop != nil {
-		if old_indices, err = parseBinaryArrayInt(prop[0]); err != nil {
+		if oldIndices, err = parseBinaryArrayInt(prop[0]); err != nil {
 			return false
 		}
 	}
-	var old_weights []float64
+	var oldWeights []float64
 	prop = findChildProperty(element, "Weights")
 	if prop != nil {
-		if old_weights, err = parseBinaryArrayFloat64(prop[0]); err != nil {
+		if oldWeights, err = parseBinaryArrayFloat64(prop[0]); err != nil {
 			return false
 		}
 	}
 
-	iLen := len(old_indices)
-	if iLen != len(old_weights) {
+	iLen := len(oldIndices)
+	if iLen != len(oldWeights) {
 		return false
 	}
 
@@ -75,13 +81,13 @@ func (c *Cluster) postProcess() bool {
 	c.Indices = make([]int, 0, iLen)
 
 	for i := 0; i < iLen; i++ {
-		n := &geom.to_new_vertices[old_indices[i]] //was a geometryimpl NewVertex
+		n := &geom.to_new_vertices[oldIndices[i]] //was a geometryimpl NewVertex
 		if n.index == -1 {
 			continue // skip vertices which aren't indexed.
 		}
 		for n != nil {
 			c.Indices = append(c.Indices, n.index)
-			c.Weights = append(c.Weights, old_weights[i])
+			c.Weights = append(c.Weights, oldWeights[i])
 			n = n.next
 		}
 	}

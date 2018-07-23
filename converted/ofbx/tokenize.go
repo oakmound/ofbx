@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 )
 
+// Header is a magic set of ints
 type Header struct {
 	Magic    [21]uint8
 	Reserved [2]uint8
@@ -31,11 +32,13 @@ func (h Header) String() string {
 	return s
 }
 
+// Cursor is a rapper for a reader
 type Cursor struct {
 	*bufio.Reader
 	cr *CountReader
 }
 
+// ReadSoFar returns how much of the data has been read
 func (c *Cursor) ReadSoFar() int {
 	return c.cr.ReadSoFar - c.Reader.Buffered()
 }

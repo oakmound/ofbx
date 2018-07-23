@@ -7,6 +7,7 @@ import (
 	"github.com/oakmound/oak/alg/floatgeom"
 )
 
+// Object is the top level general class in fbx
 type Object struct {
 	id             uint64
 	name           string
@@ -17,6 +18,7 @@ type Object struct {
 	scene   *Scene
 }
 
+// Obj interface version of Object
 type Obj interface {
 	ID() uint64
 	SetID(uint64)
@@ -31,29 +33,42 @@ type Obj interface {
 	stringPrefix(string) string
 }
 
+// ID returns the Object's integer id value
 func (o *Object) ID() uint64 {
 	return o.id
 }
+
+// SetID sets the Objects ID
 func (o *Object) SetID(i uint64) {
 	o.id = i
 }
 
+// Name gets the Objects Name
 func (o *Object) Name() string {
 	return o.name
 }
+
+// Element gets the Element on the Object
 func (o *Object) Element() *Element {
 	return o.element
 }
+
+// Node_attribute should be deprecated and in favor of exporting the attribute
 func (o *Object) Node_attribute() Obj {
 	return o.node_attribute
 }
+
+// SetNodeAttribute sets the attribute but should just exported field
 func (o *Object) SetNodeAttribute(na Obj) {
 	o.node_attribute = na
 }
 
+// IsNode ret[urns whether this is a node
 func (o *Object) IsNode() bool {
 	return o.is_node
 }
+
+// Scene returns the scene used for the object
 func (o *Object) Scene() *Scene {
 	return o.scene
 }
@@ -77,6 +92,7 @@ func (o *Object) stringPrefix(prefix string) string {
 	return s
 }
 
+// NewObject creates a new object
 func NewObject(scene *Scene, e *Element) *Object {
 	o := &Object{
 		scene:   scene,

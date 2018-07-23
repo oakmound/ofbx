@@ -7,16 +7,19 @@ import (
 	"io"
 )
 
+// DataView leftover concept that knows how to present different type sof data
 type DataView struct {
 	bytes.Reader
 }
 
+// NewDataView creates a new Dataview and the underlying bytes reader on the given string
 func NewDataView(s string) *DataView {
 	return &DataView{
 		*bytes.NewReader([]byte(s)),
 	}
 }
 
+// BufferDataView creates a DataView from the delivered buffer
 func BufferDataView(buff *bytes.Buffer) *DataView {
 	return &DataView{
 		*bytes.NewReader(buff.Bytes()),

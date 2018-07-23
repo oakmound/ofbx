@@ -1,5 +1,6 @@
 package ofbx
 
+// Settings is the overall scene fbx settings
 type Settings struct {
 	UpAxis                  UpVector
 	UpAxisSign              int

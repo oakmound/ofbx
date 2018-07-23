@@ -6,6 +6,8 @@ import (
 	"github.com/oakmound/oak/alg/floatgeom"
 )
 
+// Mesh is a geometry made of polygon
+// https://help.autodesk.com/view/FBX/2017/ENU/?guid=__cpp_ref_class_fbx_mesh_html
 type Mesh struct {
 	Object
 	Geometry  *Geometry
@@ -13,6 +15,7 @@ type Mesh struct {
 	Materials []*Material
 }
 
+// NewMesh cretes a new stub Object
 func NewMesh(scene *Scene, element *Element) *Mesh {
 	m := &Mesh{}
 	m.Object = *NewObject(scene, element)
@@ -20,6 +23,7 @@ func NewMesh(scene *Scene, element *Element) *Mesh {
 	return m
 }
 
+// Type returns MESH
 func (m *Mesh) Type() Type {
 	return MESH
 }

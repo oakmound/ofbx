@@ -1,12 +1,13 @@
 package ofbx
 
+// FrameRate documented here: http://docs.autodesk.com/FBX/2014/ENU/FBX-SDK-Documentation/index.html?url=cpp_ref/class_fbx_time.html,topicNumber=cpp_ref_class_fbx_time_html29087af6-8c2c-4e9d-aede-7dc5a1c2436c,hash=a837590fd5310ff5df56ffcf7c394787e
 import (
 	"time"
 )
 
-// http://docs.autodesk.com/FBX/2014/ENU/FBX-SDK-Documentation/index.html?url=cpp_ref/class_fbx_time.html,topicNumber=cpp_ref_class_fbx_time_html29087af6-8c2c-4e9d-aede-7dc5a1c2436c,hash=a837590fd5310ff5df56ffcf7c394787e
 type FrameRate int
 
+// FrameRate values
 const (
 	FrameRate_DEFAULT         FrameRate = iota
 	FrameRate_120             FrameRate = iota
@@ -25,6 +26,7 @@ const (
 	FrameRate_CUSTOM          FrameRate = iota
 )
 
+// GetFramerateFromTimeMode gets time from a given framerate TODO: Confirm these
 func GetFramerateFromTimeMode(f FrameRate, custom float32) float32 {
 	switch f {
 	case FrameRate_DEFAULT:

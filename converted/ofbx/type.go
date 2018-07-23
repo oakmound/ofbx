@@ -1,7 +1,9 @@
 package ofbx
 
+// Type of the object
 type Type int
 
+// Types of objects
 const (
 	ROOT                 Type = iota
 	GEOMETRY             Type = iota
@@ -17,7 +19,7 @@ const (
 	ANIMATION_LAYER      Type = iota
 	ANIMATION_CURVE      Type = iota
 	ANIMATION_CURVE_NODE Type = iota
-	NOTYPE Type = iota
+	NOTYPE               Type = iota
 )
 
 var (

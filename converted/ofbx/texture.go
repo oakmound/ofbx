@@ -1,19 +1,23 @@
 package ofbx
 
+//TextureType determines how a texture be used
 type TextureType int
 
+// Texture type block
 const (
 	DIFFUSE      TextureType = iota
 	NORMAL       TextureType = iota
 	TextureCOUNT TextureType = iota
 )
 
+//Texture is a texture file on an object
 type Texture struct {
 	Object
 	filename          *DataView
 	relative_filename *DataView
 }
 
+// NewTexture creates a texture
 func NewTexture(scene *Scene, element *Element) *Texture {
 	t := &Texture{
 		Object: *NewObject(scene, element),
@@ -21,6 +25,7 @@ func NewTexture(scene *Scene, element *Element) *Texture {
 	return t
 }
 
+// Type returns Texture
 func (t *Texture) Type() Type {
 	return TEXTURE
 }
