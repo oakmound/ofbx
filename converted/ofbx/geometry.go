@@ -12,10 +12,17 @@ type VertexDataMapping int
 
 // VertexDataMapping Options
 const (
-	BY_POLYGON_VERTEX = iota
-	BY_POLYGON        = iota
-	BY_VERTEX         = iota
+	ByPolygonVertex VertexDataMapping = iota
+	ByPolygon       VertexDataMapping = iota
+	ByVertex        VertexDataMapping = iota
 )
+
+var vtxDataMapFromStrs = map[string]VertexDataMapping{
+	"ByPolygonVertex": ByPolygonVertex,
+	"ByPolygon":       ByPolygon,
+	"ByVertex":        ByVertex,
+	"ByVertice":       ByVertex,
+}
 
 // MaxUvs is the highest number of UVs allowed
 const MaxUvs = 4

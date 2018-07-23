@@ -67,7 +67,6 @@ func parseBinaryArrayFloat64(property *Property) ([]float64, error) {
 	return parseArrayRawFloat64(property)
 }
 
-// This might not work??
 func parseBinaryArrayFloat32(property *Property) ([]float32, error) {
 	f64s, err := parseBinaryArrayFloat64(property)
 	if err != nil {
@@ -79,6 +78,7 @@ func parseBinaryArrayFloat32(property *Property) ([]float32, error) {
 	}
 	return f32s, nil
 }
+
 func parseBinaryArrayVec2(property *Property) ([]floatgeom.Point2, error) {
 	f64s, err := parseBinaryArrayFloat64(property)
 	if err != nil {
@@ -91,6 +91,7 @@ func parseBinaryArrayVec2(property *Property) ([]floatgeom.Point2, error) {
 	}
 	return vs, nil
 }
+
 func parseBinaryArrayVec3(property *Property) ([]floatgeom.Point3, error) {
 	f64s, err := parseBinaryArrayFloat64(property)
 	if err != nil {
@@ -98,9 +99,9 @@ func parseBinaryArrayVec3(property *Property) ([]floatgeom.Point3, error) {
 	}
 	vs := make([]floatgeom.Point3, len(f64s)/3)
 	// len(f64s) should probably be divisible by 3
-	if len(f64s)%3 != 0 {
-		//fmt.Println("Vec3 binary array not made up of floatgeom.Point3s")
-	}
+	//if len(f64s)%3 != 0 {
+	//fmt.Println("Vec3 binary array not made up of floatgeom.Point3s")
+	//}
 	for i := 0; (i + 2) < len(f64s); i += 3 {
 		vs[i/3][0] = f64s[i]
 		vs[i/3][1] = f64s[i+1]
@@ -343,14 +344,9 @@ func parseVertexDataInner(element *Element, name, idxName string) ([]int, Vertex
 	var err error
 
 	if len(mappingProp) != 0 {
-		s := mappingProp[0].value.String()
-		if s == "ByPolygonVertex" {
-			mapping = BY_POLYGON_VERTEX
-		} else if s == "ByPolygon" {
-			mapping = BY_POLYGON
-		} else if s == "ByVertice" || s == "ByVertex" {
-			mapping = BY_VERTEX
-		} else {
+		var ok bool
+		mapping, ok = vtxDataMapFromStrs[mappingProp[0].value.String()]
+		if !ok {
 			return nil, 0, nil, errors.New("Unable to parse mapping")
 		}
 	}
@@ -371,14 +367,8 @@ func parseVertexDataInner(element *Element, name, idxName string) ([]int, Vertex
 
 func parseTexture(scene *Scene, element *Element) *Texture {
 	texture := NewTexture(scene, element)
-	textureFilenameProp := findSingleChildProperty(element, "FileName")
-	if textureFilenameProp != nil {
-		texture.filename = textureFilenameProp.value
-	}
-	textureRelativeFilenameProp := findSingleChildProperty(element, "RelativeFilename")
-	if textureRelativeFilenameProp != nil {
-		texture.relative_filename = textureRelativeFilenameProp.value
-	}
+	assignSingleChildProperty(element, "FileName", texture.filename)
+	assignSingleChildProperty(element, "RelativeFilename", texture.relative_filename)
 	return texture
 }
 
