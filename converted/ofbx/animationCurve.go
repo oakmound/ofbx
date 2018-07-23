@@ -3,6 +3,7 @@ package ofbx
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/oakmound/oak/alg/floatgeom"
 )
@@ -17,7 +18,7 @@ const (
 
 type AnimationCurve struct {
 	Object
-	Times        []int64
+	Times        []time.Duration
 	Values       []float32
 	AttrFlags    []int64
 	AttrData     []float32
@@ -76,10 +77,10 @@ func (acn *AnimationCurveNode) Type() Type {
 	return ANIMATION_CURVE_NODE
 }
 
-func (acn *AnimationCurveNode) getNodeLocalTransform(time float64) floatgeom.Point3 {
-	fbx_time := secondsToFbxTime(time)
+func (acn *AnimationCurveNode) getNodeLocalTransform(t float64) floatgeom.Point3 {
+	fbx_time := fbxTimetoStdTime(secondsToFbxTime(t))
 
-	getCoord := func(curve *Curve, fbx_time int64) float32 {
+	getCoord := func(curve *Curve, fbx_time time.Duration) float32 {
 		if curve.curve == nil {
 			return 0.0
 		}

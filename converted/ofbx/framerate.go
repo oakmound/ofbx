@@ -1,5 +1,9 @@
 package ofbx
 
+import (
+	"time"
+)
+
 // http://docs.autodesk.com/FBX/2014/ENU/FBX-SDK-Documentation/index.html?url=cpp_ref/class_fbx_time.html,topicNumber=cpp_ref_class_fbx_time_html29087af6-8c2c-4e9d-aede-7dc5a1c2436c,hash=a837590fd5310ff5df56ffcf7c394787e
 type FrameRate int
 
@@ -55,6 +59,10 @@ func GetFramerateFromTimeMode(f FrameRate, custom float32) float32 {
 		return custom
 	}
 	return -1
+}
+
+func fbxTimetoStdTime(value int64) time.Duration {
+	return time.Second * time.Duration(value) / 46186158000
 }
 
 func fbxTimeToSeconds(value int64) float64 {
