@@ -19,7 +19,7 @@ type Mesh struct {
 func NewMesh(scene *Scene, element *Element) *Mesh {
 	m := &Mesh{}
 	m.Object = *NewObject(scene, element)
-	m.Object.is_node = true
+	m.Object.isNode = true
 	return m
 }
 
@@ -33,14 +33,14 @@ func (m *Mesh) getGeometricMatrix() Matrix {
 	rotation := resolveVec3Property(m, "GeometricRotation", floatgeom.Point3{0, 0, 0})
 	scale := resolveVec3Property(m, "GeometricScaling", floatgeom.Point3{1, 1, 1})
 
-	scale_mtx := makeIdentity()
-	scale_mtx.m[0] = scale.X()
-	scale_mtx.m[5] = scale.Y()
-	scale_mtx.m[10] = scale.Z()
-	mtx := getRotationMatrix(rotation, EULER_XYZ)
+	scaleMtx := makeIdentity()
+	scaleMtx.m[0] = scale.X()
+	scaleMtx.m[5] = scale.Y()
+	scaleMtx.m[10] = scale.Z()
+	mtx := EulerXYZ.rotationMatrix(rotation)
 	setTranslation(translation, &mtx)
 
-	return scale_mtx.Mul(mtx)
+	return scaleMtx.Mul(mtx)
 }
 
 func (m *Mesh) String() string {

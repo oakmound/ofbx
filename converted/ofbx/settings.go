@@ -20,11 +20,11 @@ type Settings struct {
 
 // Default Settings
 var (
-	UpAxis                  = UpVector_AxisX
+	UpAxis                  = UpVectorX
 	UpAxisSign              = 1
-	FrontAxis               = FrontVector_ParityOdd
+	FrontAxis               = FrontVectorParityOdd
 	FrontAxisSign           = 1
-	CoordAxis               = CoordSystem_RightHanded
+	CoordAxis               = CoordSystemRight
 	CoordAxisSign           = 1
 	OriginalUpAxis          int
 	OriginalUpAxisSign              = 1
@@ -32,6 +32,6 @@ var (
 	OriginalUnitScaleFactor float32 = 1
 	TimeSpanStart           uint64
 	TimeSpanStop            uint64
-	TimeMode                        = FrameRate_DEFAULT
+	TimeMode                        = FrameRateDefault
 	CustomFrameRate         float32 = -1.0
 )

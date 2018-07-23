@@ -13,8 +13,8 @@ const (
 //Texture is a texture file on an object
 type Texture struct {
 	Object
-	filename          *DataView
-	relative_filename *DataView
+	filename         *DataView
+	relativeFilename *DataView
 }
 
 // NewTexture creates a texture
@@ -35,12 +35,12 @@ func (t *Texture) getFileName() *DataView {
 }
 
 func (t *Texture) getRelativeFileName() *DataView {
-	return t.relative_filename
+	return t.relativeFilename
 }
 
 func (t *Texture) String() string {
 	s := "Texture: " + t.Object.String()
 	s += ", filename: " + t.filename.String()
-	s += ", relative_filename: " + t.relative_filename.String()
+	s += ", relativeFilename: " + t.relativeFilename.String()
 	return s
 }

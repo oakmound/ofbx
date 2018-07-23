@@ -6,21 +6,21 @@ import (
 
 // TakeInfo is a set of data for a time data set
 type TakeInfo struct {
-	name                *DataView
-	filename            *DataView
-	local_time_from     float64
-	local_time_to       float64
-	reference_time_from float64
-	reference_time_to   float64
+	name          *DataView
+	filename      *DataView
+	localTimeFrom float64
+	localTimeTo   float64
+	refTimeFrom   float64
+	refTimeTo     float64
 }
 
 func (t *TakeInfo) String() string {
 	s := "TakeInfo: " + t.name.String()
 	s += "," + t.filename.String()
 	s += ", times=" + fmt.Sprintf("%f,%f,%f,%f",
-		t.local_time_from,
-		t.local_time_to,
-		t.reference_time_from,
-		t.reference_time_to)
+		t.localTimeFrom,
+		t.localTimeTo,
+		t.refTimeFrom,
+		t.refTimeTo)
 	return s + "\n"
 }

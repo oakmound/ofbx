@@ -10,7 +10,7 @@ type Node struct {
 func NewNode(scene *Scene, element *Element, typ Type) *Node {
 	n := &Node{}
 	n.Object = *NewObject(scene, element)
-	n.is_node = true
+	n.isNode = true
 	n.typ = typ
 	return n
 }

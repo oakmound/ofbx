@@ -12,9 +12,9 @@ type UpVector int
 
 // UpVector Options
 const (
-	UpVector_AxisX UpVector = 1
-	UpVector_AxisY UpVector = 2
-	UpVector_AxisZ UpVector = 3
+	UpVectorX UpVector = 1
+	UpVectorY UpVector = 2
+	UpVectorZ UpVector = 3
 )
 
 // FrontVector is a vector with origin at the screen pointing toward the camera.
@@ -22,8 +22,8 @@ type FrontVector int
 
 // FrontVector Parity Options
 const (
-	FrontVector_ParityEven FrontVector = 1
-	FrontVector_ParityOdd  FrontVector = 2
+	FrontVectorParityEven FrontVector = 1
+	FrontVectorParityOdd  FrontVector = 2
 )
 
 // CoordSystem specifies the third vector of the system.
@@ -31,8 +31,8 @@ type CoordSystem int
 
 // CoordSystem options
 const (
-	CoordSystem_RightHanded CoordSystem = iota
-	CoordSystem_LeftHanded  CoordSystem = iota
+	CoordSystemRight CoordSystem = iota
+	CoordSystemLeft  CoordSystem = iota
 )
 
 // Matrix is a 16 sized slice that we operate on as if it was actually a matrix
@@ -121,29 +121,4 @@ func getTriCountFromPoly(indices []int, idx int) (int, int) {
 		count++
 	}
 	return count, idx
-}
-
-func getRotationMatrix(euler floatgeom.Point3, order RotationOrder) Matrix {
-	TO_RAD := 3.1415926535897932384626433832795028 / 180.0 //TODO: Update this
-	rx := rotationX(euler.X() * TO_RAD)
-	ry := rotationY(euler.Y() * TO_RAD)
-	rz := rotationZ(euler.Z() * TO_RAD)
-	switch order {
-	default:
-	case SPHERIC_XYZ:
-		panic("This should not happen")
-	case EULER_XYZ:
-		return rz.Mul(ry).Mul(rx)
-	case EULER_XZY:
-		return ry.Mul(rz).Mul(rx)
-	case EULER_YXZ:
-		return rz.Mul(rx).Mul(ry)
-	case EULER_YZX:
-		return rx.Mul(rz).Mul(ry)
-	case EULER_ZXY:
-		return ry.Mul(rx).Mul(rz)
-	case EULER_ZYX:
-		return rx.Mul(ry).Mul(rz)
-	}
-	panic("This shouldn't happen either")
 }

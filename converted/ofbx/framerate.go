@@ -10,55 +10,55 @@ type FrameRate int
 
 // FrameRate values
 const (
-	FrameRate_DEFAULT         FrameRate = iota
-	FrameRate_120             FrameRate = iota
-	FrameRate_100             FrameRate = iota
-	FrameRate_60              FrameRate = iota
-	FrameRate_50              FrameRate = iota
-	FrameRate_48              FrameRate = iota
-	FrameRate_30              FrameRate = iota
-	FrameRate_30_DROP         FrameRate = iota
-	FrameRate_NTSC_DROP_FRAME FrameRate = iota
-	FrameRate_NTSC_FULL_FRAME FrameRate = iota
-	FrameRate_PAL             FrameRate = iota
-	FrameRate_CINEMA          FrameRate = iota
-	FrameRate_1000            FrameRate = iota
-	FrameRate_CINEMA_ND       FrameRate = iota
-	FrameRate_CUSTOM          FrameRate = iota
+	FrameRateDefault       FrameRate = iota
+	FrameRate120           FrameRate = iota
+	FrameRate100           FrameRate = iota
+	FrameRate60            FrameRate = iota
+	FrameRate50            FrameRate = iota
+	FrameRate48            FrameRate = iota
+	FrameRate30            FrameRate = iota
+	FrameRate30Drop        FrameRate = iota
+	FrameRateNTSCDropFrame FrameRate = iota
+	FrameRateNTSCFullFrame FrameRate = iota
+	FrameRatePAL           FrameRate = iota
+	FrameRateCinema        FrameRate = iota
+	FrameRate1000          FrameRate = iota
+	FrameRateCinemaND      FrameRate = iota
+	FrameRateCustom        FrameRate = iota
 )
 
 // GetFramerateFromTimeMode gets time from a given framerate TODO: Confirm these
 func GetFramerateFromTimeMode(f FrameRate, custom float32) float32 {
 	switch f {
-	case FrameRate_DEFAULT:
+	case FrameRateDefault:
 		return 1
-	case FrameRate_120:
+	case FrameRate120:
 		return 120
-	case FrameRate_100:
+	case FrameRate100:
 		return 100
-	case FrameRate_60:
+	case FrameRate60:
 		return 60
-	case FrameRate_50:
+	case FrameRate50:
 		return 50
-	case FrameRate_48:
+	case FrameRate48:
 		return 48
-	case FrameRate_30:
+	case FrameRate30:
 		return 30
-	case FrameRate_30_DROP:
+	case FrameRate30Drop:
 		return 30
-	case FrameRate_NTSC_DROP_FRAME:
+	case FrameRateNTSCDropFrame:
 		return 29.9700262
-	case FrameRate_NTSC_FULL_FRAME:
+	case FrameRateNTSCFullFrame:
 		return 29.9700262
-	case FrameRate_PAL:
+	case FrameRatePAL:
 		return 25
-	case FrameRate_CINEMA:
+	case FrameRateCinema:
 		return 24
-	case FrameRate_1000:
+	case FrameRate1000:
 		return 1000
-	case FrameRate_CINEMA_ND:
+	case FrameRateCinemaND:
 		return 23.976
-	case FrameRate_CUSTOM:
+	case FrameRateCustom:
 		return custom
 	}
 	return -1

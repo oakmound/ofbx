@@ -10,36 +10,36 @@ type PropertyType rune
 
 // Property types block
 const (
-	BOOL         PropertyType = 'C'
-	INT16        PropertyType = 'Y'
-	LONG         PropertyType = 'L'
-	INTEGER      PropertyType = 'I'
-	STRING       PropertyType = 'S'
-	RAWSTRING    PropertyType = 'R'
-	FLOAT        PropertyType = 'F'
-	DOUBLE       PropertyType = 'D'
-	ARRAY_DOUBLE PropertyType = 'd'
-	ARRAY_INT    PropertyType = 'i'
-	ARRAY_LONG   PropertyType = 'l'
-	ARRAY_FLOAT  PropertyType = 'f'
-	ARRAY_BOOL   PropertyType = 'b'
-	ARRAY_BYTE   PropertyType = 'c'
+	BOOL        PropertyType = 'C'
+	INT16       PropertyType = 'Y'
+	LONG        PropertyType = 'L'
+	INTEGER     PropertyType = 'I'
+	STRING      PropertyType = 'S'
+	RAWSTRING   PropertyType = 'R'
+	FLOAT       PropertyType = 'F'
+	DOUBLE      PropertyType = 'D'
+	ArrayDOUBLE PropertyType = 'd'
+	ArrayINT    PropertyType = 'i'
+	ArrayLONG   PropertyType = 'l'
+	ArrayFLOAT  PropertyType = 'f'
+	ArrayBOOL   PropertyType = 'b'
+	ArrayBYTE   PropertyType = 'c'
 )
 
 var (
 	propertyTypeSizes = map[PropertyType]int{
-		BOOL:         1,
-		INT16:        2,
-		DOUBLE:       8,
-		INTEGER:      4,
-		LONG:         8,
-		FLOAT:        4,
-		ARRAY_DOUBLE: 8,
-		ARRAY_INT:    4,
-		ARRAY_LONG:   8,
-		ARRAY_FLOAT:  4,
-		ARRAY_BOOL:   1,
-		ARRAY_BYTE:   1,
+		BOOL:        1,
+		INT16:       2,
+		DOUBLE:      8,
+		INTEGER:     4,
+		LONG:        8,
+		FLOAT:       4,
+		ArrayDOUBLE: 8,
+		ArrayINT:    4,
+		ArrayLONG:   8,
+		ArrayFLOAT:  4,
+		ArrayBOOL:   1,
+		ArrayBYTE:   1,
 	}
 )
 
@@ -60,33 +60,33 @@ func (p *Property) stringValue() string {
 		return fmt.Sprintf("%f", p.value.toFloat())
 	case DOUBLE:
 		return fmt.Sprintf("%f", p.value.toDouble())
-	case ARRAY_DOUBLE:
+	case ArrayDOUBLE:
 		sli, err := parseArrayRawFloat64(p)
 		if err != nil {
 			return "Bad Format F64s " + err.Error()
 		}
 		return fmt.Sprintf("%v", sli)
-	case ARRAY_INT:
+	case ArrayINT:
 		sli, err := parseArrayRawInt(p)
 		if err != nil {
 			return "Bad Format Ints " + err.Error()
 		}
 		return fmt.Sprintf("%v", sli)
-	case ARRAY_LONG:
+	case ArrayLONG:
 		sli, err := parseArrayRawInt64(p)
 		if err != nil {
 			return "Bad Format I64s " + err.Error()
 		}
 		return fmt.Sprintf("%v", sli)
-	case ARRAY_FLOAT:
+	case ArrayFLOAT:
 		sli, err := parseArrayRawFloat32(p)
 		if err != nil {
 			return "Bad Format F32s " + err.Error()
 		}
 		return fmt.Sprintf("%v", sli)
-	case ARRAY_BOOL:
+	case ArrayBOOL:
 		return "Bool array not implemented"
-	case ARRAY_BYTE:
+	case ArrayBYTE:
 		return "Byte array not implemented"
 	}
 
@@ -101,7 +101,7 @@ func (pt PropertyType) Size() int {
 // IsArray checks whether the property is an array
 func (pt PropertyType) IsArray() bool {
 	switch pt {
-	case ARRAY_DOUBLE, ARRAY_FLOAT, ARRAY_INT, ARRAY_LONG:
+	case ArrayDOUBLE, ArrayFLOAT, ArrayINT, ArrayLONG, ArrayBOOL, ArrayBYTE:
 		return true
 	}
 	return false

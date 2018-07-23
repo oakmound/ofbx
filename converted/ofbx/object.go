@@ -9,13 +9,13 @@ import (
 
 // Object is the top level general class in fbx
 type Object struct {
-	id             uint64
-	name           string
-	element        *Element
-	node_attribute Obj
+	id            uint64
+	name          string
+	element       *Element
+	nodeAttribute Obj
 
-	is_node bool
-	scene   *Scene
+	isNode bool
+	scene  *Scene
 }
 
 // Obj interface version of Object
@@ -24,7 +24,7 @@ type Obj interface {
 	SetID(uint64)
 	Name() string
 	Element() *Element
-	Node_attribute() Obj
+	NodeAttribute() Obj
 	SetNodeAttribute(na Obj)
 	IsNode() bool
 	Scene() *Scene
@@ -53,19 +53,19 @@ func (o *Object) Element() *Element {
 	return o.element
 }
 
-// Node_attribute should be deprecated and in favor of exporting the attribute
-func (o *Object) Node_attribute() Obj {
-	return o.node_attribute
+// NodeAttribute should be deprecated and in favor of exporting the attribute
+func (o *Object) NodeAttribute() Obj {
+	return o.nodeAttribute
 }
 
 // SetNodeAttribute sets the attribute but should just exported field
 func (o *Object) SetNodeAttribute(na Obj) {
-	o.node_attribute = na
+	o.nodeAttribute = na
 }
 
 // IsNode ret[urns whether this is a node
 func (o *Object) IsNode() bool {
-	return o.is_node
+	return o.isNode
 }
 
 // Scene returns the scene used for the object
@@ -81,8 +81,8 @@ func (o *Object) stringPrefix(prefix string) string {
 	if o.element != nil {
 		s += o.element.stringPrefix(prefix)
 	}
-	if o.node_attribute != nil {
-		if strn, ok := o.node_attribute.(fmt.Stringer); ok {
+	if o.nodeAttribute != nil {
+		if strn, ok := o.nodeAttribute.(fmt.Stringer); ok {
 			s += ", node=" + strn.String()
 		}
 	}
@@ -97,7 +97,6 @@ func NewObject(scene *Scene, e *Element) *Object {
 	o := &Object{
 		scene:   scene,
 		element: e,
-		is_node: false,
 	}
 	if prop := e.getProperty(1); prop != nil {
 		o.name = prop.value.String()
@@ -183,7 +182,7 @@ func getParent(o Obj) Obj {
 }
 
 func getRotationOrder(o Obj) RotationOrder {
-	return RotationOrder(resolveEnumProperty(o, "RotationOrder", int(EULER_XYZ)))
+	return RotationOrder(resolveEnumProperty(o, "RotationOrder", int(EulerXYZ)))
 }
 
 func getRotationOffset(o Obj) floatgeom.Point3 {
@@ -240,9 +239,9 @@ func evalLocal(o Obj, translation, rotation floatgeom.Point3) Matrix {
 }
 
 func evalLocalScaling(o Obj, translation, rotation, scaling floatgeom.Point3) Matrix {
-	rotation_pivot := getRotationPivot(o)
-	scaling_pivot := getScalingPivot(o)
-	rotation_order := getRotationOrder(o)
+	rotationPivot := getRotationPivot(o)
+	scalingPivot := getScalingPivot(o)
+	rotationOrder := getRotationOrder(o)
 
 	s := makeIdentity()
 	s.m[0] = scaling.X()
@@ -252,30 +251,30 @@ func evalLocalScaling(o Obj, translation, rotation, scaling floatgeom.Point3) Ma
 	t := makeIdentity()
 	setTranslation(translation, &t)
 
-	r := getRotationMatrix(rotation, rotation_order)
+	r := rotationOrder.rotationMatrix(rotation)
 	pr := getPreRotation(o)
-	r_pre := getRotationMatrix(pr, EULER_XYZ)
+	rPre := EulerXYZ.rotationMatrix(pr)
 	psr := getPostRotation(o)
-	r_post_inv := getRotationMatrix(psr.MulConst(-1), EULER_ZYX)
+	rPostInv := EulerZYX.rotationMatrix(psr.MulConst(-1))
 
-	r_off := makeIdentity()
-	setTranslation(getRotationOffset(o), &r_off)
+	rOff := makeIdentity()
+	setTranslation(getRotationOffset(o), &rOff)
 
-	r_p := makeIdentity()
-	setTranslation(rotation_pivot, &r_p)
+	rP := makeIdentity()
+	setTranslation(rotationPivot, &rP)
 
-	r_p_inv := makeIdentity()
-	setTranslation(rotation_pivot.MulConst(-1), &r_p_inv)
+	rPInv := makeIdentity()
+	setTranslation(rotationPivot.MulConst(-1), &rPInv)
 
-	s_off := makeIdentity()
-	setTranslation(getScalingOffset(o), &s_off)
+	sOff := makeIdentity()
+	setTranslation(getScalingOffset(o), &sOff)
 
-	s_p := makeIdentity()
-	setTranslation(scaling_pivot, &s_p)
+	sP := makeIdentity()
+	setTranslation(scalingPivot, &sP)
 
-	s_p_inv := makeIdentity()
-	setTranslation(scaling_pivot.MulConst(-1), &s_p_inv)
+	sPInv := makeIdentity()
+	setTranslation(scalingPivot.MulConst(-1), &sPInv)
 
 	// http://help.autodesk.com/view/FBX/2017/ENU/?guid=__files_GUID_10CDD63C_79C1_4F2D_BB28_AD2BE65A02ED_htm
-	return t.Mul(r_off).Mul(r_p).Mul(r_pre).Mul(r).Mul(r_post_inv).Mul(r_p_inv).Mul(s_off).Mul(s_p).Mul(s).Mul(s_p_inv)
+	return t.Mul(rOff).Mul(rP).Mul(rPre).Mul(r).Mul(rPostInv).Mul(rPInv).Mul(sOff).Mul(sP).Mul(s).Mul(sPInv)
 }

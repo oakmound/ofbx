@@ -34,11 +34,11 @@ type Geometry struct {
 
 	Vertices, Normals, Tangents []floatgeom.Point3
 
-	UVs                        [MaxUvs][]floatgeom.Point2
-	Colors                     []floatgeom.Point4
-	Materials, to_old_vertices []int
-	to_new_vertices            []Vertex
-	Faces                      [][]int
+	UVs                 [MaxUvs][]floatgeom.Point2
+	Colors              []floatgeom.Point4
+	Materials, oldVerts []int
+	newVerts            []Vertex
+	Faces               [][]int
 }
 
 func (g *Geometry) String() string {
@@ -147,7 +147,7 @@ func (nv *Vertex) add(index int) {
 func NewGeometry(scene *Scene, element *Element) *Geometry {
 	g := &Geometry{}
 	g.Object = *NewObject(scene, element)
-	g.to_old_vertices = make([]int, 0)
+	g.oldVerts = make([]int, 0)
 	return g
 }
 
@@ -156,32 +156,32 @@ func (g *Geometry) Type() Type {
 	return GEOMETRY
 }
 
-func (g *Geometry) triangulate(old_indices []int) []int {
-	to_old := make([]int, 0)
-	in_polygon_idx := 0
-	for i := 0; i < len(old_indices); i++ {
-		idx := old_indices[i]
+func (g *Geometry) triangulate(indices []int) []int {
+	old := make([]int, 0)
+	polyIdx := 0
+	for i := 0; i < len(indices); i++ {
+		idx := indices[i]
 		if idx < 0 {
 			idx = (-idx) - 1
 		}
 
-		if in_polygon_idx <= 2 {
-			g.to_old_vertices = append(g.to_old_vertices, idx)
-			to_old = append(to_old, i)
+		if polyIdx <= 2 {
+			g.oldVerts = append(g.oldVerts, idx)
+			old = append(old, i)
 		} else {
-			g.to_old_vertices = append(g.to_old_vertices, old_indices[i-in_polygon_idx])
-			to_old = append(to_old, i-in_polygon_idx)
-			g.to_old_vertices = append(g.to_old_vertices, old_indices[i-1])
-			to_old = append(to_old, i-1)
-			g.to_old_vertices = append(g.to_old_vertices, idx)
-			to_old = append(to_old, i)
+			g.oldVerts = append(g.oldVerts, indices[i-polyIdx])
+			old = append(old, i-polyIdx)
+			g.oldVerts = append(g.oldVerts, indices[i-1])
+			old = append(old, i-1)
+			g.oldVerts = append(g.oldVerts, idx)
+			old = append(old, i)
 		}
-		in_polygon_idx++
-		if old_indices[i] < 0 {
-			in_polygon_idx = 0
+		polyIdx++
+		if indices[i] < 0 {
+			polyIdx = 0
 		}
 	}
-	return to_old
+	return old
 }
 
 func parseGeometry(scene *Scene, element *Element) (*Geometry, error) {
@@ -203,7 +203,7 @@ func parseGeometry(scene *Scene, element *Element) (*Geometry, error) {
 	if err != nil {
 		return nil, err
 	}
-	original_indices, err := parseBinaryArrayInt(polysProp[0])
+	origIndices, err := parseBinaryArrayInt(polysProp[0])
 	if err != nil {
 		return nil, err
 	}
@@ -211,7 +211,7 @@ func parseGeometry(scene *Scene, element *Element) (*Geometry, error) {
 	geom.Faces = make([][]int, 0)
 	curFace := []int{}
 	//Parse out the polygons. List of vertex references with a negative value indicating the last vertex of a face.
-	for _, v := range original_indices {
+	for _, v := range origIndices {
 		if v < 0 {
 			curFace = append(curFace, (v*-1)-1)
 			geom.Faces = append(geom.Faces, curFace)
@@ -221,19 +221,19 @@ func parseGeometry(scene *Scene, element *Element) (*Geometry, error) {
 		}
 	}
 
-	to_old_indices := geom.triangulate(original_indices)
-	geom.Vertices = make([]floatgeom.Point3, len(geom.to_old_vertices))
+	toOldIndices := geom.triangulate(origIndices)
+	geom.Vertices = make([]floatgeom.Point3, len(geom.oldVerts))
 
-	for i, vIdx := range geom.to_old_vertices {
+	for i, vIdx := range geom.oldVerts {
 		v := vertices[vIdx]
 		geom.Vertices[i] = v
 	}
 
-	geom.to_new_vertices = make([]Vertex, len(geom.Vertices))
+	geom.newVerts = make([]Vertex, len(geom.Vertices))
 
-	for i := 0; i < len(geom.to_old_vertices); i++ {
-		old := geom.to_old_vertices[i]
-		geom.to_new_vertices[old].add(i)
+	for i := 0; i < len(geom.oldVerts); i++ {
+		old := geom.oldVerts[i]
+		geom.newVerts[old].add(i)
 	}
 
 	layerMaterialElements := findChildren(element, "LayerElementMaterial")
@@ -263,13 +263,13 @@ func parseGeometry(scene *Scene, element *Element) (*Geometry, error) {
 				return nil, err
 			}
 
-			tmp_i := 0
-			tri_count := 0
+			tmpI := 0
+			triCt := 0
 			insertIdx := 0
 			for poly := 0; poly < len(tmp); {
 				poly++
-				tri_count, tmp_i = getTriCountFromPoly(original_indices, tmp_i)
-				for i := 0; i < tri_count; i++ {
+				triCt, tmpI = getTriCountFromPoly(origIndices, tmpI)
+				for i := 0; i < triCt; i++ {
 					geom.Materials[insertIdx] = tmp[poly]
 					insertIdx++
 				}
@@ -284,19 +284,19 @@ func parseGeometry(scene *Scene, element *Element) (*Geometry, error) {
 			if elem.ID.String() != "LayerElementUV" {
 				continue
 			}
-			uv_index := 0
+			uvIdx := 0
 			if len(elem.Properties) > 0 {
-				uv_index = int(elem.Properties[0].value.toInt32())
+				uvIdx = int(elem.Properties[0].value.toInt32())
 			}
-			if uv_index >= 0 && uv_index < MaxUvs {
-				tmp, tmp_indices, mapping, err := parseVertexDataVec2(elem, "UV", "UVIndex")
+			if uvIdx >= 0 && uvIdx < MaxUvs {
+				tmp, tmpIndices, mapping, err := parseVertexDataVec2(elem, "UV", "UVIndex")
 				if err != nil {
 					return nil, err
 				}
 				if tmp != nil && len(tmp) > 0 {
-					//uvs = [4]floatgeom.Point2{} //resize(tmp_indices.empty() ? tmp.size() : tmp_indices.size());
-					geom.UVs[uv_index] = splatVec2(mapping, tmp, tmp_indices, original_indices)
-					remapVec2(&geom.UVs[uv_index], to_old_indices)
+					//uvs = [4]floatgeom.Point2{} //resize(tmpIndices.empty() ? tmp.size() : tmpIndices.size());
+					geom.UVs[uvIdx] = splatVec2(mapping, tmp, tmpIndices, origIndices)
+					remapVec2(&geom.UVs[uvIdx], toOldIndices)
 				}
 			}
 
@@ -306,44 +306,44 @@ func parseGeometry(scene *Scene, element *Element) (*Geometry, error) {
 		if len(layerTangentElems) > 0 {
 			tans := findChildren(layerTangentElems[0], "Tangents")
 			var tmp []floatgeom.Point3
-			var tmp_indices []int
+			var tmpIndices []int
 			var mapping VertexDataMapping
 			var err error
 			if len(tans) > 0 {
-				tmp, tmp_indices, mapping, err = parseVertexDataVec3(layerTangentElems[0], "Tangents", "TangentsIndex")
+				tmp, tmpIndices, mapping, err = parseVertexDataVec3(layerTangentElems[0], "Tangents", "TangentsIndex")
 			} else {
-				tmp, tmp_indices, mapping, err = parseVertexDataVec3(layerTangentElems[0], "Tangent", "TangentIndex")
+				tmp, tmpIndices, mapping, err = parseVertexDataVec3(layerTangentElems[0], "Tangent", "TangentIndex")
 			}
 			if err != nil {
 				return nil, err
 			}
 			if tmp != nil && len(tmp) > 0 {
-				geom.Tangents = splatVec3(mapping, tmp, tmp_indices, original_indices)
-				remapVec3(&geom.Tangents, to_old_indices)
+				geom.Tangents = splatVec3(mapping, tmp, tmpIndices, origIndices)
+				remapVec3(&geom.Tangents, toOldIndices)
 			}
 		}
 
 		layerColorElems := findChildren(element, "LayerElementColor")
 		if len(layerColorElems) > 0 {
-			tmp, tmp_indices, mapping, err := parseVertexDataVec4(layerColorElems[0], "Colors", "ColorIndex")
+			tmp, tmpIndices, mapping, err := parseVertexDataVec4(layerColorElems[0], "Colors", "ColorIndex")
 			if err != nil {
 				return nil, err
 			}
 			if len(tmp) > 0 {
-				geom.Colors = splatVec4(mapping, tmp, tmp_indices, original_indices)
-				remapVec4(&geom.Colors, to_old_indices)
+				geom.Colors = splatVec4(mapping, tmp, tmpIndices, origIndices)
+				remapVec4(&geom.Colors, toOldIndices)
 			}
 		}
 
 		layerNormalElems := findChildren(element, "LayerElementNormal")
 		if len(layerNormalElems) > 0 {
-			tmp, tmp_indices, mapping, err := parseVertexDataVec3(layerNormalElems[0], "Normals", "NormalsIndex")
+			tmp, tmpIndices, mapping, err := parseVertexDataVec3(layerNormalElems[0], "Normals", "NormalsIndex")
 			if err != nil {
 				return nil, err
 			}
 			if len(tmp) > 0 {
-				geom.Normals = splatVec3(mapping, tmp, tmp_indices, original_indices)
-				remapVec3(&geom.Normals, to_old_indices)
+				geom.Normals = splatVec3(mapping, tmp, tmpIndices, origIndices)
+				remapVec3(&geom.Normals, toOldIndices)
 			}
 		}
 	}

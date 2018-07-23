@@ -368,7 +368,7 @@ func parseVertexDataInner(element *Element, name, idxName string) ([]int, Vertex
 func parseTexture(scene *Scene, element *Element) *Texture {
 	texture := NewTexture(scene, element)
 	assignSingleChildProperty(element, "FileName", texture.filename)
-	assignSingleChildProperty(element, "RelativeFilename", texture.relative_filename)
+	assignSingleChildProperty(element, "RelativeFilename", texture.relativeFilename)
 	return texture
 }
 
@@ -555,16 +555,16 @@ func parseTakes(scene *Scene) (bool, error) {
 				return false, errors.New("Invalid local time in take")
 			}
 
-			take.local_time_from = fbxTimeToSeconds(localTime[0].value.toint64())
-			take.local_time_to = fbxTimeToSeconds(localTime[1].value.toint64())
+			take.localTimeFrom = fbxTimeToSeconds(localTime[0].value.toint64())
+			take.localTimeTo = fbxTimeToSeconds(localTime[1].value.toint64())
 		}
 		refTime := findChildProperty(object, "ReferenceTime")
 		if len(refTime) != 0 {
 			if !isLong(refTime[0]) || len(refTime) < 2 || !isLong(refTime[1]) {
 				return false, errors.New("Invalid reference time in take")
 			}
-			take.reference_time_from = fbxTimeToSeconds(refTime[0].value.toint64())
-			take.reference_time_to = fbxTimeToSeconds(refTime[1].value.toint64())
+			take.refTimeFrom = fbxTimeToSeconds(refTime[0].value.toint64())
+			take.refTimeTo = fbxTimeToSeconds(refTime[1].value.toint64())
 		}
 		scene.takeInfos = append(scene.takeInfos, take)
 	}
@@ -742,7 +742,7 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 
 		switch ctyp {
 		case NODE_ATTRIBUTE:
-			if parent.Node_attribute() != nil {
+			if parent.NodeAttribute() != nil {
 				return false, errors.New("Invalid node attribute")
 			}
 			parent.SetNodeAttribute(child) //previously asserted that the child was a nodeattribute
