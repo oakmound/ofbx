@@ -91,11 +91,10 @@ func (acn *AnimationCurveNode) Type() Type {
 	return ANIMATION_CURVE_NODE
 }
 
-
 func (acn *AnimationCurveNode) getNodeLocalTransform(t float64) floatgeom.Point3 {
-	fbx_time := fbxTimetoStdTime(secondsToFbxTime(t))
+	fbxTime := fbxTimetoStdTime(secondsToFbxTime(t))
 
-	getCoord := func(curve *Curve, fbx_time time.Duration) float32 {
+	getCoord := func(curve *Curve, fbxTime time.Duration) float32 {
 		if curve.curve == nil {
 			return 0.0
 		}
