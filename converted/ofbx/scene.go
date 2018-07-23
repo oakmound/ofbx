@@ -15,7 +15,7 @@ type ObjectPair struct {
 type Scene struct {
 	RootElement     *Element
 	RootNode        *Node
-	frameRate       float32 // = -1
+	FrameRate       float32 // = -1
 	settings        Settings
 	objectMap       map[uint64]ObjectPair // Slice or map?
 	Objects         []Obj
@@ -30,21 +30,8 @@ func (s *Scene) String() string {
 		return "nil Scene"
 	}
 	st := "Scene: " + "\n"
-	// if s.RootElement != nil {
-	// 	st += "element=" + s.RootElement.String()
-	// }
-	// if s.RootNode != nil {
-	// 	st += "root=" + s.RootNode.String() + "\n"
-	// }
-	st += "frameRate=" + fmt.Sprintf("%f", s.frameRate) + "\n"
+	st += "frameRate=" + fmt.Sprintf("%f", s.FrameRate) + "\n"
 	st += "setttings=" + fmt.Sprintf("%+v", s.settings) + "\n"
-	// if s.Objects != nil {
-	// 	st += "objects=" + "\n" //perhaps this should output the object types?
-	// }
-	// for _, o := range s.Objects {
-	// 	st += o.stringPrefix("\t") + "\n"
-	// }
-
 	if s.Meshes != nil {
 		st += "meshes="
 		for _, mesh := range s.Meshes {
@@ -98,12 +85,6 @@ func (s *Scene) getTakeInfo(name string) *TakeInfo {
 		}
 	}
 	return nil
-}
-func (s *Scene) getSceneFrameRate() float32 {
-	return s.frameRate
-}
-func (s *Scene) getMesh(index int) *Mesh {
-	return s.Meshes[index]
 }
 
 // Load tries to load a scene

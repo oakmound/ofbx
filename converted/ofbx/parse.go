@@ -627,7 +627,7 @@ func parseGlobalSettings(root *Element, scene *Scene) {
 		}
 		break
 	}
-	scene.frameRate = GetFramerateFromTimeMode(scene.settings.TimeMode, scene.settings.CustomFrameRate)
+	scene.FrameRate = GetFramerateFromTimeMode(scene.settings.TimeMode, scene.settings.CustomFrameRate)
 }
 
 func parseObjects(root *Element, scene *Scene) (bool, error) {
