@@ -134,6 +134,13 @@ func findChildren(element *Element, id string) []*Element {
 	return []*Element{}
 }
 
+func assignSingleChildProperty(element *Element, id string, dv *DataView) {
+	prop := findSingleChildProperty(element, id)
+	if prop != nil {
+		*dv = *prop.value
+	}
+}
+
 func findSingleChildProperty(element *Element, id string) *Property {
 	iterables := element.Children
 	for idx, val := range iterables {

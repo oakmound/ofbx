@@ -5,6 +5,7 @@ import (
 	"time"
 )
 
+// FrameRate enumerates standard rates of how many frames should be advanced per second
 type FrameRate int
 
 // FrameRate values

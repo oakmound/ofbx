@@ -246,16 +246,16 @@ func (c *Cursor) readElement(version uint16) (*Element, error) {
 		return nil, nil
 	}
 
-	end_offset, err := c.readElementOffset(version)
+	endOffset, err := c.readElementOffset(version)
 	if err != nil {
 		return nil, err
 	}
-	//fmt.Println("Obtained element end offset", end_offset)
-	prop_count, err := c.readElementOffset(version)
+	//fmt.Println("Obtained element end offset", endOffset)
+	propCt, err := c.readElementOffset(version)
 	if err != nil {
 		return nil, err
 	}
-	//fmt.Println("Obtained element prop count", prop_count)
+	//fmt.Println("Obtained element prop count", propCt)
 	_, err = c.readElementOffset(version)
 	if err != nil {
 		return nil, err
@@ -270,13 +270,13 @@ func (c *Cursor) readElement(version uint16) (*Element, error) {
 	element := Element{}
 	element.ID = NewDataView(id)
 
-	element.Properties = make([]*Property, prop_count)
-	for i := uint64(0); i < prop_count; i++ {
+	element.Properties = make([]*Property, propCt)
+	for i := uint64(0); i < propCt; i++ {
 		element.Properties[i], err = c.readProperty()
 	}
 
-	if uint64(c.ReadSoFar()) >= end_offset {
-		//fmt.Println("NO Sentinel sizes ", c.ReadSoFar(), end_offset)
+	if uint64(c.ReadSoFar()) >= endOffset {
+		//fmt.Println("NO Sentinel sizes ", c.ReadSoFar(), endOffset)
 		return &element, nil
 	}
 	blockSentinelLength := 13
@@ -284,22 +284,22 @@ func (c *Cursor) readElement(version uint16) (*Element, error) {
 		blockSentinelLength = 25
 	}
 
-	//fmt.Print("sizes pre children ", c.ReadSoFar(), end_offset, uint64(blockSentinelLength))
-	for uint64(c.ReadSoFar()) < end_offset-uint64(blockSentinelLength) {
+	//fmt.Print("sizes pre children ", c.ReadSoFar(), endOffset, uint64(blockSentinelLength))
+	for uint64(c.ReadSoFar()) < endOffset-uint64(blockSentinelLength) {
 		child, err := c.readElement(version)
 		if err != nil {
 			return nil, errors.Wrap(err, "ReadingChild element failed")
 		}
 		element.Children = append(element.Children, child)
-		if uint64(c.ReadSoFar()) > end_offset {
-			//fmt.Println("Read past where we were supposed to!!", c.ReadSoFar(), end_offset)
+		if uint64(c.ReadSoFar()) > endOffset {
+			//fmt.Println("Read past where we were supposed to!!", c.ReadSoFar(), endOffset)
 		}
 	}
-	if uint64(c.ReadSoFar()) > end_offset {
-		//fmt.Println("Read past where we were supposed to!!", c.ReadSoFar(), end_offset)
+	if uint64(c.ReadSoFar()) > endOffset {
+		//fmt.Println("Read past where we were supposed to!!", c.ReadSoFar(), endOffset)
 	}
 	c.Discard(blockSentinelLength)
-	//fmt.Println("With Sentinel", uint64(c.ReadSoFar()), "versus", end_offset)
+	//fmt.Println("With Sentinel", uint64(c.ReadSoFar()), "versus", endOffset)
 	return &element, nil
 }
 
@@ -429,16 +429,16 @@ func (c *Cursor) readTextProperty() (*Property, error) {
 
 		prop.Count = 0
 
-		is_any := false
+		isAny := false
 		_, err = c.Peek(1)
 		for err == nil && r2 != '}' {
 			if r2 == ',' {
-				if is_any {
+				if isAny {
 					prop.Count++
 				}
-				is_any = false
+				isAny = false
 			} else if !unicode.IsSpace(r2) && r2 != '\n' {
-				is_any = true
+				isAny = true
 			}
 			if r2 == '.' {
 				prop.Type = 'd'
@@ -447,7 +447,7 @@ func (c *Cursor) readTextProperty() (*Property, error) {
 			pBytes.WriteRune(r2)
 			_, err = c.Peek(1)
 		}
-		if is_any {
+		if isAny {
 			prop.Count++
 		}
 		prop.value = BufferDataView(pBytes)

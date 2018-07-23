@@ -14,14 +14,14 @@ type ConnectionType int
 
 // Connection Types
 const (
-	// OBJECT_OBJECT is a connection to another Object
-	OBJECT_OBJECT ConnectionType = iota
-	// OBJECT_PROPERTY is a connection to a proprety
-	OBJECT_PROPERTY ConnectionType = iota
+	// ObjectConn is a connection to another Object
+	ObjectConn ConnectionType = iota
+	// PropConn is a connection to a proprety
+	PropConn ConnectionType = iota
 )
 
 func (ct ConnectionType) String() string {
-	if ct == OBJECT_OBJECT {
+	if ct == ObjectConn {
 		return "OBJ->OBJ"
 	}
 	return "OBJ->PROP"

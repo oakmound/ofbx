@@ -140,8 +140,8 @@ func parseArrayRawInt(property *Property) ([]int, error) {
 	return nil, errors.New("Invalid encoding")
 }
 
-func parseArrayRawIntEnd(r io.Reader, ln int, elem_size int) []int {
-	if elem_size == 4 {
+func parseArrayRawIntEnd(r io.Reader, ln int, elemSize int) []int {
+	if elemSize == 4 {
 		i32s := make([]int32, int(ln))
 		binary.Read(r, binary.LittleEndian, i32s)
 		out := make([]int, len(i32s))
@@ -176,8 +176,8 @@ func parseArrayRawInt64(property *Property) ([]int64, error) {
 	return nil, errors.New("Invalid encoding")
 }
 
-func parseArrayRawInt64End(r io.Reader, ln int, elem_size int) []int64 {
-	if elem_size == 4 {
+func parseArrayRawInt64End(r io.Reader, ln int, elemSize int) []int64 {
+	if elemSize == 4 {
 		i32s := make([]int32, int(ln))
 		binary.Read(r, binary.LittleEndian, i32s)
 		out := make([]int64, len(i32s))
@@ -208,8 +208,8 @@ func parseArrayRawFloat32(property *Property) ([]float32, error) {
 	return nil, errors.New("Invalid encoding")
 }
 
-func parseArrayRawFloat32End(r io.Reader, ln int, elem_size int) []float32 {
-	if elem_size == 4 {
+func parseArrayRawFloat32End(r io.Reader, ln int, elemSize int) []float32 {
+	if elemSize == 4 {
 		out := make([]float32, int(ln))
 		binary.Read(r, binary.LittleEndian, out)
 		return out
@@ -240,8 +240,8 @@ func parseArrayRawFloat64(property *Property) ([]float64, error) {
 	return nil, errors.New("Invalid encoding")
 }
 
-func parseArrayRawFloat64End(r io.Reader, ln int, elem_size int) []float64 {
-	if elem_size == 4 {
+func parseArrayRawFloat64End(r io.Reader, ln int, elemSize int) []float64 {
+	if elemSize == 4 {
 		f32s := make([]float32, int(ln))
 		binary.Read(r, binary.LittleEndian, f32s)
 		out := make([]float64, len(f32s))
@@ -264,13 +264,13 @@ func parseDoubleVecDataVec2(property *Property) ([]floatgeom.Point2, error) {
 		return nil, err
 	}
 	size := 2
-	out_vec := make([]floatgeom.Point2, len(tmp)/size)
+	outVec := make([]floatgeom.Point2, len(tmp)/size)
 	for i := 0; i < len(tmp); i += size {
 		j := i / size
-		out_vec[j][0] = float64(tmp[i])
-		out_vec[j][1] = float64(tmp[i+1])
+		outVec[j][0] = float64(tmp[i])
+		outVec[j][1] = float64(tmp[i+1])
 	}
-	return out_vec, nil
+	return outVec, nil
 }
 
 func parseDoubleVecDataVec3(property *Property) ([]floatgeom.Point3, error) {
@@ -282,14 +282,14 @@ func parseDoubleVecDataVec3(property *Property) ([]floatgeom.Point3, error) {
 		return nil, err
 	}
 	size := 3
-	out_vec := make([]floatgeom.Point3, len(tmp)/size)
+	outVec := make([]floatgeom.Point3, len(tmp)/size)
 	for i := 0; i < len(tmp); i += size {
 		j := i / size
-		out_vec[j][0] = float64(tmp[i])
-		out_vec[j][1] = float64(tmp[i+1])
-		out_vec[j][2] = float64(tmp[i+2])
+		outVec[j][0] = float64(tmp[i])
+		outVec[j][1] = float64(tmp[i+1])
+		outVec[j][2] = float64(tmp[i+2])
 	}
-	return out_vec, nil
+	return outVec, nil
 }
 
 func parseDoubleVecDataVec4(property *Property) ([]floatgeom.Point4, error) {
@@ -301,36 +301,36 @@ func parseDoubleVecDataVec4(property *Property) ([]floatgeom.Point4, error) {
 		return nil, err
 	}
 	size := 4
-	out_vec := make([]floatgeom.Point4, len(tmp)/size)
+	outVec := make([]floatgeom.Point4, len(tmp)/size)
 	for i := 0; i < len(tmp); i += size {
 		j := i / size
-		out_vec[j][0] = float64(tmp[i])
-		out_vec[j][1] = float64(tmp[i+1])
-		out_vec[j][2] = float64(tmp[i+2])
-		out_vec[j][3] = float64(tmp[i+3])
+		outVec[j][0] = float64(tmp[i])
+		outVec[j][1] = float64(tmp[i+1])
+		outVec[j][2] = float64(tmp[i+2])
+		outVec[j][3] = float64(tmp[i+3])
 	}
-	return out_vec, nil
+	return outVec, nil
 }
 
-func parseVertexDataVec2(element *Element, name, index_name string) ([]floatgeom.Point2, []int, VertexDataMapping, error) {
-	idxs, mapping, dataProp, err := parseVertexDataInner(element, name, index_name)
+func parseVertexDataVec2(element *Element, name, idxName string) ([]floatgeom.Point2, []int, VertexDataMapping, error) {
+	idxs, mapping, dataProp, err := parseVertexDataInner(element, name, idxName)
 	vcs, err := parseDoubleVecDataVec2(dataProp)
 	return vcs, idxs, mapping, err
 }
 
-func parseVertexDataVec3(element *Element, name, index_name string) ([]floatgeom.Point3, []int, VertexDataMapping, error) {
-	idxs, mapping, dataProp, err := parseVertexDataInner(element, name, index_name)
+func parseVertexDataVec3(element *Element, name, idxName string) ([]floatgeom.Point3, []int, VertexDataMapping, error) {
+	idxs, mapping, dataProp, err := parseVertexDataInner(element, name, idxName)
 	vcs, err := parseDoubleVecDataVec3(dataProp)
 	return vcs, idxs, mapping, err
 }
 
-func parseVertexDataVec4(element *Element, name, index_name string) ([]floatgeom.Point4, []int, VertexDataMapping, error) {
-	idxs, mapping, dataProp, err := parseVertexDataInner(element, name, index_name)
+func parseVertexDataVec4(element *Element, name, idxName string) ([]floatgeom.Point4, []int, VertexDataMapping, error) {
+	idxs, mapping, dataProp, err := parseVertexDataInner(element, name, idxName)
 	vcs, err := parseDoubleVecDataVec4(dataProp)
 	return vcs, idxs, mapping, err
 }
 
-func parseVertexDataInner(element *Element, name, index_name string) ([]int, VertexDataMapping, *Property, error) {
+func parseVertexDataInner(element *Element, name, idxName string) ([]int, VertexDataMapping, *Property, error) {
 	dataProp := findChildProperty(element, name)
 	if dataProp == nil {
 		return nil, 0, nil, errors.New("Invalid data element")
@@ -356,7 +356,7 @@ func parseVertexDataInner(element *Element, name, index_name string) ([]int, Ver
 	}
 	if len(referenceProp) != 0 {
 		if referenceProp[0].value.String() == "IndexToDirect" {
-			indicesProp := findChildProperty(element, index_name)
+			indicesProp := findChildProperty(element, idxName)
 			if len(indicesProp) != 0 {
 				if idxs, err = parseBinaryArrayInt(indicesProp[0]); err != nil {
 					return nil, 0, nil, errors.New("Unable to parse indices")
@@ -519,9 +519,9 @@ func parseConnection(root *Element, scene *Scene) (bool, error) {
 		c.from = prop1.value.touint64()
 		c.to = prop2.value.touint64()
 		if prop0.value.String() == "OO" {
-			c.typ = OBJECT_OBJECT
+			c.typ = ObjectConn
 		} else if prop0.value.String() == "OP" {
-			c.typ = OBJECT_PROPERTY
+			c.typ = PropConn
 			if prop3 := connection.getProperty(3); prop3 != nil {
 				c.property = prop3.value.String()
 			} else {
@@ -559,22 +559,22 @@ func parseTakes(scene *Scene) (bool, error) {
 			}
 			take.filename = filename.value
 		}
-		local_time := findChildProperty(object, "LocalTime")
-		if len(local_time) != 0 {
-			if !isLong(local_time[0]) || len(local_time) < 2 || !isLong(local_time[1]) {
+		localTime := findChildProperty(object, "LocalTime")
+		if len(localTime) != 0 {
+			if !isLong(localTime[0]) || len(localTime) < 2 || !isLong(localTime[1]) {
 				return false, errors.New("Invalid local time in take")
 			}
 
-			take.local_time_from = fbxTimeToSeconds(local_time[0].value.toint64())
-			take.local_time_to = fbxTimeToSeconds(local_time[1].value.toint64())
+			take.local_time_from = fbxTimeToSeconds(localTime[0].value.toint64())
+			take.local_time_to = fbxTimeToSeconds(localTime[1].value.toint64())
 		}
-		reference_time := findChildProperty(object, "ReferenceTime")
-		if len(reference_time) != 0 {
-			if !isLong(reference_time[0]) || len(reference_time) < 2 || !isLong(reference_time[1]) {
+		refTime := findChildProperty(object, "ReferenceTime")
+		if len(refTime) != 0 {
+			if !isLong(refTime[0]) || len(refTime) < 2 || !isLong(refTime[1]) {
 				return false, errors.New("Invalid reference time in take")
 			}
-			take.reference_time_from = fbxTimeToSeconds(reference_time[0].value.toint64())
-			take.reference_time_to = fbxTimeToSeconds(reference_time[1].value.toint64())
+			take.reference_time_from = fbxTimeToSeconds(refTime[0].value.toint64())
+			take.reference_time_to = fbxTimeToSeconds(refTime[1].value.toint64())
 		}
 		scene.takeInfos = append(scene.takeInfos, take)
 	}
@@ -668,8 +668,8 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 		//fmt.Println("Printing for ", iter.element.id.String())
 
 		if iter.element.ID.String() == "Geometry" {
-			last_prop := iter.element.getProperty(len(iter.element.Properties) - 1)
-			if last_prop != nil && last_prop.value.String() == "Mesh" {
+			lastProp := iter.element.getProperty(len(iter.element.Properties) - 1)
+			if lastProp != nil && lastProp.value.String() == "Mesh" {
 				obj, err = parseGeometry(scene, iter.element)
 				if err != nil {
 					return false, err
@@ -691,9 +691,9 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 		} else if iter.element.ID.String() == "AnimationCurveNode" {
 			obj = NewAnimationCurveNode(scene, iter.element)
 		} else if iter.element.ID.String() == "Deformer" {
-			class_prop := iter.element.getProperty(2)
-			if class_prop != nil {
-				v := class_prop.value.String()
+			classProp := iter.element.getProperty(2)
+			if classProp != nil {
+				v := classProp.value.String()
 				if v == "Cluster" {
 					obj, err = parseCluster(scene, iter.element)
 					if err != nil {
@@ -709,9 +709,9 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 				return false, err
 			}
 		} else if iter.element.ID.String() == "Model" {
-			class_prop := iter.element.getProperty(2)
-			if class_prop != nil {
-				v := class_prop.value.String()
+			classProp := iter.element.getProperty(2)
+			if classProp != nil {
+				v := classProp.value.String()
 				if v == "Mesh" {
 					obj, err = parseMesh(scene, iter.element)
 					if err == nil {
