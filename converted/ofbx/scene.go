@@ -5,20 +5,13 @@ import (
 	"io"
 )
 
-// ObjectPair maps elements to objects
-type ObjectPair struct {
-	element *Element
-	object  Obj
-}
-
 // A Scene is an overarching FBX costruct containing objects and animations
 type Scene struct {
 	RootElement *Element
 	RootNode    *Node
 	FrameRate   float32 // = -1
 	Settings
-	objectMap       map[uint64]ObjectPair
-	objects         []Obj
+	ObjectMap       map[uint64]Obj
 	Meshes          []*Mesh
 	AnimationStacks []*AnimationStack
 	Connections     []Connection
@@ -66,7 +59,7 @@ func (s *Scene) String() string {
 // Geometries returns a scene's geometries
 func (s *Scene) Geometries() []*Geometry {
 	out := make([]*Geometry, 0)
-	for _, o := range s.objects {
+	for _, o := range s.ObjectMap {
 		elem := o.Element()
 		if elem == nil {
 			continue
@@ -90,11 +83,11 @@ func (s *Scene) getTakeInfo(name string) *TakeInfo {
 // Load tries to load a scene
 func Load(r io.Reader) (*Scene, error) {
 	s := &Scene{}
-	s.objectMap = make(map[uint64]ObjectPair)
+	s.ObjectMap = make(map[uint64]Obj)
 	root, err := tokenize(r)
 	if err != nil {
 		//TODO: reimplement
-		// root, err = tokenizeText(r)
+		root, err = tokenizeText(r)
 		if err != nil {
 			return nil, err
 		}

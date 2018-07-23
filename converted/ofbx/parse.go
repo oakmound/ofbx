@@ -447,7 +447,7 @@ func parseMaterial(scene *Scene, element *Element) *Material {
 }
 
 func parseAnimationCurve(scene *Scene, element *Element) (*AnimationCurve, error) {
-	curve := &AnimationCurve{}
+	curve := NewAnimationCurve(scene, element)
 	var err error
 	if attrFlags := findSingleChildProperty(element, "KeyAttrFlags"); attrFlags != nil {
 		curve.AttrFlags, err = attrFlags.getValuesInt64()
@@ -637,103 +637,99 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 		return true, nil
 	}
 	scene.RootNode = NewNode(scene, root, ROOT)
-	scene.objectMap[0] = ObjectPair{root, scene.RootNode}
+	scene.ObjectMap[0] = scene.RootNode
 
 	objs = objs[0].Children
-	for _, object := range objs {
-		if !isLong(object.getProperty(0)) {
+	for _, elem := range objs {
+		if !isLong(elem.getProperty(0)) {
 			return false, errors.New("Invalid")
 		}
-		id := object.getProperty(0).value.touint64()
-		scene.objectMap[id] = ObjectPair{object, nil}
-	}
+		id := elem.getProperty(0).value.touint64()
 
-	//fmt.Println("Iterating through the object map")
-	for k, iter := range scene.objectMap {
 		var obj Obj
 		var err error
-		if iter.object == scene.RootNode {
+		// This shouldn't happen?
+		// Original library had a check like this but it seems nonsensical
+		if id == 0 {
 			continue
 		}
-		//fmt.Println("Printing for ", iter.element.id.String())
-
-		if iter.element.ID.String() == "Geometry" {
-			lastProp := iter.element.getProperty(len(iter.element.Properties) - 1)
+		switch elem.ID.String() {
+		case "Geometry":
+			lastProp := elem.getProperty(len(elem.Properties) - 1)
 			if lastProp != nil && lastProp.value.String() == "Mesh" {
-				obj, err = parseGeometry(scene, iter.element)
+				obj, err = parseGeometry(scene, elem)
 				if err != nil {
 					return false, err
 				}
 			}
-		} else if iter.element.ID.String() == "Material" {
-			obj = parseMaterial(scene, iter.element)
-		} else if iter.element.ID.String() == "AnimationStack" {
-			obj = NewAnimationStack(scene, iter.element)
+		case "Material":
+			obj = parseMaterial(scene, elem)
+		case "AnimationStack":
+			obj = NewAnimationStack(scene, elem)
 			stack := obj.(*AnimationStack)
 			scene.AnimationStacks = append(scene.AnimationStacks, stack)
-		} else if iter.element.ID.String() == "AnimationLayer" {
-			obj = NewAnimationLayer(scene, iter.element)
-		} else if iter.element.ID.String() == "AnimationCurve" {
-			obj, err = parseAnimationCurve(scene, iter.element)
+		case "AnimationLayer":
+			obj = NewAnimationLayer(scene, elem)
+		case "AnimationCurve":
+			obj, err = parseAnimationCurve(scene, elem)
 			if err != nil {
 				return false, err
 			}
-		} else if iter.element.ID.String() == "AnimationCurveNode" {
-			obj = NewAnimationCurveNode(scene, iter.element)
-		} else if iter.element.ID.String() == "Deformer" {
-			classProp := iter.element.getProperty(2)
+		case "AnimationCurveNode":
+			obj = NewAnimationCurveNode(scene, elem)
+		case "Deformer":
+			classProp := elem.getProperty(2)
 			if classProp != nil {
 				v := classProp.value.String()
 				if v == "Cluster" {
-					obj, err = parseCluster(scene, iter.element)
+					obj, err = parseCluster(scene, elem)
 					if err != nil {
 						return false, err
 					}
 				} else if v == "Skin" {
-					obj = NewSkin(scene, iter.element)
+					obj = NewSkin(scene, elem)
 				}
 			}
-		} else if iter.element.ID.String() == "NodeAttribute" {
-			obj, err = parseNodeAttribute(scene, iter.element)
+		case "NodeAttribute":
+			obj, err = parseNodeAttribute(scene, elem)
 			if err != nil {
 				return false, err
 			}
-		} else if iter.element.ID.String() == "Model" {
-			classProp := iter.element.getProperty(2)
+		case "Model":
+			classProp := elem.getProperty(2)
 			if classProp != nil {
 				v := classProp.value.String()
 				if v == "Mesh" {
-					obj, err = parseMesh(scene, iter.element)
+					obj, err = parseMesh(scene, elem)
 					if err == nil {
 						mesh := obj.(*Mesh)
 						scene.Meshes = append(scene.Meshes, mesh)
 						obj = mesh
 					}
 				} else if v == "LimbNode" {
-					obj, err = parseLimbNode(scene, iter.element)
+					obj, err = parseLimbNode(scene, elem)
 					if err != nil {
 						return false, err
 					}
 				} else if v == "Null" || v == "Root" {
-					obj = NewNode(scene, iter.element, NULL_NODE)
+					obj = NewNode(scene, elem, NULL_NODE)
 				}
 			}
-		} else if iter.element.ID.String() == "Texture" {
-			obj = parseTexture(scene, iter.element)
+		case "Texture":
+			obj = parseTexture(scene, elem)
 		}
 
-		scene.objectMap[k] = ObjectPair{iter.element, obj}
+		scene.ObjectMap[id] = obj
 		if obj != nil {
-			scene.objects = append(scene.objects, obj)
-			obj.SetID(k)
+			obj.SetID(id)
 		}
 	}
 
 	//fmt.Println("Parsing connections")
 	for _, con := range scene.Connections {
 		con := con
-		parent := scene.objectMap[con.to].object
-		child := scene.objectMap[con.from].object
+		parent := scene.ObjectMap[con.to]
+		child := scene.ObjectMap[con.from]
 		if child == nil || parent == nil {
 			continue
 		}
@@ -832,8 +828,7 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 		}
 	}
 
-	for _, iter := range scene.objectMap {
-		obj := iter.object
+	for _, obj := range scene.ObjectMap {
 		if obj == nil {
 			continue
 		}

@@ -116,7 +116,7 @@ func resolveObjectLink(o Obj, typ Type, property string, idx int) Obj {
 	id := o.ID()
 	for _, conn := range o.Scene().Connections {
 		if conn.to == id && conn.from != 0 {
-			obj := o.Scene().objectMap[conn.from].object
+			obj := o.Scene().ObjectMap[conn.from]
 			if obj != nil && (obj.Type() == typ || typ == NOTYPE) {
 				if property == "" || conn.property == property {
 					if idx == 0 {
@@ -135,7 +135,7 @@ func resolveObjectLinks(o Obj, typ Type, properties []string) []Obj {
 	out := make([]Obj, 0)
 	for _, conn := range o.Scene().Connections {
 		if conn.to == id && conn.from != 0 {
-			obj := o.Scene().objectMap[conn.from].object
+			obj := o.Scene().ObjectMap[conn.from]
 			if obj != nil && (obj.Type() == typ || typ == NOTYPE) {
 				for _, prop2 := range properties {
 					if prop2 == "" || conn.property == prop2 {
@@ -159,7 +159,7 @@ func resolveObjectLinkReverse(o Obj, typ Type) Obj {
 	for _, conn := range o.Scene().Connections {
 		//fmt.Println("Connection iterated", id, conn.from, conn.to)
 		if conn.from == id && conn.to != 0 {
-			obj := o.Scene().objectMap[conn.to].object
+			obj := o.Scene().ObjectMap[conn.to]
 			if obj != nil && obj.Type() == typ {
 				return obj
 			}
@@ -171,8 +171,7 @@ func resolveObjectLinkReverse(o Obj, typ Type) Obj {
 func getParent(o Obj) Obj {
 	for _, con := range o.Scene().Connections {
 		if con.from == o.ID() {
-			obj := o.Scene().objectMap[con.to].object
-
+			obj := o.Scene().ObjectMap[con.to]
 			if obj != nil && obj.IsNode() {
 				return obj
 			}
