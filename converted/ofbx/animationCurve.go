@@ -20,6 +20,12 @@ const (
 	SCALE CurveMode = iota
 )
 
+const (
+	BoneTranslate = "Lcl Translation"
+	BoneRotate    = "Lcl Rotation"
+	BoneScale     = "Lcl Scaling"
+)
+
 // AnimationCurve are a mapping of key frame times to a set of data. Basic need is to have Times mapping with Values while disregarding AttributeFlags and Data
 type AnimationCurve struct {
 	Object
@@ -59,21 +65,21 @@ func (ac *AnimationCurve) stringPrefix(prefix string) string {
 // AnimationCurveNode is a mapping of Curve to a property
 type AnimationCurveNode struct {
 	Object
-	curves       [3]Curve
+	Curves       [3]Curve
 	Bone         Obj
-	boneLinkProp string
+	BoneLinkProp string
 	mode         CurveMode
 }
 
 // Curve is a connection Linkage for an AnimationCurve
 type Curve struct {
-	curve      *AnimationCurve
+	Curve      *AnimationCurve
 	connection *Connection
 }
 
 // String pretty formats the Curve
 func (c *Curve) String() string {
-	s := c.curve.String() + " "
+	s := c.Curve.String() + " "
 	//s += c.connection.String()
 	return s
 }
@@ -95,12 +101,12 @@ func (acn *AnimationCurveNode) getNodeLocalTransform(t float64) floatgeom.Point3
 	fbxTime := fbxTimetoStdTime(secondsToFbxTime(t))
 
 	getCoord := func(curve *Curve, fbxTime time.Duration) float32 {
-		if curve.curve == nil {
+		if curve.Curve == nil {
 			return 0.0
 		}
 
-		times := curve.curve.Times
-		values := curve.curve.Values
+		times := curve.Curve.Times
+		values := curve.Curve.Values
 		count := len(times)
 
 		if fbxTime < times[0] {
@@ -119,9 +125,9 @@ func (acn *AnimationCurveNode) getNodeLocalTransform(t float64) floatgeom.Point3
 	}
 
 	return floatgeom.Point3{
-		float64(getCoord(&acn.curves[0], fbxTime)),
-		float64(getCoord(&acn.curves[1], fbxTime)),
-		float64(getCoord(&acn.curves[2], fbxTime)),
+		float64(getCoord(&acn.Curves[0], fbxTime)),
+		float64(getCoord(&acn.Curves[1], fbxTime)),
+		float64(getCoord(&acn.Curves[2], fbxTime)),
 	}
 }
 
@@ -136,9 +142,9 @@ func (acn *AnimationCurveNode) stringPrefix(prefix string) string {
 	if acn.Bone != nil {
 		s += "boneID=" + fmt.Sprintf("%v ", acn.Bone.ID())
 	}
-	s += "bone_link_property=\"" + acn.boneLinkProp + "\""
+	s += "bone_link_property=\"" + acn.BoneLinkProp + "\""
 	s += " mode=" + fmt.Sprintf("%d", acn.mode)
-	for i, curve := range acn.curves {
+	for i, curve := range acn.Curves {
 		s += "\n" + prefix + "\t"
 		switch i {
 		case 0:

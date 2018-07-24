@@ -746,7 +746,7 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 			if parent.IsNode() {
 				node := child.(*AnimationCurveNode)
 				node.Bone = parent
-				node.boneLinkProp = con.property
+				node.BoneLinkProp = con.property
 			}
 		}
 
@@ -812,15 +812,15 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 		case ANIMATION_CURVE_NODE:
 			node := parent.(*AnimationCurveNode)
 			if ctyp == ANIMATION_CURVE {
-				if node.curves[0].curve == nil {
-					node.curves[0].connection = &con
-					node.curves[0].curve = child.(*AnimationCurve)
-				} else if node.curves[1].curve == nil {
-					node.curves[1].connection = &con
-					node.curves[1].curve = child.(*AnimationCurve)
-				} else if node.curves[2].curve == nil {
-					node.curves[2].connection = &con
-					node.curves[2].curve = child.(*AnimationCurve)
+				if node.Curves[0].Curve == nil {
+					node.Curves[0].connection = &con
+					node.Curves[0].Curve = child.(*AnimationCurve)
+				} else if node.Curves[1].Curve == nil {
+					node.Curves[1].connection = &con
+					node.Curves[1].Curve = child.(*AnimationCurve)
+				} else if node.Curves[2].Curve == nil {
+					node.Curves[2].connection = &con
+					node.Curves[2].Curve = child.(*AnimationCurve)
 				} else {
 					return false, errors.New("Invalid animation node")
 				}

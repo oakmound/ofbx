@@ -11,7 +11,6 @@ import (
 type Mesh struct {
 	Object
 	Geometry  *Geometry
-	scene     *Scene
 	Materials []*Material
 }
 
@@ -21,6 +20,24 @@ func NewMesh(scene *Scene, element *Element) *Mesh {
 	m.Object = *NewObject(scene, element)
 	m.Object.isNode = true
 	return m
+}
+
+// Animations returns the Animation Stacks connected to this mesh
+func (m *Mesh) Animations() []*AnimationStack {
+	anims := m.scene.AnimationStacks
+	out := []*AnimationStack{}
+ANIMLOOP:
+	for _, a := range anims {
+		for _, l := range a.Layers {
+			for _, c := range l.CurveNodes {
+				if c.Bone.ID() == m.ID() {
+					out = append(out, a)
+					continue ANIMLOOP
+				}
+			}
+		}
+	}
+	return out
 }
 
 // Type returns MESH

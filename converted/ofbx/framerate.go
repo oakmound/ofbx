@@ -65,7 +65,7 @@ func GetFramerateFromTimeMode(f FrameRate, custom float32) float32 {
 }
 
 func fbxTimetoStdTime(value int64) time.Duration {
-	return time.Second * time.Duration(value) / 46186158000
+	return time.Microsecond * time.Duration(float64(value)/float64(46186.158))
 }
 
 func fbxTimeToSeconds(value int64) float64 {

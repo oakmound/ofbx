@@ -89,7 +89,7 @@ func (as *AnimationLayer) Type() Type {
 // getCuurveNode gets the first curvenode with the given bone and property
 func (as *AnimationLayer) getCurveNode(bone Obj, property string) *AnimationCurveNode {
 	for _, node := range as.CurveNodes {
-		if node.boneLinkProp == property && node.Bone == bone {
+		if node.BoneLinkProp == property && node.Bone == bone {
 			return node
 		}
 	}
