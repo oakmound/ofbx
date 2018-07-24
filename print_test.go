@@ -1,19 +1,18 @@
-package main
+package ofbx
 
 import (
 	"fmt"
 	"log"
 	"os"
-
-	"github.com/oakmound/openfbx/converted/ofbx"
+	"testing"
 )
 
-func main() {
+func TestPrintScene(t *testing.T) {
 	f, err := os.Open("cuberotateblend.FBX")
 	if err != nil {
 		log.Fatal(err)
 	}
-	scene, err := ofbx.Load(f)
+	scene, err := Load(f)
 	if err != nil {
 		log.Fatal(err)
 	}
