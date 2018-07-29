@@ -20,7 +20,7 @@ func (s *Skin) Type() Type {
 
 func (s *Skin) String() string {
 	str := "Skin: " + s.Object.String()
-	for _, cluster := range s.clusters {
+	for _, cluster := range s.Clusters {
 		str += "\t" + cluster.String() + "\n"
 	}
 	return str

@@ -766,7 +766,7 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 			skin := parent.(*Skin)
 			if ctyp == CLUSTER {
 				cluster := child.(*Cluster)
-				skin.clusters = append(skin.clusters, cluster)
+				skin.Clusters = append(skin.Clusters, cluster)
 				if cluster.Skin != nil {
 					return false, errors.New("Invalid cluster")
 				}
