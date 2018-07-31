@@ -19,9 +19,13 @@ func (s *Skin) Type() Type {
 }
 
 func (s *Skin) String() string {
-	str := "Skin: " + s.Object.String()
+	return s.stringPrefix("")
+}
+
+func (s *Skin) stringPrefix(prefix string) string {
+	str := prefix + "Skin: \n" + s.Object.stringPrefix(prefix+"\t")
 	for _, cluster := range s.Clusters {
-		str += "\t" + cluster.String() + "\n"
+		str += cluster.stringPrefix(prefix+"\t") + "\n"
 	}
 	return str
 }

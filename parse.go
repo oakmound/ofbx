@@ -315,18 +315,27 @@ func parseDoubleVecDataVec4(property *Property) ([]floatgeom.Point4, error) {
 
 func parseVertexDataVec2(element *Element, name, idxName string) ([]floatgeom.Point2, []int, VertexDataMapping, error) {
 	idxs, mapping, dataProp, err := parseVertexDataInner(element, name, idxName)
+	if err != nil {
+		return nil, nil, mapping, err
+	}
 	vcs, err := parseDoubleVecDataVec2(dataProp)
 	return vcs, idxs, mapping, err
 }
 
 func parseVertexDataVec3(element *Element, name, idxName string) ([]floatgeom.Point3, []int, VertexDataMapping, error) {
 	idxs, mapping, dataProp, err := parseVertexDataInner(element, name, idxName)
+	if err != nil {
+		return nil, nil, mapping, err
+	}
 	vcs, err := parseDoubleVecDataVec3(dataProp)
 	return vcs, idxs, mapping, err
 }
 
 func parseVertexDataVec4(element *Element, name, idxName string) ([]floatgeom.Point4, []int, VertexDataMapping, error) {
 	idxs, mapping, dataProp, err := parseVertexDataInner(element, name, idxName)
+	if err != nil {
+		return nil, nil, mapping, err
+	}
 	vcs, err := parseDoubleVecDataVec4(dataProp)
 	return vcs, idxs, mapping, err
 }
@@ -357,6 +366,8 @@ func parseVertexDataInner(element *Element, name, idxName string) ([]int, Vertex
 				if idxs, err = parseBinaryArrayInt(indicesProp[0]); err != nil {
 					return nil, 0, nil, errors.New("Unable to parse indices")
 				}
+			} else {
+				// just use indicies in order.
 			}
 		} else if referenceProp[0].value.String() != "Direct" {
 			return nil, 0, nil, errors.New("Invalid properties")
@@ -768,7 +779,7 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 				cluster := child.(*Cluster)
 				skin.Clusters = append(skin.Clusters, cluster)
 				if cluster.Skin != nil {
-					return false, errors.New("Invalid cluster")
+					return false, errors.New("Cluster assigned to multiple skins")
 				}
 				cluster.Skin = skin
 			}

@@ -51,6 +51,10 @@ func (g *Geometry) stringPrefix(prefix string) string {
 		s += prefix + "Verts:"
 		for i, v := range g.Vertices {
 			if i != 0 {
+				if i > 100 {
+					s += "..."
+					break
+				}
 				s += ","
 			}
 			s += fmt.Sprintf("%+v", v)
@@ -61,6 +65,10 @@ func (g *Geometry) stringPrefix(prefix string) string {
 		s += prefix + "Norms:"
 		for i, v := range g.Normals {
 			if i != 0 {
+				if i > 100 {
+					s += "..."
+					break
+				}
 				s += ","
 			}
 			s += fmt.Sprintf("%+v", v)
@@ -71,6 +79,10 @@ func (g *Geometry) stringPrefix(prefix string) string {
 		s += prefix + "Tangents:"
 		for i, v := range g.Tangents {
 			if i != 0 {
+				if i > 100 {
+					s += "..."
+					break
+				}
 				s += ","
 			}
 			s += fmt.Sprintf("%+v", v)
@@ -81,6 +93,10 @@ func (g *Geometry) stringPrefix(prefix string) string {
 		s += prefix + "Materials:"
 		for i, v := range g.Materials {
 			if i != 0 {
+				if i > 100 {
+					s += "..."
+					break
+				}
 				s += ","
 			}
 			s += fmt.Sprintf("%v", v)
@@ -91,6 +107,10 @@ func (g *Geometry) stringPrefix(prefix string) string {
 		s += prefix + "Colors:"
 		for i, v := range g.Colors {
 			if i != 0 {
+				if i > 100 {
+					s += "..."
+					break
+				}
 				s += ","
 			}
 			s += fmt.Sprintf("%+v", v)
@@ -102,6 +122,10 @@ func (g *Geometry) stringPrefix(prefix string) string {
 		s += prefix + "Faces:"
 		for i, v := range g.Faces {
 			if i != 0 {
+				if i > 100 {
+					s += "..."
+					break
+				}
 				s += ", "
 			}
 			s += fmt.Sprintf("%v", v)
@@ -116,12 +140,18 @@ func (g *Geometry) stringPrefix(prefix string) string {
 		}
 		for i, v2 := range v {
 			if i != 0 {
+				if i > 100 {
+					s += "..."
+					break
+				}
 				s += ","
 			}
 			s += fmt.Sprintf("%+v", v2)
 		}
 		s += "\n"
 	}
+	s += prefix + "Skin:\n"
+	s += g.Skin.stringPrefix(prefix + "\t")
 	return s
 }
 
@@ -279,72 +309,72 @@ func parseGeometry(scene *Scene, element *Element) (*Geometry, error) {
 				return nil, errors.New("Mapping not supported")
 			}
 		}
+	}
 
-		for _, elem := range element.Children {
-			if elem.ID.String() != "LayerElementUV" {
-				continue
-			}
-			uvIdx := 0
-			if len(elem.Properties) > 0 {
-				uvIdx = int(elem.Properties[0].value.toInt32())
-			}
-			if uvIdx >= 0 && uvIdx < MaxUvs {
-				tmp, tmpIndices, mapping, err := parseVertexDataVec2(elem, "UV", "UVIndex")
-				if err != nil {
-					return nil, err
-				}
-				if tmp != nil && len(tmp) > 0 {
-					//uvs = [4]floatgeom.Point2{} //resize(tmpIndices.empty() ? tmp.size() : tmpIndices.size());
-					geom.UVs[uvIdx] = splatVec2(mapping, tmp, tmpIndices, origIndices)
-					remapVec2(&geom.UVs[uvIdx], toOldIndices)
-				}
-			}
-
+	for _, elem := range element.Children {
+		if elem.ID.String() != "LayerElementUV" {
+			continue
 		}
-
-		layerTangentElems := findChildren(element, "LayerElementTangents")
-		if len(layerTangentElems) > 0 {
-			tans := findChildren(layerTangentElems[0], "Tangents")
-			var tmp []floatgeom.Point3
-			var tmpIndices []int
-			var mapping VertexDataMapping
-			var err error
-			if len(tans) > 0 {
-				tmp, tmpIndices, mapping, err = parseVertexDataVec3(layerTangentElems[0], "Tangents", "TangentsIndex")
-			} else {
-				tmp, tmpIndices, mapping, err = parseVertexDataVec3(layerTangentElems[0], "Tangent", "TangentIndex")
-			}
+		uvIdx := 0
+		if len(elem.Properties) > 0 {
+			uvIdx = int(elem.Properties[0].value.toInt32())
+		}
+		if uvIdx >= 0 && uvIdx < MaxUvs {
+			tmp, tmpIndices, mapping, err := parseVertexDataVec2(elem, "UV", "UVIndex")
 			if err != nil {
 				return nil, err
 			}
 			if tmp != nil && len(tmp) > 0 {
-				geom.Tangents = splatVec3(mapping, tmp, tmpIndices, origIndices)
-				remapVec3(&geom.Tangents, toOldIndices)
+				//uvs = [4]floatgeom.Point2{} //resize(tmpIndices.empty() ? tmp.size() : tmpIndices.size());
+				geom.UVs[uvIdx] = splatVec2(mapping, tmp, tmpIndices, origIndices)
+				remapVec2(&geom.UVs[uvIdx], toOldIndices)
 			}
 		}
 
-		layerColorElems := findChildren(element, "LayerElementColor")
-		if len(layerColorElems) > 0 {
-			tmp, tmpIndices, mapping, err := parseVertexDataVec4(layerColorElems[0], "Colors", "ColorIndex")
-			if err != nil {
-				return nil, err
-			}
-			if len(tmp) > 0 {
-				geom.Colors = splatVec4(mapping, tmp, tmpIndices, origIndices)
-				remapVec4(&geom.Colors, toOldIndices)
-			}
-		}
+	}
 
-		layerNormalElems := findChildren(element, "LayerElementNormal")
-		if len(layerNormalElems) > 0 {
-			tmp, tmpIndices, mapping, err := parseVertexDataVec3(layerNormalElems[0], "Normals", "NormalsIndex")
-			if err != nil {
-				return nil, err
-			}
-			if len(tmp) > 0 {
-				geom.Normals = splatVec3(mapping, tmp, tmpIndices, origIndices)
-				remapVec3(&geom.Normals, toOldIndices)
-			}
+	layerTangentElems := findChildren(element, "LayerElementTangents")
+	if len(layerTangentElems) > 0 {
+		tans := findChildren(layerTangentElems[0], "Tangents")
+		var tmp []floatgeom.Point3
+		var tmpIndices []int
+		var mapping VertexDataMapping
+		var err error
+		if len(tans) > 0 {
+			tmp, tmpIndices, mapping, err = parseVertexDataVec3(layerTangentElems[0], "Tangents", "TangentsIndex")
+		} else {
+			tmp, tmpIndices, mapping, err = parseVertexDataVec3(layerTangentElems[0], "Tangent", "TangentIndex")
+		}
+		if err != nil {
+			return nil, err
+		}
+		if tmp != nil && len(tmp) > 0 {
+			geom.Tangents = splatVec3(mapping, tmp, tmpIndices, origIndices)
+			remapVec3(&geom.Tangents, toOldIndices)
+		}
+	}
+
+	layerColorElems := findChildren(element, "LayerElementColor")
+	if len(layerColorElems) > 0 {
+		tmp, tmpIndices, mapping, err := parseVertexDataVec4(layerColorElems[0], "Colors", "ColorIndex")
+		if err != nil {
+			return nil, err
+		}
+		if len(tmp) > 0 {
+			geom.Colors = splatVec4(mapping, tmp, tmpIndices, origIndices)
+			remapVec4(&geom.Colors, toOldIndices)
+		}
+	}
+
+	layerNormalElems := findChildren(element, "LayerElementNormal")
+	if len(layerNormalElems) > 0 {
+		tmp, tmpIndices, mapping, err := parseVertexDataVec3(layerNormalElems[0], "Normals", "NormalsIndex")
+		if err != nil {
+			return nil, err
+		}
+		if len(tmp) > 0 {
+			geom.Normals = splatVec3(mapping, tmp, tmpIndices, origIndices)
+			remapVec3(&geom.Normals, toOldIndices)
 		}
 	}
 
