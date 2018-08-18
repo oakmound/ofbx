@@ -134,6 +134,7 @@ func (g *Geometry) stringPrefix(prefix string) string {
 	}
 
 	s += prefix + "UVs:"
+	s += "\n"
 	for _, v := range g.UVs {
 		if len(v) == 0 {
 			continue
@@ -150,8 +151,8 @@ func (g *Geometry) stringPrefix(prefix string) string {
 		}
 		s += "\n"
 	}
-	s += prefix + "Skin:\n"
-	s += g.Skin.stringPrefix(prefix + "\t")
+	s += g.Skin.stringPrefix(prefix)
+	s += "\n"
 	return s
 }
 

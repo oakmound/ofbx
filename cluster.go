@@ -34,8 +34,8 @@ func (c *Cluster) String() string {
 // stringPrefix pretty formats the Cluster while respecting the given prefix indentation
 func (c *Cluster) stringPrefix(prefix string) string {
 	s := prefix + "Cluster:" + "\n"
-	s += c.Object.stringPrefix(prefix+"\t") + "," + "\n"
-	s += prefix + "link:" + c.Link.stringPrefix(prefix+"\t") + "," + "\n"
+	s += c.Object.stringPrefix(prefix + "\t")
+	s += prefix + "link:" + "\n" + c.Link.stringPrefix(prefix+"\t")
 	s += prefix + "indices:" + fmt.Sprintf("%v", c.Indices) + "," + "\n"
 	s += prefix + "weights:" + fmt.Sprintf("%v", c.Weights) + "," + "\n"
 	s += prefix + "transform_matrix:" + fmt.Sprintf("%v", c.Transform) + "," + "\n"

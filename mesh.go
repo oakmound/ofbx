@@ -26,11 +26,22 @@ func NewMesh(scene *Scene, element *Element) *Mesh {
 func (m *Mesh) Animations() []*AnimationStack {
 	anims := m.scene.AnimationStacks
 	out := []*AnimationStack{}
+
+	animatableIds := map[uint64]bool{}
+	animatableIds[m.ID()] = true
+
+	for _, cluster := range m.Geometry.Skin.Clusters {
+
+		animatableIds[cluster.Link.ID()] = true
+
+	}
+
 ANIMLOOP:
 	for _, a := range anims {
 		for _, l := range a.Layers {
+			fmt.Println("in Layer ", l.id)
 			for _, c := range l.CurveNodes {
-				if c.Bone.ID() == m.ID() {
+				if _, ok := animatableIds[c.Bone.ID()]; ok {
 					out = append(out, a)
 					continue ANIMLOOP
 				}

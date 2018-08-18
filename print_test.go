@@ -8,7 +8,7 @@ import (
 )
 
 func TestPrintScene(t *testing.T) {
-	f, err := os.Open("cuberotateblend.FBX")
+	f, err := os.Open("flex.FBX")
 	if err != nil {
 		log.Fatal(err)
 	}

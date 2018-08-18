@@ -1,7 +1,6 @@
 package ofbx
 
 import (
-	"fmt"
 	"io"
 
 	"github.com/oakmound/oak/alg/floatgeom"
@@ -82,8 +81,8 @@ func (o *Object) stringPrefix(prefix string) string {
 		s += o.element.stringPrefix(prefix)
 	}
 	if o.nodeAttribute != nil {
-		if strn, ok := o.nodeAttribute.(fmt.Stringer); ok {
-			s += ", node=" + strn.String()
+		if strn, ok := o.nodeAttribute.(stringPrefixer); ok {
+			s += prefix + "node=\n" + strn.stringPrefix("\t"+prefix)
 		}
 	}
 	// if o.is_node {

@@ -23,7 +23,8 @@ func (s *Skin) String() string {
 }
 
 func (s *Skin) stringPrefix(prefix string) string {
-	str := prefix + "Skin: \n" + s.Object.stringPrefix(prefix+"\t")
+	str := prefix + "Skin: \n"
+	//  + s.Object.stringPrefix(prefix+"\t")
 	for _, cluster := range s.Clusters {
 		str += cluster.stringPrefix(prefix+"\t") + "\n"
 	}

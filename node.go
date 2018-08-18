@@ -21,5 +21,8 @@ func (n *Node) Type() Type {
 }
 
 func (n *Node) String() string {
-	return n.typ.String() + ":" + n.Object.String()
+	return n.stringPrefix("")
+}
+func (n *Node) stringPrefix(prefix string) string {
+	return prefix + n.typ.String() + ":\n" + n.Object.stringPrefix("\t"+prefix)
 }
