@@ -11,17 +11,12 @@ import (
 
 // Header is a magic set of ints
 type Header struct {
-	Magic    [21]uint8
 	Reserved [2]uint8
 	Version  uint32
 }
 
 func (h Header) String() string {
 	b := []byte{}
-	for _, n := range h.Magic {
-		b = append(b, byte(n))
-	}
-	b = append(b, ' ')
 	for _, n := range h.Reserved {
 		b = append(b, byte(n))
 	}
@@ -230,11 +225,17 @@ func tokenize(r io.Reader) (*Element, error) {
 	cursor := &Cursor{r2, countReader}
 	//fmt.Println("initial stats: ", r2.Buffered(), cursor.ReadSoFar())
 
+	ok := isBinary(cursor)
+	if !ok {
+		return nil, errors.New("Non-binary FBX")
+	}
+
 	var header Header
 	err := binary.Read(cursor, binary.LittleEndian, &header)
 	if err != nil {
 		return nil, err
 	}
+	//fmt.Println(header)
 
 	//fmt.Println("Header:", header)
 

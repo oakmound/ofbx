@@ -85,12 +85,9 @@ func Load(r io.Reader) (*Scene, error) {
 	s := &Scene{}
 	s.ObjectMap = make(map[uint64]Obj)
 	root, err := tokenize(r)
+	// Todo: reimplement text
 	if err != nil {
-		//TODO: reimplement
-		root, err = tokenizeText(r)
-		if err != nil {
-			return nil, err
-		}
+		return nil, err
 	}
 
 	s.RootElement = root
