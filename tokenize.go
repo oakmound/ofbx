@@ -25,7 +25,7 @@ func (h Header) String() string {
 	return s
 }
 
-// Cursor is a rapper for a reader
+// Cursor is a wrapper for a reader
 type Cursor struct {
 	*bufio.Reader
 	cr *CountReader

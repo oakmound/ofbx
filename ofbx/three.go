@@ -1,5 +1,15 @@
 package threefbx
 
+type Node struct {
+	ID int64
+	attrName string
+	attrType string
+	name string
+
+	singleProperty bool
+	propertyList []Property
+}
+
 type Loader struct{
 	fbxTree ???
 	connections ParsedConnections
@@ -20,7 +30,7 @@ func (l *Loader) Load(r io.Reader, textureDir string) (*Scene, error) {
 	if err != nil {
 		return err
 	}
-	if l.fbxTree.Objects.LayeredTexture != nil {
+	if l.fbxTree.Objects.LayeredTexture != nil { 
 		fmt.Println("layered textures are not supported. Discarding all but first layer.")
 	}
 	return l.parseTree(textureDir)
