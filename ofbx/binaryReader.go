@@ -47,8 +47,7 @@ func (c *Cursor) readBytes(length int) []byte {
 }
 
 type BinaryReader struct {
-	r      CountReader
-	Offset int
+	r      Cursor
 	order  binary.ByteOrder
 }
 
@@ -74,40 +73,40 @@ func (br *BinaryReader) getBooleanArray(size int) []bool {
 	}
 	return bs
 }
-func (br *BinaryReader) getUint8() {
+func (br *BinaryReader) getUint8() uint8 {
 	return br.ReadByte()
 }
-func (br *BinaryReader) getInt16() {
+func (br *BinaryReader) getInt16() int16 {
 	var i int16
 	binary.Read(br, br.order, &i)
 	return i
 }
-func (br *BinaryReader) getInt32() {
+func (br *BinaryReader) getInt32() int32 {
 	var i int32
 	binary.Read(br, br.order, &i)
 	return i
 }
-func (br *BinaryReader) getUint32() {
+func (br *BinaryReader) getUint32() uint32 {
 	var i uint32
 	binary.Read(br, br.order, &i)
 	return i
 }
-func (br *BinaryReader) getInt64() {
+func (br *BinaryReader) getInt64() int64 {
 	var i int64
 	binary.Read(br, br.order, &i)
 	return i
 }
-func (br *BinaryReader) getUint64() {
+func (br *BinaryReader) getUint64() uint64 {
 	var i uint64
 	binary.Read(br, br.order, &i)
 	return i
 }
-func (br *BinaryReader) getFloat32() {
+func (br *BinaryReader) getFloat32() float32 {
 	var i float32
 	binary.Read(br, br.order, &i)
 	return i
 }
-func (br *BinaryReader) getFloat64() {
+func (br *BinaryReader) getFloat64() float64 {
 	var i float64
 	binary.Read(br, br.order, &i)
 	return i
@@ -121,7 +120,7 @@ func (br *BinaryReader) getInt32Array(size int) []int32 {
 	return is
 }
 
-func (br *BinaryReader) getInt64Array(size int) {
+func (br *BinaryReader) getInt64Array(size int) []int64 {
 	is := make([]int64, size)
 	for i := 0; i < size; i++ {
 		is[i] = this.getInt64()
@@ -129,7 +128,7 @@ func (br *BinaryReader) getInt64Array(size int) {
 	return is
 }
 
-func (br *BinaryReader) getFloat32Array(size int) {
+func (br *BinaryReader) getFloat32Array(size int) []float32 {
 	is := make([]float32, size)
 	for i := 0; i < size; i++ {
 		is[i] = this.getFloat32()
@@ -137,20 +136,20 @@ func (br *BinaryReader) getFloat32Array(size int) {
 	return is
 }
 
-func (br *BinaryReader) getFloat64Array(size int) {
+func (br *BinaryReader) getFloat64Array(size int) []float64 {
 	is := make([]float64, size)
 	for i := 0; i < size; i++ {
 		is[i] = this.getFloat64()
 	}
 	return is
 }
-func (br *BinaryReader) getArrayBuffer(size int) {
+func (br *BinaryReader) getArrayBuffer(size int) []byte {
 	bs := make([]byte, size)
 	io.ReadFull(r, bs)
 	return bs
 }
 
-func (br *BinaryReader) getString(size int) {
+func (br *BinaryReader) getString(size int) string {
 	byt := make([]byte, int(length))
 	_, err = io.ReadFull(c, byt)
 	if err != nil {
