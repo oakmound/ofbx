@@ -1,4 +1,4 @@
-package ofbx
+package threefbx
 
 // parse animation data from FBXTree
 function AnimationParser() {}

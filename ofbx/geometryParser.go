@@ -1,4 +1,4 @@
-package ofbx
+package threefbx
 
 // parse Geometry data from FBXTree and return map of BufferGeometries
 // Parse nodes in FBXTree.Objects.Geometry
