@@ -1,14 +1,5 @@
 package threefbx
 
-type Node struct {
-	ID int64
-	attrName string
-	attrType string
-	name string
-
-	singleProperty bool
-	propertyList []Property
-}
 
 type Loader struct{
 	fbxTree ???
