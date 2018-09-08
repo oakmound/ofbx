@@ -9,6 +9,7 @@ type Node struct {
 
 	singleProperty bool
 
+	a        Property
 	props    map[string]Property
 	poseNode []Property
 }
