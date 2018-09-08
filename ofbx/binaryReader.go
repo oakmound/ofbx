@@ -47,8 +47,8 @@ func (c *Cursor) readBytes(length int) []byte {
 }
 
 type BinaryReader struct {
-	r      Cursor
-	order  binary.ByteOrder
+	r     Cursor
+	order binary.ByteOrder
 }
 
 func NewBinaryReader(r io.Reader, littleEndian bool) *BinaryReader {

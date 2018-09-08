@@ -176,35 +176,6 @@ func (l *Loader) parseBinarySubNode(name string, node, subNode Node) {
 	}
 }
 
-type Property interface {
-	IsArray() bool
-	Payload() interface{}
-}
-
-type SimpleProperty struct {
-	payload interface{}
-}
-
-func (sp *SimpleProperty) Payload() interface{} {
-	return sp.payload
-}
-
-func (sp *SimpleProperty) IsArray() bool {
-	return false
-}
-
-type ArrayProperty struct {
-	payload interface{}
-}
-
-func (ap *ArrayProperty) IsArray() bool {
-	return true
-}
-
-func (ap *ArrayProperty) Payload() interface{} {
-	return ap.payload
-}
-
 func (l *Loader) parseBinaryProperty(r *BinaryReader) interface{} {
 	ty := r.getString(1)
 	switch ty {
