@@ -5,6 +5,15 @@ import (
 )
 
 
+
+
+//enforce id is always int
+
+ 
+
+
+
+
 //TODO: currently working with NODE as a fbx tree node we should see if that can be merged with our object type from the previous parser
 // using newTreeNode(string)
 
@@ -22,8 +31,11 @@ func NewTextParser() TextParser{
 	
 	tp := TextParser{nodeStack:[]Node{},currentProp}
     
-    
+    firstQuote := regexp.MustCompile("^\"")
     encapsulatingQuotes := regexp.MustCompile("^\"|\"$")
+    quotes := regexp.MustCompile("\"")
+    lastComma := regexp.MustCompile(",$")
+    
 
 }
 
@@ -48,7 +60,7 @@ func (tp *TextParser) parse(text String){
 			tp.parseNodeProperty(line, val, split[lineNum+1])
 		}else if val, ok := regexp.MustCompile("^\\t{" + strconv.Atoi( self.currentIndent - 1 ) + "}}").FindAllString(line, -1); ok {
 			tp.popStack()
-		}else if regexp.MatchString("^[^\s\t}]"){
+		}else if regexp.MatchString("^[^\\s\\t}]"){
             tp.parseNodePropertyContinued(line)
         }
 	} 
@@ -82,7 +94,7 @@ func (tp *TextParser) parseNodeAttr(attrs []string) nodeAttr{
 func (tp *TextParser) parseNodeBegin(line string, property []string){
     nodeName := unwrapProperty(property[1])
     nodeAttrs :=  strings.Split(property[2], ",")
-     for i:=0; i < len(nodeAttrs); i++ ){
+    for i:=0; i < len(nodeAttrs); i++ {
        nodeAttrs[i] = unwrapProperty(nodeAttrs[i])
      }
 
@@ -91,13 +103,39 @@ func (tp *TextParser) parseNodeBegin(line string, property []string){
      attrs := tp.parseNodeAttr(nodeAttrs)
      currentNode := tp.getCurrentNode()
      if(tp.currentIndent==0){
-         tp.allNodes.add(nodeName,node)
-     }else{
-         if(currentNode.Nodes)
-     }
-
------------------------------------
-
+         tp.allNodes.add(nodeName,node) //this adds to the overall nodes that dont exist yet
+     }else {
+          //This is a subnode
+          eProp, ok = currentNode.props[nodeName];
+          if  ok {
+            if nodeName =="PoseNode"{
+                currentNode.PoseNodes = append(currentNode.poseNodes, node)
+            }else if currentNode.props[nodeName].id {
+                currentNode.props[nodeName]
+            }
+          }
+            // if the subnode already exists, append it
+            // if ( nodeName in currentNode ) {
+            // // special case Pose needs PoseNodes as an array
+            //     if ( nodeName === 'PoseNode' ) {
+            //         currentNode.PoseNode.push( node );
+            //     } else if ( currentNode[ nodeName ].id !== undefined ) {
+            //         currentNode[ nodeName ] = {};
+            //         currentNode[ nodeName ][ currentNode[ nodeName ].id ] = currentNode[ nodeName ];
+            //     }
+            //     if ( attrs.id !== '' ) currentNode[ nodeName ][ attrs.id ] = node;
+            // } else if ( typeof attrs.id === 'number' ) {
+            //     currentNode[ nodeName ] = {};
+            //     currentNode[ nodeName ][ attrs.id ] = node;
+            // } else if ( nodeName !== 'Properties70' ) {
+            //     if ( nodeName === 'PoseNode' )	currentNode[ nodeName ] = [ node ];
+            //     else currentNode[ nodeName ] = node;
+            // }
+        }
+        // if ( typeof attrs.id === 'number' ) node.id = attrs.id;
+        // if ( attrs.name !== '' ) node.attrName = attrs.name;
+        // if ( attrs.type !== '' ) node.attrType = attrs.type;
+        // this.pushStack( node );
 
 }
 
@@ -107,10 +145,58 @@ func (tp *TextParser) parseNodeProperty(line string ,property string,contentLine
    propValue := unwrapProperty(property[2])
         // for special case: base64 image data follows "Content: ," line
         //	Content: ,
-        //	 "/9j/4RDaRXhpZgAATU0A..."
-        if ( propName === 'Content' && propValue === ',' ) {
-            propValue = contentLine.replace( /"/g, '' ).replace( /,$/, '' ).trim();
+        //	 "/9j/4RDaRXhpZgAA  TU0A..."
+        if  propName == "Content" && propValue == "," {                                                                                                                                                                                                                                                                                           nt' && propValue === ',' ) {    
+            propValue = strings.Trim(lastComma.ReplaceAllString( quotes.ReplaceAllString(contentLine,"").ReplaceAllString(), ""))
         }
+        var currentNode = tp.getCurrentNode();
+        var parentName = tp.currentNode.name;
+        if  parentName == "Properties70"  {
+            tp.parseNodeSpecialProperty( line, propName, propValue )
+        return;                                                                                                                                                                                                                                                                 awwwwwwwwwwwwwwwwwww
+        }
+        
+         // Connections
+         if  propName == 'C'  {
+            var connProps = strings.split(propValue,",")[1:]
+            var from =   Atoi(connProps[0])
+            var to =  Atoi(connProps[1])
+
+            var rest = strings.split(propValue, ',' )[3:]
+            for(int i := 0; i < len(rest) ; i++){
+                rest[i] = strings.Trim(firstQuote.ReplaceAllString(rest[i], ""))
+            }
+            propName = 'connections'
+            propValue = [ from, to ]
+
+            propValue = append( propValue, rest );
+            if ( currentNode[ propName ] === undefined ) {
+                currentNode[ propName ] = []
+            }   
+        }
+        
+        // Node
+        if  propName === 'Node' {
+            currentNode.id = propValue
+        }
+        // connections
+        if  propName in currentNode && Array.isArray( currentNode[ propName ] )  {
+            currentNode[ propName ].push( propValue );
+        } else {
+            if ( propName !== 'a' ) currentNode[ propName ] = propValue;
+            else currentNode.a = propValue;
+        }
+        this.setCurrentProp( currentNode, propName );
+        // convert string to array, unless it ends in ',' in which case more will be added to it
+        if ( propName === 'a' && propValue.slice( - 1 ) !== ',' ) {
+            currentNode.a = parseNumberArray( propValue );
+        }
+        
+
+
+
+
+
 }
 
 

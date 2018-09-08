@@ -2,10 +2,15 @@ package threefbx
 
 // Node is a typed object
 type Node struct {
-	id    int64
-	name  string
-	typ   Type
-	props map[string]Property
+	ID       int64
+	attrName string
+	attrType string
+	name     string
+
+	singleProperty bool
+
+	props    map[string]Property
+	poseNode []Property
 }
 
 // NewNode creates a new node
@@ -16,11 +21,6 @@ func NewNode(name string, t, typ Type) *Node {
 	n.typ = typ
 
 	return n
-}
-
-// Type returns a nodes type
-func (n *Node) Type() Type {
-	return n.typ
 }
 
 func (n *Node) String() string {
