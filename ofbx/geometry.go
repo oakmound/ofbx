@@ -1,4 +1,4 @@
-package ofbx
+package threefbx
 
 
 var tempMat = new THREE.Matrix4();

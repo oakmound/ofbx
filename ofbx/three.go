@@ -1,8 +1,7 @@
 package threefbx
 
-
 type Loader struct{
-	fbxTree ???
+	tree Tree
 	connections ParsedConnections
 	sceneGraph ???
 }
@@ -14,14 +13,14 @@ func NewLoader() *Loader {
 func (l *Loader) Load(r io.Reader, textureDir string) (*Scene, error) {
 	var err error
 	if isBinary(r) {
-		l.fbxTree, err = l.parseBinary(r)
+		l.tree, err = l.parseBinary(r)
 	} else {
-		l.fbxTree, err = l.parseASCII(r)
+		l.tree, err = l.parseASCII(r)
 	}
 	if err != nil {
 		return err
 	}
-	if l.fbxTree.Objects.LayeredTexture != nil { 
+	if l.tree.Objects.LayeredTexture != nil { 
 		fmt.Println("layered textures are not supported. Discarding all but first layer.")
 	}
 	return l.parseTree(textureDir)
@@ -41,12 +40,12 @@ func (l *Loader) parseTree(textureDir string) (*Scene, error) {
 	if err != nil {
 		return nil, err
 	}
-	deformers, err := l.parseDeformers()
+	skeletons, morphTargets, err := l.parseDeformers()
 	if err != nil {
 		return nil, err
 	}
-	geometry, err := l.parseGeometry(deformers)
-	return l.parseScene(deformers, geometry, materials)
+	geometry, err := l.parseGeometry(skeletons, morphTargets)
+	return l.parseScene(skeletons, morphTargets, geometry, materials)
 }
 
 type ParsedConnections map[int64]ConnectionSet
@@ -67,7 +66,7 @@ type Connection struct {
 
 func (l *Loader) parseConnections() ParsedConnections {
 	cns := NewParsedConnections()
-	for _, cn := range l.fbxTree.connections {
+	for _, cn := range l.tree.connections {
 		cns[cn.From].parents = append(cns[cn.From].parents, cn)
 		cns[cn.To].children = append(cns[cn.To].children, cn)
 	}
@@ -85,10 +84,10 @@ func (l *Loader) parseImages() (map[int64]io.Reader, error) {
 	inBlobs := make(map[string]io.Reader)
 	outBlobs := make(map[int64]io.Reader)
 	var err error
-	for id, v := range l.fbxTree.Videos {
+	for id, v := range l.tree.Videos {
 		fnms[id] = v.Filename
 		if v.Content != nil {
-			inBlobs[v.Filename], err = l.parseImage(l.fbxTree.Videos[nodeID])
+			inBlobs[v.Filename], err = l.parseImage(l.tree.Videos[nodeID])
 			if err != nil {
 				return nil, err
 			}
@@ -109,7 +108,7 @@ func (l *Loader) parseImage(vn VideoNode) (io.Reader, error) {
 
 func (l *Loader) parseTextures() (map[int64]Texture, error) {
 	txm := make(map[int64]Texture)
-	for id, txn := range l.fbxTree.Objects.Texture {
+	for id, txn := range l.tree.Objects.Texture {
 		t, err := l.parseTexture(txn, images)
 		if err != nil {
 			return nil, err
@@ -149,7 +148,7 @@ func (l *Loader) parseTexture(tx TextureNode, images map[int64]io.Reader) (Textu
 
 func (l *Loader) parseMaterials(txs map[int64]Texture) map[int64]Material {
 	mm := make(map[int64]Material)
-	for id, mn := range l.fbxTree.Objects.Material {
+	for id, mn := range l.tree.Objects.Material {
 		mat := l.parseMaterial(mn, txs)
 		if mat != nil {
 			mm[id] = mat
@@ -307,6 +306,11 @@ func (l *Loader) parseParameters(mn MaterialNode, txs map[int64]Texture, id int6
 
 type Skeleton struct {
 	ID int64
+	// Todo: instead of rawBones and Bones,
+	// if rawBones isn't used after it is 'refined'
+	// into bones, have a 'processed' bool? 
+	rawBones []Bone
+	bones []Bone
 }
 type MorphTarget struct {
 	ID int64
@@ -315,7 +319,7 @@ type MorphTarget struct {
 func (l *Loader) parseDeformers() (map[int64]Skeleton, map[int64]MorphTarget) {
 	skeletons := make(map[int64]Skeleton)
 	morphTargets := make(map[int64]MorphTarget)
-	for id, dn := range l.fbxTree.Objects.Deformer {
+	for id, dn := range l.tree.Objects.Deformer {
 		relationships := l.connections[id]
 		if dn.attrType == "Skin" {
 			skel := l.parseSkeleton(relationships, dn)
@@ -328,7 +332,7 @@ func (l *Loader) parseDeformers() (map[int64]Skeleton, map[int64]MorphTarget) {
 		} else if dn.attrType == "BlendShape" {
 			mt := MorphTarget{}
 			mt.ID = id
-			mt.rawTargets = l.parseMorphTargets(relationships, l.fbxTree.Objects.Deformer)
+			mt.rawTargets = l.parseMorphTargets(relationships, l.tree.Objects.Deformer)
 			if len(relationships.parents) > 1 {
 				fmt.Println("morph target attached to more than one geometry is not supported.")
 			}
@@ -338,63 +342,89 @@ func (l *Loader) parseDeformers() (map[int64]Skeleton, map[int64]MorphTarget) {
 	return skeletons, morphTargets
 }
 
-// Parse single nodes in FBXTree.Objects.Deformer
+type Bone struct {
+	ID int64
+	Indices []int
+	Weights []float64
+	Transform Matrix
+	TransformLink Matrix
+	LinkMode
+}
+
+// Parse single nodes in tree.Objects.Deformer
 // The top level skeleton node has type 'Skin' and sub nodes have type 'Cluster'
 // Each skin node represents a skeleton and each cluster node represents a bone
-parseSkeleton: function ( relationships, deformerNodes ) {
-	var rawBones = [];
-	relationships.children.forEach( function ( child ) {
-		var boneNode = deformerNodes[ child.ID ];
-		if ( boneNode.attrType !== 'Cluster' ) return;
-		var rawBone = {
+func (l *Loader) parseSkeleton(relationships ConnectionSet, deformerNodes map[int64]Node) Skeleton {
+	rawBones := make([]Bone)
+	for _, child := range relationships.children {
+		boneNode := deformerNodes[child.ID]
+		if boneNode.attrType != "Cluster" {
+			return
+		}
+		rawBone := Bone{
 			ID: child.ID,
-			indices: [],
-			weights: [],
-			transform: new THREE.Matrix4().fromArray( boneNode.Transform.a ),
-			transformLink: new THREE.Matrix4().fromArray( boneNode.TransformLink.a ),
-			linkMode: boneNode.Mode,
-		};
-		if ( 'Indexes' in boneNode ) {
-			rawBone.indices = boneNode.Indexes.a;
-			rawBone.weights = boneNode.Weights.a;
+			Indices: []int{},
+			Weights: []float64{},
+			// Todo: matrices
+			Transform: new THREE.Matrix4().fromArray( boneNode.Transform.a ),
+			TransformLink: new THREE.Matrix4().fromArray( boneNode.TransformLink.a ),
+			LinkMode: boneNode.Mode,
 		}
-		rawBones.push( rawBone );
-	} );
-	return {
-		rawBones: rawBones,
-		bones: []
-	};
-},
-// The top level morph deformer node has type "BlendShape" and sub nodes have type "BlendShapeChannel"
-parseMorphTargets: function ( relationships, deformerNodes ) {
-	var rawMorphTargets = [];
-	for ( var i = 0; i < relationships.children.length; i ++ ) {
-		if ( i === 8 ) {
-			console.warn( 'FBXLoader: maximum of 8 morph targets supported. Ignoring additional targets.' );
-			break;
+		// Todo types, what has 'a' as a field?
+		if idxs, ok := boneNode.props["Indexes"]; ok {
+			rawBone.Indices = idxs.Payload().([]int)
+			rawBone.Weights = boneNode.props["Weights"].Payload().([]float64)
 		}
-		var child = relationships.children[ i ];
-		var morphTargetNode = deformerNodes[ child.ID ];
-		var rawMorphTarget = {
-			name: morphTargetNode.attrName,
-			initialWeight: morphTargetNode.DeformPercent,
-			id: morphTargetNode.id,
-			fullWeights: morphTargetNode.FullWeights.a
-		};
-		if ( morphTargetNode.attrType !== 'BlendShapeChannel' ) return;
-		var targetRelationships = connections.get( parseInt( child.ID ) );
-		targetRelationships.children.forEach( function ( child ) {
-			if ( child.relationship === undefined ) rawMorphTarget.geoID = child.ID;
-		} );
-		rawMorphTargets.push( rawMorphTarget );
+		rawBones = append(rawBones, rawBone)
 	}
-	return rawMorphTargets;
-},
+	return Skeleton{
+		rawBones: rawBones,
+		bones: []Bone{},
+	}
+}
+
+type MorphTarget struct {
+	ID int64
+	Name string
+	InitialWeight float64
+	FullWeights []float64
+}
+
+// The top level morph deformer node has type "BlendShape" and sub nodes have type "BlendShapeChannel"
+func (l *Loader) parseMorphTargets(relationships ConnectionSet, deformerNodes map[int64]Node) []MorphTarget {
+	rawMorphTargets := make([]MorphTarget, 0)
+	for i := 0; i < relationships.children.length; i++ {
+		if ( i === 8 ) {
+			fmt.Println("FBXLoader: maximum of 8 morph targets supported. Ignoring additional targets.")
+			break
+		}
+		child := relationships.children[i]
+		morphTargetNode := deformerNodes[child.ID]
+		if morphTargetNode.attrType !== "BlendShapeChannel" { 
+			return
+		}
+		target := MorphTarget{
+			name: morphTargetNode.attrName,
+			initialWeight: morphTargetNode.props["DeformPercent"],
+			id: morphTargetNode.ID,
+			fullWeights: morphTargetNode.FullWeights.Payload().([]float64),
+		}
+		for _, child := range connections.get(child.ID).children {
+			if child.relationship == "" {
+				rawMorphTarget.geoID = child.ID
+			}
+		}
+		rawMorphTargets = append(rawMorphTargets, target)
+	}
+	return rawMorphTargets
+}
+
 // create the main THREE.Group() to be returned by the loader
+func (l *Loader) parseScene() {
 parseScene: function ( deformers, geometryMap, materialMap ) {
 	sceneGraph = new THREE.Group();
 	var modelMap = this.parseModels( deformers.skeletons, geometryMap, materialMap );
-	var modelNodes = fbxTree.Objects.Model;
+	var modelNodes = tree.Objects.Model;
 	var self = this;
 	modelMap.forEach( function ( model ) {
 		var modelNode = modelNodes[ model.ID ];
@@ -422,7 +452,7 @@ parseScene: function ( deformers, geometryMap, materialMap ) {
 // parse nodes in FBXTree.Objects.Model
 parseModels: function ( skeletons, geometryMap, materialMap ) {
 	var modelMap = new Map();
-	var modelNodes = fbxTree.Objects.Model;
+	var modelNodes = tree.Objects.Model;
 	for ( var nodeID in modelNodes ) {
 		var id = parseInt( nodeID );
 		var node = modelNodes[ nodeID ];
@@ -486,7 +516,7 @@ createCamera: function ( relationships ) {
 	var model;
 	var cameraAttribute;
 	relationships.children.forEach( function ( child ) {
-		var attr = fbxTree.Objects.NodeAttribute[ child.ID ];
+		var attr = tree.Objects.NodeAttribute[ child.ID ];
 		if ( attr !== undefined ) {
 			cameraAttribute = attr;
 		}
@@ -539,7 +569,7 @@ createLight: function ( relationships ) {
 	var model;
 	var lightAttribute;
 	relationships.children.forEach( function ( child ) {
-		var attr = fbxTree.Objects.NodeAttribute[ child.ID ];
+		var attr = tree.Objects.NodeAttribute[ child.ID ];
 		if ( attr !== undefined ) {
 			lightAttribute = attr;
 		}
@@ -670,7 +700,7 @@ setLookAtProperties: function ( model, modelNode ) {
 		var children = connections.get( model.ID ).children;
 		children.forEach( function ( child ) {
 			if ( child.relationship === 'LookAtProperty' ) {
-				var lookAtTarget = fbxTree.Objects.Model[ child.ID ];
+				var lookAtTarget = tree.Objects.Model[ child.ID ];
 				if ( 'Lcl_Translation' in lookAtTarget ) {
 					var pos = lookAtTarget.Lcl_Translation.value;
 					// DirectionalLight, SpotLight
@@ -706,8 +736,8 @@ bindSkeleton: function ( skeletons, geometryMap, modelMap ) {
 },
 parsePoseNodes: function () {
 	var bindMatrices = {};
-	if ( 'Pose' in fbxTree.Objects ) {
-		var BindPoseNode = fbxTree.Objects.Pose;
+	if ( 'Pose' in tree.Objects ) {
+		var BindPoseNode = tree.Objects.Pose;
 		for ( var nodeID in BindPoseNode ) {
 			if ( BindPoseNode[ nodeID ].attrType === 'BindPose' ) {
 				var poseNodes = BindPoseNode[ nodeID ].PoseNode;
@@ -723,10 +753,10 @@ parsePoseNodes: function () {
 	}
 	return bindMatrices;
 },
-// Parse ambient color in FBXTree.GlobalSettings - if it's not set to black (default), create an ambient light
+// Parse ambient color in tree.GlobalSettings - if it's not set to black (default), create an ambient light
 createAmbientLight: function () {
-	if ( 'GlobalSettings' in fbxTree && 'AmbientColor' in fbxTree.GlobalSettings ) {
-		var ambientColor = fbxTree.GlobalSettings.AmbientColor.value;
+	if ( 'GlobalSettings' in tree && 'AmbientColor' in tree.GlobalSettings ) {
+		var ambientColor = tree.GlobalSettings.AmbientColor.value;
 		var r = ambientColor[ 0 ];
 		var g = ambientColor[ 1 ];
 		var b = ambientColor[ 2 ];
@@ -756,16 +786,12 @@ setupMorphMaterials: function () {
 	} );
 },
 };
+
 // FBXTree holds a representation of the FBX data, returned by the TextParser ( FBX ASCII format)
 // and BinaryParser( FBX Binary format)
-function FBXTree() {}
-FBXTree.prototype = {
-constructor: FBXTree,
-add: function ( key, val ) {
-	this[ key ] = val;
-},
-};
+type Tree struct {
 
+}
 
 func isBinary(r io.Reader) bool {
 	magic := append([]byte("Kaydara FBX Binary  "), 0)
@@ -780,16 +806,28 @@ func isBinary(r io.Reader) bool {
 	return bytes.Equal(magic, header)
 }
 
-function getFbxVersion( text ) {
-	var versionRegExp = /FBXVersion: (\d+)/;
-	var match = text.match( versionRegExp );
-	if ( match ) {
-		var version = parseInt( match[ 1 ] );
-		return version;
+var fbxVersionMatch *regexp.Regexp 
+
+func init() {
+	var err error
+	fbxVersionMatch, err = regexp.Compile("/FBXVersion: (\d+)/")
+	if err != nil {
+		fmt.Println("Unable to compile fbx version regex:", err)
 	}
-	throw new Error( 'THREE.FBXLoader: Cannot find the version number for the file given.' );
 }
-// Converts FBX ticks into real time seconds.
-function convertFBXTimeToSeconds( time ) {
-	return time / 46186158000;
+
+func getFBXVersion(text string) (int, error) {
+	matches := fbxVersionMatch.FindStringSubmatch(text)
+	if len(matches) > 0 {
+		i, err := strconv.Atoi(matches[1])
+		if err != nil {
+			return 0, err
+		}
+		return i, nil
+	}
+	return 0, errors.New("THREE.FBXLoader: Cannot find the version number for the file given.")
+}
+
+func fbxTimeToSeconds(value int64) float64 {
+	return float64(value) / float64(46186158000)
 }
