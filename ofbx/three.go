@@ -512,43 +512,52 @@ buildSkeleton: function ( relationships, skeletons, id, name ) {
 	return bone;
 },
 // create a THREE.PerspectiveCamera or THREE.OrthographicCamera
-createCamera: function ( relationships ) {
-	var model;
-	var cameraAttribute;
-	relationships.children.forEach( function ( child ) {
-		var attr = tree.Objects.NodeAttribute[ child.ID ];
-		if ( attr !== undefined ) {
-			cameraAttribute = attr;
+
+func createCamera(relationships ConnectionSet) Camera {
+	var model Camera 
+	var cameraAttribute map[string]interface{}
+	for i := len(relationships.children)-1; i > 0; i-- {
+		child := relationships.children[i]
+		attr := tree.Objects.NodeAttribute[child.ID]
+		if attr != nil {
+			cameraAttribute = attr.(map[string]interface{})
+			break
 		}
-	} );
-	if ( cameraAttribute === undefined ) {
+	}
+	if cameraAttribute == "" {
 		model = new THREE.Object3D();
 	} else {
-		var type = 0;
-		if ( cameraAttribute.CameraProjectionType !== undefined && cameraAttribute.CameraProjectionType.value === 1 ) {
-			type = 1;
+		typ := 0
+		v, ok := cameraAttribute["CameraProjectionType"] 
+		if ok && v.(int64) == 1 {
+			typ := 1
 		}
-		var nearClippingPlane = 1;
-		if ( cameraAttribute.NearPlane !== undefined ) {
-			nearClippingPlane = cameraAttribute.NearPlane.value / 1000;
+		nearClippingPlane := 1
+		if v, ok := cameraAttribute["NearPlane"]; ok {
+			nearClippingPlane = v / 1000
 		}
-		var farClippingPlane = 1000;
-		if ( cameraAttribute.FarPlane !== undefined ) {
-			farClippingPlane = cameraAttribute.FarPlane.value / 1000;
+		farClippingPlane := 1000
+		if v, ok := cameraAttribute["FarPlane"]; ok {
+			farClippingPlane = v / 1000
 		}
-		var width = window.innerWidth;
-		var height = window.innerHeight;
-		if ( cameraAttribute.AspectWidth !== undefined && cameraAttribute.AspectHeight !== undefined ) {
-			width = cameraAttribute.AspectWidth.value;
-			height = cameraAttribute.AspectHeight.value;
+		width := 240
+		height := 240
+		if v, ok := cameraAttribute["AspectWidth"]; ok {
+			width = v 
 		}
-		var aspect = width / height;
-		var fov = 45;
-		if ( cameraAttribute.FieldOfView !== undefined ) {
-			fov = cameraAttribute.FieldOfView.value;
+		if v, ok := cameraAttribute["AspectHeight"]; ok {
+			height = v
 		}
-		var focalLength = cameraAttribute.FocalLength ? cameraAttribute.FocalLength.value : null;
-		switch ( type ) {
+		aspect := width / height
+		fov := 45
+		if v, ok := cameraAttribute["FieldOfView"]; ok {
+			fov = v
+		}
+		focalLength := 0
+		if v, ok := cameraAttribute["FocalLength"]; ok {
+			focalLength = v
+		}
+		switch typ {
 			case 0: // Perspective
 				model = new THREE.PerspectiveCamera( fov, aspect, nearClippingPlane, farClippingPlane );
 				if ( focalLength !== null ) model.setFocalLength( focalLength );
@@ -557,13 +566,14 @@ createCamera: function ( relationships ) {
 				model = new THREE.OrthographicCamera( - width / 2, width / 2, height / 2, - height / 2, nearClippingPlane, farClippingPlane );
 				break;
 			default:
-				console.warn( 'THREE.FBXLoader: Unknown camera type ' + type + '.' );
+				fmt.Println("Unknown camera type", typ)
 				model = new THREE.Object3D();
 				break;
 		}
 	}
-	return model;
-},
+	return model
+}
+
 // Create a THREE.DirectionalLight, THREE.PointLight or THREE.SpotLight
 createLight: function ( relationships ) {
 	var model;
@@ -734,58 +744,61 @@ bindSkeleton: function ( skeletons, geometryMap, modelMap ) {
 		} );
 	}
 },
-parsePoseNodes: function () {
-	var bindMatrices = {};
-	if ( 'Pose' in tree.Objects ) {
-		var BindPoseNode = tree.Objects.Pose;
-		for ( var nodeID in BindPoseNode ) {
-			if ( BindPoseNode[ nodeID ].attrType === 'BindPose' ) {
-				var poseNodes = BindPoseNode[ nodeID ].PoseNode;
-				if ( Array.isArray( poseNodes ) ) {
-					poseNodes.forEach( function ( poseNode ) {
-						bindMatrices[ poseNode.Node ] = new THREE.Matrix4().fromArray( poseNode.Matrix.a );
-					} );
+
+func parsePoseNodes() {
+	var bindMatrices = map[Node]Matrix4{}
+	if BindPoseNode, ok := tree.Objects["Pose"] {
+		for nodeID, v := range BindPoseNode {
+			if v.attrType == "BindPose"  {
+				poseNodes := v.props["PoseNode"]
+				if poseNodes.IsArray() {
+					for _, n := range poseNodes {
+						bindMatrices[n.Node] = n.Payload().(Matrix4)
+					}
 				} else {
-					bindMatrices[ poseNodes.Node ] = new THREE.Matrix4().fromArray( poseNodes.Matrix.a );
+					bindMatrices[poseNodes.Node] = poseNodes.Payload().(Matrix4)
 				}
 			}
 		}
 	}
-	return bindMatrices;
+	return bindMatrices
 },
 // Parse ambient color in tree.GlobalSettings - if it's not set to black (default), create an ambient light
-createAmbientLight: function () {
-	if ( 'GlobalSettings' in tree && 'AmbientColor' in tree.GlobalSettings ) {
-		var ambientColor = tree.GlobalSettings.AmbientColor.value;
-		var r = ambientColor[ 0 ];
-		var g = ambientColor[ 1 ];
-		var b = ambientColor[ 2 ];
-		if ( r !== 0 || g !== 0 || b !== 0 ) {
-			var color = new THREE.Color( r, g, b );
-			sceneGraph.add( new THREE.AmbientLight( color, 1 ) );
+func createAmbientLight() {
+	_, ok := tree["GlobalSetttings"]
+	ambientColor, ok2 := tree["AmbientColor"].(color.RGBA)
+	if ok && ok2 {
+		if ambientColor.R != 0 || ambientColor.G != 0 || ambientColor.B != 0 {
+			sceneGraph.add(THREE.AmbientLight(ambientColor, 1))
 		}
 	}
 },
-setupMorphMaterials: function () {
-	sceneGraph.traverse( function ( child ) {
-		if ( child.isMesh ) {
-			if ( child.geometry.morphAttributes.position || child.geometry.morphAttributes.normal ) {
-				var uuid = child.uuid;
-				var matUuid = child.material.uuid;
+
+func (l *Loader) setupMorphMaterials() {
+	sceneGraph.traverse(func (c ???) {
+		if c.isMesh {
+			_, ok := c.geometry.morphAttributes["position"]
+			_, ok2 := c.geometry.morphAttributes["normal"]
+			if ok || ok2 {
 				// if a geometry has morph targets, it cannot share the material with other geometries
-				var sharedMat = false;
-				sceneGraph.traverse( function ( child ) {
-					if ( child.isMesh ) {
-						if ( child.material.uuid === matUuid && child.uuid !== uuid ) sharedMat = true;
+				sharedMat := false
+				sceneGraph.traverse( func ( c2 ???) {
+					if (c2.isMesh) {
+						if (c2.material.uuid === c.material.uuid && c2.uuid !== c.uuid ) {
+							sharedMat = true
+							return
+						}
 					}
-				} );
-				if ( sharedMat === true ) child.material = child.material.clone();
-				child.material.morphTargets = true;
+				}
+				if sharedMat {
+					 c.material = child.material.clone()
+				}
+				c.material.morphTargets = true
 			}
 		}
-	} );
-},
-};
+	}
+}
+
 
 // FBXTree holds a representation of the FBX data, returned by the TextParser ( FBX ASCII format)
 // and BinaryParser( FBX Binary format)
