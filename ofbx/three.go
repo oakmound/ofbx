@@ -1,6 +1,6 @@
 package threefbx
 
-type Loader struct{
+type Loader struct {
 	tree Tree
 	connections ParsedConnections
 	sceneGraph ???

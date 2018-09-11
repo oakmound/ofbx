@@ -1,5 +1,10 @@
 package threefbx
 
+import (
+	"github.com/oakmound/oak/alg"
+	"github.com/oakmound/oak/alg/floatgeom"
+)
+
 
 type Animation struct {}
 
@@ -11,7 +16,7 @@ func (l *Loader) parseAnimations() []Animation {
 	if _, ok := l.tree.Objects["AnimationCurve"]; !ok {
 		return []Animation{}
 	} 
-	rawClips := this.parseClips()
+	rawClips := l.parseClips()
 
 	animationClips := make([]Animation{}, len(rawClips))
 	for i, v := range rawClips {
@@ -20,14 +25,12 @@ func (l *Loader) parseAnimations() []Animation {
 	return animationClips
 }
 
-type Clip struct {}
-
-func (l *Loader) parseClips() []Clip {
-	var curveNodesMap = l.parseAnimationCurveNodes();
-	l.parseAnimationCurves( curveNodesMap );
-	var layersMap = l.parseAnimationLayers( curveNodesMap );
-	var rawClips = l.parseAnimStacks( layersMap );
-	return rawClips;
+func (l *Loader) parseClips() map[int64]Clip {
+	curveNodesMap := l.parseAnimationCurveNodes()
+	l.parseAnimationCurves(curveNodesMap)
+	layersMap := l.parseAnimationLayers(curveNodesMap)
+	rawClips := l.parseAnimStacks(layersMap)
+	return rawClips
 }
 
 // parse nodes in FBXTree.Objects.AnimationCurveNode
@@ -95,69 +98,95 @@ func (l *Loader) parseAnimationCurves( curveNodesMap ) {
 	}
 }
 
+type CurveNode struct {
+	modelName string
+	morphName string
+	initialPosition floatgeom.Point3
+	initialRotation floatgeom.Point3
+	initialScale floatgeom.Point3
+	T Translate??
+	R Rotation??
+	S Scale??
+	transform ???
+
+}
+
 // parse nodes in FBXTree.Objects.AnimationLayer. Each layers holds references
 // to various AnimationCurveNodes and is referenced by an AnimationStack node
 // note: theoretically a stack can have multiple layers, however in practice there always seems to be one per stack
 func (l *Loader) parseAnimationLayers( curveNodesMap ) map[int64][]CurveNode {
 	rawLayers := fbxTree.Objects["AnimationLayer"]
-	layersMap := make(map[int64]AnimationLayer)
+	layersMap := make(map[int64][]CurveNode)
 	for nodeID := range rawLayers {
-		var layerCurveNodes = []CurveNode{}
-		var connection = connections[parseInt(nodeID)]
-		if ( connection !== undefined ) {
+		layerCurveNodes := []CurveNode{}
+		if connection, ok := l.connections[nodeID]; ok {
 			// all the animationCurveNodes used in the layer
-			var children = connection.children;
-			var self = this;
-			children.forEach( function ( child, i ) {
-				if ( curveNodesMap.has( child.ID ) ) {
-					var curveNode = curveNodesMap.get( child.ID );
+			for i, child := range children {
+				if curvenode, ok := curveNodesMap[child.ID]; ok {
 					// check that the curves are defined for at least one axis, otherwise ignore the curveNode
-					if ( curveNode.curves.x !== undefined || curveNode.curves.y !== undefined || curveNode.curves.z !== undefined ) {
-						if ( layerCurveNodes[ i ] === undefined ) {
-							var modelID;
-							connections.get( child.ID ).parents.forEach( function ( parent ) {
-								if ( parent.relationship !== undefined ) modelID = parent.ID;
-							} );
-							var rawModel = fbxTree.Objects.Model[ modelID.toString() ];
-							var node = {
-								modelName: THREE.PropertyBinding.sanitizeNodeName( rawModel.attrName ),
-								initialPosition: [ 0, 0, 0 ],
-								initialRotation: [ 0, 0, 0 ],
-								initialScale: [ 1, 1, 1 ],
-								transform: self.getModelAnimTransform( rawModel ),
-							};
+					_, ok := curvenode.curves["x"]
+					_, ok2 := curvenode.curves["y"]
+					_, ok3 := curvenode.curves["z"]
+					ok |= ok2 
+					ok |= ok3
+					if ok {
+						if _, ok := layerCurveNodes[ i ]; !ok {
+							var modelID int64
+							for i := len(connection.parents)-1; i >= 0; i-- {
+								parent := connection.parents[i]
+								if parent.relationship != "" {
+									modelID = parent.ID
+									break
+								}
+							}
+							rawModel := fbxTree.Objects.Model[modelID]
+							node := CurveNode{
+								modelName: THREE.PropertyBinding.sanitizeNodeName(rawModel.attrName),
+								initialPosition: floatgeom.Point3{0, 0, 0},
+								initialRotation: floatgeom.Point3{0, 0, 0},
+								initialScale: floatgeom.Point3{1, 1, 1},
+								transform: self.getModelAnimTransform(rawModel),
+							}
 							// if the animated model is pre rotated, we'll have to apply the pre rotations to every
 							// animation value as well
-							if ( 'PreRotation' in rawModel ) node.preRotations = rawModel.PreRotation.value;
-							if ( 'PostRotation' in rawModel ) node.postRotations = rawModel.PostRotation.value;
-							layerCurveNodes[ i ] = node;
+							if v, ok := rawModel["PreRotation"]; ok {
+								node.preRotations = v
+							} 
+							if v, ok := rawModel["PostRotation"]; ok {
+								node.postRotations = v
+							} 
+							layerCurveNodes[i] = node
 						}
-						layerCurveNodes[ i ][ curveNode.attr ] = curveNode;
-					} else if ( curveNode.curves.morph !== undefined ) {
-						if ( layerCurveNodes[ i ] === undefined ) {
-							var deformerID;
-							connections.get( child.ID ).parents.forEach( function ( parent ) {
-								if ( parent.relationship !== undefined ) deformerID = parent.ID;
-							} );
-							var morpherID = connections.get( deformerID ).parents[ 0 ].ID;
-							var geoID = connections.get( morpherID ).parents[ 0 ].ID;
+						layerCurveNodes[i][curveNode.attr] = curveNode
+					} else if _, ok := curveNode.curves["morph"]; ok {					
+						if _, ok := layerCurveNodes[i]; !ok {
+							var deformerID int64
+							for i := len(connection.parents)-1; i >= 0; i-- {
+								parent := connection.parents[i]
+								if parent.relationship != "" {
+									deformerID = parent.ID
+									break
+								}
+							}
+							morpherID := connections[deformerID].parents[0].ID
+							geoID := connections[morpherID].parents[0].ID
 							// assuming geometry is not used in more than one model
-							var modelID = connections.get( geoID ).parents[ 0 ].ID;
-							var rawModel = fbxTree.Objects.Model[ modelID ];
-							var node = {
+							modelID := connections[geoID].parents[0].ID
+							rawModel := fbxTree.Objects.Model[modelID]
+							var node = CurveNode{
 								modelName: THREE.PropertyBinding.sanitizeNodeName( rawModel.attrName ),
 								morphName: fbxTree.Objects.Deformer[ deformerID ].attrName,
-							};
-							layerCurveNodes[ i ] = node;
+							}
+							layerCurveNodes[i] = node;
 						}
-						layerCurveNodes[ i ][ curveNode.attr ] = curveNode;
+						layerCurveNodes[i][curveNode.attr] = curveNode
 					}
 				}
-			} );
-			layersMap.set( parseInt( nodeID ), layerCurveNodes );
+			}
+			layersMap[nodeID] = layerCurveNodes
 		}
 	}
-	return layersMap;
+	return layersMap
 }
 
 type TransformData struct {
@@ -198,197 +227,263 @@ func (l *Loader) getModelAnimTransform(modelNode Node) {
 	}
 	return generateTransform(transformData)
 },
+
+type Clip struct {
+	name string
+	layer []CurveNode
+}
+
 // parse nodes in FBXTree.Objects.AnimationStack. These are the top level node in the animation
 // hierarchy. Each Stack node will be used to create a THREE.AnimationClip
-func (l *Loader) parseAnimStacks( layersMap ) {
-	var rawStacks = fbxTree.Objects.AnimationStack;
+func (l *Loader) parseAnimStacks(layersMap map[int64][]CurveNode) map[int64]Clip {
+	rawStacks := fbxTree.Objects.AnimationStack
 	// connect the stacks (clips) up to the layers
-	var rawClips = {};
-	for ( var nodeID in rawStacks ) {
-		var children = connections.get( parseInt( nodeID ) ).children;
-		if ( children.length > 1 ) {
+	rawClips := make(map[int64]Clip, len(rawStacks))
+	for _, nodeID := range rawStacks {
+		children := connections[nodeID].children
+		if len(children) > 1 {
 			// it seems like stacks will always be associated with a single layer. But just in case there are files
 			// where there are multiple layers per stack, we'll display a warning
-			console.warn( 'THREE.FBXLoader: Encountered an animation stack with multiple layers, this is currently not supported. Ignoring subsequent layers.' );
+			fmt.Println("THREE.FBXLoader: Encountered an animation stack with multiple layers, this is currently not supported. Ignoring subsequent layers.");
 		}
-		var layer = layersMap.get( children[ 0 ].ID );
-		rawClips[ nodeID ] = {
+		layer := layersMap[children[0].ID]
+		rawClips[nodeID] = Clip{
 			name: rawStacks[ nodeID ].attrName,
 			layer: layer,
-		};
+		}
 	}
-	return rawClips;
+	return rawClips
 }
 
-func (l *Loader) addClip(clip Clip) (Animation) {
-	var tracks = [];
-	var self = this;
-	rawClip.layer.forEach( function ( rawTracks ) {
-		tracks = tracks.concat( self.generateTracks( rawTracks ) );
-	} );
-	return new THREE.AnimationClip( rawClip.name, - 1, tracks );
-},
-func (l *Loader) generateTracks( rawTracks ) {
-	var tracks = [];
-	var initialPosition = new THREE.Vector3();
-	var initialRotation = new THREE.Quaternion();
-	var initialScale = new THREE.Vector3();
-	if ( rawTracks.transform ) rawTracks.transform.decompose( initialPosition, initialRotation, initialScale );
-	initialPosition = initialPosition.toArray();
-	initialRotation = new THREE.Euler().setFromQuaternion( initialRotation ).toArray(); // todo: euler order
-	initialScale = initialScale.toArray();
-	if ( rawTracks.T !== undefined && Object.keys( rawTracks.T.curves ).length > 0 ) {
-		var positionTrack = this.generateVectorTrack( rawTracks.modelName, rawTracks.T.curves, initialPosition, 'position' );
-		if ( positionTrack !== undefined ) tracks.push( positionTrack );
+func (l *Loader) addClip(clip Clip) Animation {
+	tracks := make([]Track, len(rawTracks))
+	for _, rawTracks := range clip.layer {
+		tracks = append(tracks, l.generateTracks(rawTracks))
 	}
-	if ( rawTracks.R !== undefined && Object.keys( rawTracks.R.curves ).length > 0 ) {
-		var rotationTrack = this.generateRotationTrack( rawTracks.modelName, rawTracks.R.curves, initialRotation, rawTracks.preRotations, rawTracks.postRotations );
-		if ( rotationTrack !== undefined ) tracks.push( rotationTrack );
+	// ??
+	return new THREE.AnimationClip( rawClip.name, - 1, tracks )
+}
+
+func (l *Loader) generateTracks(rawTracks CurveNode) []Track {
+	tracks := []Track{}
+	initialPosition := floatgeom.Point3{}
+	// Could be a matrix
+	initialRotation := floatgeom.Point4{}
+	initialScale := floatgeom.Point3{}
+	if !rawTracks.transform.Zero() {
+		// todo: does this perform side effects, or return a transform, or return three new values?
+		rawTracks.transform = rawTracks.transform.decompose( initialPosition, initialRotation, initialScale)
 	}
-	if ( rawTracks.S !== undefined && Object.keys( rawTracks.S.curves ).length > 0 ) {
-		var scaleTrack = this.generateVectorTrack( rawTracks.modelName, rawTracks.S.curves, initialScale, 'scale' );
-		if ( scaleTrack !== undefined ) tracks.push( scaleTrack );
+	// ????
+	//initialRotation = new THREE.Euler().setFromQuaternion( initialRotation ).toArray(); // todo: euler order
+	if ( rawTracks.T !== undefined && Object.keys(rawTracks.T.curves).length > 0 ) {
+		positionTrack, err := l.generateVectorTrack(rawTracks.modelName, rawTracks.T.curves, initialPosition, "position");
+		if err != nil {
+			tracks.push(positionTrack)
+		}
+	}
+	if ( rawTracks.R !== undefined && Object.keys(rawTracks.R.curves).length > 0 ) {
+		rotationTrack, err := l.generateRotationTrack(rawTracks.modelName, rawTracks.R.curves, initialRotation, rawTracks.preRotations, rawTracks.postRotations);
+		if err != nil {
+			tracks.push(rotationTrack)
+		}
+	}
+	if ( rawTracks.S !== undefined && Object.keys(rawTracks.S.curves).length > 0 ) {
+		scaleTrack, err := l.generateVectorTrack(rawTracks.modelName, rawTracks.S.curves, initialScale, "scale");
+		if err != nil {
+			tracks.push(scaleTrack)
+		}
 	}
 	if ( rawTracks.DeformPercent !== undefined ) {
-		var morphTrack = this.generateMorphTrack( rawTracks );
-		if ( morphTrack !== undefined ) tracks.push( morphTrack );
+		morphTrack, err := l.generateMorphTrack(rawTracks)
+		if err != nil {
+			tracks.push(morphTrack)
+		}
 	}
-	return tracks;
-},
-func (l *Loader) generateVectorTrack( modelName, curves, initialValue, type ) {
-	var times = this.getTimesForAllAxes( curves );
-	var values = this.getKeyframeTrackValues( times, curves, initialValue );
-	return new THREE.VectorKeyframeTrack( modelName + '.' + type, times, values );
+	return tracks
 }
 
-func (l *Loader) generateRotationTrack( modelName, curves, initialValue, preRotations, postRotations ) {
-	if ( curves.x !== undefined ) {
-		this.interpolateRotations( curves.x );
-		curves.x.values = curves.x.values.map( THREE.Math.degToRad );
+func (l *Loader) generateVectorTrack( modelName string, curves ???, initialValue ???, typ string ) {
+	times := l.getTimesForAllAxes(curves)
+	values := l.getKeyframeTrackValues(times, curves, initialValue)
+	// ???
+	return new THREE.VectorKeyframeTrack(modelName + "." + typ, times, values)
+}
+
+func (l *Loader) generateRotationTrack(modelName string, curves map[string]AnimationCurve, initialValue, preRotations, postRotations ??) {
+	if c, ok := curves["x"]; ok {
+		c = l.interpolateRotations(c)
+		for i, val := range c.values {
+			c.values[i] = alg.DegToRad * val
+		}
 	}
-	if ( curves.y !== undefined ) {
-		this.interpolateRotations( curves.y );
-		curves.y.values = curves.y.values.map( THREE.Math.degToRad );
+	if c, ok := curves["y"]; ok {
+		c = l.interpolateRotations(c)
+		for i, val := range c.values {
+			c.values[i] = alg.DegToRad * val
+		}
 	}
-	if ( curves.z !== undefined ) {
-		this.interpolateRotations( curves.z );
-		curves.z.values = curves.z.values.map( THREE.Math.degToRad );
+	if c, ok := curves["z"]; ok {
+		c = l.interpolateRotations(c)
+		for i, val := range c.values {
+			c.values[i] = alg.DegToRad * val
+		}
 	}
-	var times = this.getTimesForAllAxes( curves );
-	var values = this.getKeyframeTrackValues( times, curves, initialValue );
+	times = l.getTimesForAllAxes(curves);
+	values = l.getKeyframeTrackValues( times, curves, initialValue )
+	// ????
 	if ( preRotations !== undefined ) {
-		preRotations = preRotations.map( THREE.Math.degToRad );
-		preRotations.push( 'ZYX' );
-		preRotations = new THREE.Euler().fromArray( preRotations );
-		preRotations = new THREE.Quaternion().setFromEuler( preRotations );
+		preRotations = preRotations.map( THREE.Math.degToRad )
+		preRotations.push( 'ZYX' )
+		preRotations = new THREE.Euler().fromArray( preRotations )
+		preRotations = new THREE.Quaternion().setFromEuler( preRotations )
 	}
 	if ( postRotations !== undefined ) {
-		postRotations = postRotations.map( THREE.Math.degToRad );
-		postRotations.push( 'ZYX' );
-		postRotations = new THREE.Euler().fromArray( postRotations );
-		postRotations = new THREE.Quaternion().setFromEuler( postRotations ).inverse();
+		postRotations = postRotations.map( THREE.Math.degToRad )
+		postRotations.push("ZYX")
+		postRotations = new THREE.Euler().fromArray( postRotations )
+		postRotations = new THREE.Quaternion().setFromEuler( postRotations ).inverse()
 	}
-	var quaternion = new THREE.Quaternion();
-	var euler = new THREE.Euler();
-	var quaternionValues = [];
-	for ( var i = 0; i < values.length; i += 3 ) {
-		euler.set( values[ i ], values[ i + 1 ], values[ i + 2 ], 'ZYX' );
-		quaternion.setFromEuler( euler );
-		if ( preRotations !== undefined ) quaternion.premultiply( preRotations );
-		if ( postRotations !== undefined ) quaternion.multiply( postRotations );
-		quaternion.toArray( quaternionValues, ( i / 3 ) * 4 );
+	quaternion = new THREE.Quaternion();
+	euler = new THREE.Euler();
+	quaternionValues = [];
+	for i := 0; i < len(values); i += 3 {
+		euler.set( values[ i ], values[ i + 1 ], values[ i + 2 ], 'ZYX' )
+		quaternion.setFromEuler( euler )
+		if ( preRotations !== undefined ) quaternion.premultiply( preRotations )
+		if ( postRotations !== undefined ) quaternion.multiply( postRotations )
+		quaternion.toArray( quaternionValues, ( i / 3 ) * 4 )
 	}
-	return new THREE.QuaternionKeyframeTrack( modelName + '.quaternion', times, quaternionValues );
+	return new THREE.QuaternionKeyframeTrack(modelName + ".quaternion", times, quaternionValues)
+	// end ????
 }
 
-func (l *Loader) generateMorphTrack( rawTracks ) {
-	var curves = rawTracks.DeformPercent.curves.morph;
-	var values = curves.values.map( function ( val ) {
-		return val / 100;
-	} );
-	var morphNum = sceneGraph.getObjectByName( rawTracks.modelName ).morphTargetDictionary[ rawTracks.morphName ];
-	return new THREE.NumberKeyframeTrack( rawTracks.modelName + '.morphTargetInfluences[' + morphNum + ']', curves.times, values );
+func (l *Loader) generateMorphTrack(rawTracks CurveNode) ??? {
+	curves := rawTracks.DeformPercent.curves["morph"]
+	values := make([]float64, len(curves.values))
+	for i, val := range curves.values {
+		values[i] = val / 100
+	}
+	morphNum := sceneGraph.getObjectByName(rawTracks.modelName).morphTargetDictionary[rawTracks.morphName]
+	??
+	return new THREE.NumberKeyframeTrack(rawTracks.modelName + ".morphTargetInfluences[" + morphNum + "]", curves.times, values )
 }
 
 // For all animated objects, times are defined separately for each axis
 // Here we'll combine the times into one sorted array without duplicates
-func (l *Loader) getTimesForAllAxes( curves ) {
-	var times = [];
+func (l *Loader) getTimesForAllAxes(curves map[string]AnimationCurve) []float64 {
+	var times = []float64{}
 	// first join together the times for each axis, if defined
-	if ( curves.x !== undefined ) times = times.concat( curves.x.times );
-	if ( curves.y !== undefined ) times = times.concat( curves.y.times );
-	if ( curves.z !== undefined ) times = times.concat( curves.z.times );
+	if c, ok := curves["x"]; ok {
+		times = append(times, c.times)
+	}
+	if c, ok := curves["y"]; ok {
+		times = append(times, c.times)
+	}
+	if c, ok := curves["z"]; ok {
+		times = append(times, c.times)
+	}
 	// then sort them and remove duplicates
-	times = times.sort( function ( a, b ) {
-		return a - b;
-	} ).filter( function ( elem, index, array ) {
-		return array.indexOf( elem ) == index;
-	} );
-	return times;
+	sort.Slice(times, func(i, j int) bool {
+		return times[i] < times[j]
+	})
+	i := 0
+	for {
+		if i >= len(times)-1 {
+			break
+		}
+		if times[i] == times[i+1] {
+			times = append(times[:i], times[i+1:])
+			continue
+		}
+		i++
+	}
+	return times
 }
 
-func (l *Loader) getKeyframeTrackValues( times, curves, initialValue ) {
-	var prevValue = initialValue;
-	var values = [];
-	var xIndex = - 1;
-	var yIndex = - 1;
-	var zIndex = - 1;
-	times.forEach( function ( time ) {
-		if ( curves.x ) xIndex = curves.x.times.indexOf( time );
-		if ( curves.y ) yIndex = curves.y.times.indexOf( time );
-		if ( curves.z ) zIndex = curves.z.times.indexOf( time );
+func (l *Loader) getKeyframeTrackValues( times []float64, curves map[string]AnimationCurve, initialValue floatgeom.Point3) []float64 {
+	prevValue := initialValue
+	values := []float64{}
+	xIndex := -1
+	yIndex := -1
+	zIndex := -1
+	for _, time := range times {
+		if _, ok := curves["x"]; ok { 
+			for i, t2 := range curve["x"].times {
+				if t2 == t {
+					xIndex = i
+					break
+				}
+			} 
+		}
+		if _, ok := curves["y"]; ok { 
+			for i, t2 := range curve["y"].times {
+				if t2 == t {
+					yIndex = i
+					break
+				}
+			} 
+		}
+		if _, ok := curves["z"]; ok { 
+			for i, t2 := range curve["z"].times {
+				if t2 == t {
+					zIndex = i
+					break
+				}
+			} 
+		}
 		// if there is an x value defined for this frame, use that
-		if ( xIndex !== - 1 ) {
-			var xValue = curves.x.values[ xIndex ];
-			values.push( xValue );
-			prevValue[ 0 ] = xValue;
+		if xIndex != - 1 {
+			xValue = curves["x"].values[xIndex]
+			values = append(values, xValue)
+			prevValue[0] = xValue
 		} else {
 			// otherwise use the x value from the previous frame
-			values.push( prevValue[ 0 ] );
+			values = append(values, prevValue[0])
 		}
-		if ( yIndex !== - 1 ) {
-			var yValue = curves.y.values[ yIndex ];
-			values.push( yValue );
-			prevValue[ 1 ] = yValue;
+		if yIndex != - 1 {
+			yValue = curves["y"].values[yIndex]
+			values = append(values, yValue)
+			prevValue[1] = yValue
 		} else {
-			values.push( prevValue[ 1 ] );
+			values = append(values, prevValue[1])
 		}
-		if ( zIndex !== - 1 ) {
-			var zValue = curves.z.values[ zIndex ];
-			values.push( zValue );
-			prevValue[ 2 ] = zValue;
+		if zIndex != - 1 {
+			zValue = curves["z"].values[zIndex]
+			values = append(values, zValue)
+			prevValue[z] = zValue
 		} else {
-			values.push( prevValue[ 2 ] );
+			values = append(values, prevValue[2])
 		}
-	} );
-	return values;
+	}
+	return values
 }
 // Rotations are defined as Euler angles which can have values  of any size
 // These will be converted to quaternions which don't support values greater than
 // PI, so we'll interpolate large rotations
-func (l *Loader) interpolateRotations( curve ) {
-	for ( var i = 1; i < curve.values.length; i ++ ) {
-		var initialValue = curve.values[ i - 1 ];
-		var valuesSpan = curve.values[ i ] - initialValue;
-		var absoluteSpan = Math.abs( valuesSpan );
-		if ( absoluteSpan >= 180 ) {
-			var numSubIntervals = absoluteSpan / 180;
-			var step = valuesSpan / numSubIntervals;
-			var nextValue = initialValue + step;
-			var initialTime = curve.times[ i - 1 ];
-			var timeSpan = curve.times[ i ] - initialTime;
-			var interval = timeSpan / numSubIntervals;
-			var nextTime = initialTime + interval;
-			var interpolatedTimes = [];
-			var interpolatedValues = [];
+func (l *Loader) interpolateRotations(curve AnimationCurve) AnimationCurve {
+	for i := 1; i < len(curve.values); i++ {
+		initialValue := curve.values[i - 1]
+		valuesSpan := curve.values[i] - initialValue
+		absoluteSpan := math.Abs(valuesSpan)
+		if absoluteSpan >= 180 {
+			numSubIntervals := absoluteSpan / 180
+			step := valuesSpan / numSubIntervals
+			nextValue := initialValue + step
+			initialTime := curve.times[ i - 1 ]
+			timeSpan := curve.times[ i ] - initialTime
+			interval := timeSpan / numSubIntervals
+			nextTime := initialTime + interval
+			interpolatedTimes := []float64{}
+			interpolatedValues := []float64{}
 			while ( nextTime < curve.times[ i ] ) {
-				interpolatedTimes.push( nextTime );
-				nextTime += interval;
-				interpolatedValues.push( nextValue );
-				nextValue += step;
+				interpolatedTimes.push(nextTime)
+				nextTime += interval
+				interpolatedValues.push(nextValue)
+				nextValue += step
 			}
-			curve.times = inject( curve.times, i, interpolatedTimes );
-			curve.values = inject( curve.values, i, interpolatedValues );
+			curve.times = append(curve.times[:i], append(interpolatedTimes, curve.times[i:]))
+			curve.values = append(curve.values[:i], append(interpolatedValues, curve.values[i:]))
 		}
 	}
 }
