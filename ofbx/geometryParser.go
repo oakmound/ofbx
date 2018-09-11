@@ -1,156 +1,252 @@
 package threefbx
 
+
+//Notes:
+// 		* geometries with mutliple models that have different transforms may break this.
+
+
+// TODO: check assumptions
+//Assumptions: parsing a geo probably returns a geometry.
+
+
+// Geometry tries to replace the need for THREE.BufferGeometry
+type Geometry struct{
+	name string
+	position []Vector3
+	color []Color
+
+	skinIndex THREE.Uint16BufferAttribute(4)
+	skinWeight THREE.Float32BufferAttribute(4)
+	FBX_Deformer ???
+
+	normal ??
+	uvs []UV
+
+	groups []Group
+}
+
+type UVRaw [2]float32
+
+type Group [3]int
+
+type WeightEntry{ //TODO: see if we can find a better way that doesnt use this (we could do array or split weightable itself out to two props.)
+	ID int
+	Weight float64
+}
+
+
+// AddGroup was a THREE.js thing start of conversion is here it seems to store a range for which a value is the same
+func (g *Geometry) AddGroup(rangeStart, count, groupValue int){
+	if g.groups ==null{
+		g.groups = {}
+	}
+	g.groups = append(g.groups, Group{rangeStart, count, groupValue})
+}
+
+
+
+
+// parseGeometry converted from parse in the geometry section of the original code
 // parse Geometry data from FBXTree and return map of BufferGeometries
 // Parse nodes in FBXTree.Objects.Geometry
-parse: function ( skeletons, morphTargets ) {
-	var geometryMap = new Map();
-	if ( 'Geometry' in fbxTree.Objects ) {
-		var geoNodes = fbxTree.Objects.Geometry;
-		for ( var nodeID in geoNodes ) {
-			var relationships = connections.get( parseInt( nodeID ) );
-			var geo = this.parseGeometry( relationships, geoNodes[ nodeID ], skeletons, morphTargets );
-			geometryMap.set( parseInt( nodeID ), geo );
+func (l *Loader) parseGeometry(skeletons map[int64]Skeleton,morphTargets map[int64]MorphTarget ) Geometry, Error{
+	geometryMap := make(map[???]???)
+	if geoNodes, ok := l.tree.Objects["Geometry"]; ok{
+		for _, nodeID := range geoNodes{
+			relationships := l.connections.get(nodeID)
+			geo := l.parseGeometrySingle(relationships, geoNodes[nodeID], skeletons, morphTargets)
 		}
 	}
-	return geometryMap;
-},
-// Parse single node in FBXTree.Objects.Geometry
-parseGeometry: function ( relationships, geoNode, skeletons, morphTargets ) {
-	switch ( geoNode.attrType ) {
-		case 'Mesh':
-			return this.parseMeshGeometry( relationships, geoNode, skeletons, morphTargets );
-			break;
-		case 'NurbsCurve':
-			return this.parseNurbsGeometry( geoNode );
-			break;
+	return geometryMap
+}
+// parseGeometrySingle parses a single node in FBXTree.Objects.Geometry //updated name due to collisions
+func (l *Loader) parseGeometrySingle(relationships ConnectionSet, geoNode Node, skeletons map[int64]Skeleton,morphTargets map[int64]MorphTarget ) Geometry{
+	switch geoNode.attrType{
+	case "Mesh":
+		return l.parseMeshGeometry(relationships, geoNode, skeletons, morphTargets)
+	case "NurbsCurve":
+		return l.parseNurbsGeometry(geoNode)
 	}
-},
-// Parse single node mesh geometry in FBXTree.Objects.Geometry
-parseMeshGeometry: function ( relationships, geoNode, skeletons, morphTargets ) {
-	var modelNodes = relationships.parents.map( function ( parent ) {
-		return fbxTree.Objects.Model[ parent.ID ];
-	} );
-	// don't create geometry if it is not associated with any models
-	if ( modelNodes.length === 0 ) return;
-	var skeleton = relationships.children.reduce( function ( skeleton, child ) {
-		if ( skeletons[ child.ID ] !== undefined ) skeleton = skeletons[ child.ID ];
-		return skeleton;
-	}, null );
-	var morphTarget = relationships.children.reduce( function ( morphTarget, child ) {
-		if ( morphTargets[ child.ID ] !== undefined ) morphTarget = morphTargets[ child.ID ];
-		return morphTarget;
-	}, null );
+	errors.New("Unknown geometry type when parsing" + geoNode.attrType)
+	return 
+}
+
+// parseMeshGeometry parses a single node mesh geometry in FBXTree.Objects.Geometry
+func (l *Loader) parseMeshGeometry( relationships ConnectionSet, geoNode Node,  skeletons map[int64]Skeleton,morphTargets map[int64]MorphTarget) Geometry {
+
+	modelNodes := make([]Node,len(relationships.parents))
+	for i, parents := range relationships.parents{
+		modelNodes[i] = l.tree.Objects.Model[parent.ID]
+	}
+
+	// dont create if geometry has no models
+	if len(modelNodes) ==0{
+		return nil
+	}
+
+	skeleton := {}Skeleton	//TODO: whats this type
+	for i := len(relationships.children)-1; i >= 0; i--{
+		chID := relationships.children[i].ID
+		if skel, ok := skeletons[chID] ; ok{
+			skeleton = skel
+			break
+		}
+	}
+	morphTarget := {}MorphTarget //TODO: whats this type
+	for i := len(relationships.children)-1; i >= 0; i--{
+		chID := relationships.children[i].ID
+		if morp, ok := morphTargets[chID] ; ok{
+			morphTarget = morp
+			break
+		}
+	}
 	// TODO: if there is more than one model associated with the geometry, AND the models have
 	// different geometric transforms, then this will cause problems
 	// if ( modelNodes.length > 1 ) { }
 	// For now just assume one model and get the preRotations from that
-	var modelNode = modelNodes[ 0 ];
-	var transformData = {};
-	if ( 'RotationOrder' in modelNode ) transformData.eulerOrder = modelNode.RotationOrder.value;
-	if ( 'GeometricTranslation' in modelNode ) transformData.translation = modelNode.GeometricTranslation.value;
-	if ( 'GeometricRotation' in modelNode ) transformData.rotation = modelNode.GeometricRotation.value;
-	if ( 'GeometricScaling' in modelNode ) transformData.scale = modelNode.GeometricScaling.value;
-	var transform = generateTransform( transformData );
-	return this.genGeometry( geoNode, skeleton, morphTarget, transform );
-},
-// Generate a THREE.BufferGeometry from a node in FBXTree.Objects.Geometry
-genGeometry: function ( geoNode, skeleton, morphTarget, preTransform ) {
-	var geo = new THREE.BufferGeometry();
-	if ( geoNode.attrName ) geo.name = geoNode.attrName;
-	var geoInfo = this.parseGeoNode( geoNode, skeleton );
-	var buffers = this.genBuffers( geoInfo );
-	var positionAttribute = new THREE.Float32BufferAttribute( buffers.vertex, 3 );
-	preTransform.applyToBufferAttribute( positionAttribute );
-	geo.addAttribute( 'position', positionAttribute );
-	if ( buffers.colors.length > 0 ) {
-		geo.addAttribute( 'color', new THREE.Float32BufferAttribute( buffers.colors, 3 ) );
+	modelNode := modelNodes[0]
+	transformData := newTransformData() //TODO: figure out type and if this should just be a transform
+	if val, ok := modelNode.props["RotationOrder"]; ok{
+		transformData.eulerOrder =val
 	}
-	if ( skeleton ) {
-		geo.addAttribute( 'skinIndex', new THREE.Uint16BufferAttribute( buffers.weightsIndices, 4 ) );
-		geo.addAttribute( 'skinWeight', new THREE.Float32BufferAttribute( buffers.vertexWeights, 4 ) );
-		// used later to bind the skeleton to the model
+	if val, ok := modelNode.props["GeometricTranslation"]; ok{
+		transformData.translation = val
+	}
+	if val, ok := modelNode.props["GeometricRotation"]; ok{
+		transformData.rotation =val
+	}
+	if val, ok := modelNode.props["GeometricScaling"]; ok{
+		transformData.scale = val
+	}
+	transform = generateTransform( transformData ) //TODO: see above about how this ordering might change
+	return l.genGeometry( geoNode, skeleton, morphTarget, transform )
+
+}
+
+// genGeometry generates a THREE.BufferGeometry(ish) from a node in FBXTree.Objects.Geometry
+func (l *Loader) genGeometry ( geoNode Node,  skeletons map[int64]Skeleton,morphTargets map[int64]MorphTarget, preTransform ) {
+	geo := Geometry{} //https://threejs.org/docs/#api/en/core/BufferGeometry
+	geo.name = geoNode.attrName
+
+	geoInfo := l.parseGeoNode(geoNode, skeleton)
+
+	//TODO: unroll buffers into its consituent slices and do away with the buffer construct
+	buffers := l.genBuffers(geoInfo)
+
+	positionAttribute :=floatsToVertex3s(buffers.vertex) //https://threejs.org/docs/#api/en/core/BufferAttribute
+	
+
+
+	preTransform.applyToBufferAttribute( positionAttribute )
+
+	geo.position =  positionAttribute
+	if len(buffers.color)> 0 {
+		geo.color = floatsToVertex3s(buffers.color)
+	}
+
+
+	if skeleton{
+		geos.skinIndex =  new THREE.Uint16BufferAttribute( buffers.weightsIndices, 4 ) )
+		geo.skinWeight = new THREE.Float32BufferAttribute( buffers.vertexWeights, 4 ) )
 		geo.FBX_Deformer = skeleton;
 	}
-	if ( buffers.normal.length > 0 ) {
-		var normalAttribute = new THREE.Float32BufferAttribute( buffers.normal, 3 );
-		var normalMatrix = new THREE.Matrix3().getNormalMatrix( preTransform );
-		normalMatrix.applyToBufferAttribute( normalAttribute );
-		geo.addAttribute( 'normal', normalAttribute );
+
+	if len(buffers.normal) > 0{
+		normalAttribute := floatsToVertex3s(buffers.normal)
+		normalMatrix := new THREE.Matrix3().getNormalMatrix( preTransform ) //TODO: convert out https://threejs.org/docs/#api/en/math/Matrix3.getNormalMatrix
+		normalMatrix.applyToBufferAttribute(normalAttribute)
+		geo.normal = normalAttribute
 	}
-	buffers.uvs.forEach( function ( uvBuffer, i ) {
-		// subsequent uv buffers are called 'uv1', 'uv2', ...
-		var name = 'uv' + ( i + 1 ).toString();
-		// the first uv buffer is just called 'uv'
-		if ( i === 0 ) {
-			name = 'uv';
-		}
-		geo.addAttribute( name, new THREE.Float32BufferAttribute( buffers.uvs[ i ], 2 ) );
-	} );
-	if ( geoInfo.material && geoInfo.material.mappingType !== 'AllSame' ) {
+
+	geo.uvs = buffer.uvs //NOTE: pulled back from variadic array of uvs where they progress down uv -> uv1 -> uv2 and so on
+
+	if geoInfo.material && geoInfo.material.mappingType != "AllSame"{
 		// Convert the material indices of each vertex into rendering groups on the geometry.
-		var prevMaterialIndex = buffers.materialIndex[ 0 ];
-		var startIndex = 0;
-		buffers.materialIndex.forEach( function ( currentIndex, i ) {
-			if ( currentIndex !== prevMaterialIndex ) {
-				geo.addGroup( startIndex, i - startIndex, prevMaterialIndex );
-				prevMaterialIndex = currentIndex;
-				startIndex = i;
-			}
-		} );
-		// the loop above doesn't add the last group, do that here.
-		if ( geo.groups.length > 0 ) {
-			var lastGroup = geo.groups[ geo.groups.length - 1 ];
-			var lastIndex = lastGroup.start + lastGroup.count;
-			if ( lastIndex !== buffers.materialIndex.length ) {
-				geo.addGroup( lastIndex, buffers.materialIndex.length - lastIndex, prevMaterialIndex );
+		prevMaterialIndex := buffers.materialIndex[ 0 ]
+		startIndex := 0
+		for i, matIndex := range buffers.materialIndex{
+			if matIndex != prevMaterialIndex{
+				geo.AddGroup(startIndex, i-startIndex, prevMaterialIndex) 
+				prevMaterialIndex = materialIndex
+				startIndex = i
 			}
 		}
-		// case where there are multiple materials but the whole geometry is only
-		// using one of them
-		if ( geo.groups.length === 0 ) {
-			geo.addGroup( 0, buffers.materialIndex.length, buffers.materialIndex[ 0 ] );
+		if len( geo.groups > 0){ //add last group
+			lastGroup := geo.groups[ len(geo.groups) - 1 ]
+			lastIndex := lastGroup[0] + lastGroup.[1]
+			if  lastIndex !== len(buffers.materialIndex) {
+				geo.addGroup( lastIndex, len(buffers.materialIndex) - lastIndex, prevMaterialIndex )
+			}
+		}
+		if len(geo.groups) == 0  {
+			geo.addGroup( 0, len(buffers.materialIndex), buffers.materialIndex[ 0 ] )
 		}
 	}
-	this.addMorphTargets( geo, geoNode, morphTarget, preTransform );
-	return geo;
-},
-parseGeoNode: function ( geoNode, skeleton ) {
-	var geoInfo = {};
-	geoInfo.vertexPositions = ( geoNode.Vertices !== undefined ) ? geoNode.Vertices.a : [];
-	geoInfo.vertexIndices = ( geoNode.PolygonVertexIndex !== undefined ) ? geoNode.PolygonVertexIndex.a : [];
-	if ( geoNode.LayerElementColor ) {
-		geoInfo.color = this.parseVertexColors( geoNode.LayerElementColor[ 0 ] );
+
+	l.addMorphTargets( geo, geoNode, morphTarget, preTransform )
+	return geo
+}
+
+// floatsToVertex3s is a helper function to convert flat float arrays into vertex3s 
+func floatsToVertex3s(arr []Float32) []Vertex3{
+	if len(arr) %3 != 0{
+		errors.New("Something went wrong parsing an array of floats to vertices as it was not divisible by 3")
 	}
-	if ( geoNode.LayerElementMaterial ) {
-		geoInfo.material = this.parseMaterialIndices( geoNode.LayerElementMaterial[ 0 ] );
+	output := make([]Vertex3, len(arr)/3)
+	for i := 0; i < len(arr)/3; i++{
+		output[i] = Vertex3{arr[i*3],arr[i*3+1],arr[i*3+2]}
 	}
-	if ( geoNode.LayerElementNormal ) {
-		geoInfo.normal = this.parseNormals( geoNode.LayerElementNormal[ 0 ] );
+	return output
+}
+
+func (l *Loader) parseGeoNode ( geoNode Node , skeleton Skeleton) {
+	geoInfo := make(map[string]Property)
+ 
+	geoInfo["vertexPositions"] =  []float32{} //TODO: convert this out to preparse rather than worrying about it later
+	if v, ok := geoNode.props["Vertices"]; ok{
+		geoInfo["vertexPositions"] = v
 	}
-	if ( geoNode.LayerElementUV ) {
-		geoInfo.uv = [];
-		var i = 0;
-		while ( geoNode.LayerElementUV[ i ] ) {
-			geoInfo.uv.push( this.parseUVs( geoNode.LayerElementUV[ i ] ) );
-			i ++;
+	geoInfo["vertexIndices"] =  []int{}
+	if v, ok := geoNode.props["PolygonVertexIndex"]; ok{
+		geoInfo["vertexIndices"] = v
+	}
+
+	if v, ok :=  geoNode.props["LayerElementColor"]; ok{
+		geoInfo["color"] = l.parseVertexColors(v[0])
+	}
+	if v, ok :=  geoNode.props["LayerElementMaterial"]; ok{
+		geoInfo["material"] = l.parseMaterialIndices(v[0])
+	}
+	if v, ok :=  geoNode.props["LayerElementNormal"]; ok{
+		geoInfo["normal"] = l.parseNormals(v[0])
+	}
+
+	if uvList, ok :=  geoNode.props["LayerElementUV"]; ok{
+	//TODO: correct this once we understand all things in a UV object
+		geoInfo["uv"] = make([]UVParsed,len(uvList) )
+		for i, v := uvList{
+			geoInfo["uv"][i] = l.parseUVs(v)
 		}
 	}
-	geoInfo.weightTable = {};
-	if ( skeleton !== null ) {
-		geoInfo.skeleton = skeleton;
-		skeleton.rawBones.forEach( function ( rawBone, i ) {
-			// loop over the bone's vertex indices and weights
-			rawBone.indices.forEach( function ( index, j ) {
-				if ( geoInfo.weightTable[ index ] === undefined ) geoInfo.weightTable[ index ] = [];
-				geoInfo.weightTable[ index ].push( {
-					id: i,
-					weight: rawBone.weights[ j ],
-				} );
-			} );
-		} );
+
+	geoInfo["weightTable"] = ???{}
+
+	if skeleton != null{
+		geoInfo["skeleton"] = skeleton
+		// loop over the bone's vertex indices and weights
+		for i, rawb := range skeleton.rawBones{
+			for j,rIndex := range rawb.Indices{
+				if _, ok := geoInfo["weightTable"][rIndex]{
+					geoInfo["weightTable"][rIndex] = []WeightEntry{}
+				}
+				geoInfo["weightTable"][rIndex] = append(geoInfo["weightTable"][rIndex],WeightEntry{i,rawb.weights[j]})
+			}
+		}
 	}
-	return geoInfo;
-},
+
+	return geoInfo
+}
+
 genBuffers: function ( geoInfo ) {
 	var buffers = {
 		vertex: [],
@@ -195,8 +291,8 @@ genBuffers: function ( geoInfo ) {
 		if ( geoInfo.skeleton ) {
 			if ( geoInfo.weightTable[ vertexIndex ] !== undefined ) {
 				geoInfo.weightTable[ vertexIndex ].forEach( function ( wt ) {
-					weights.push( wt.weight );
-					weightIndices.push( wt.id );
+					weights.push( wt.Weight );
+					weightIndices.push( wt.ID );
 				} );
 			}
 			if ( weights.length > 4 ) {

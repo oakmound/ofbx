@@ -1,5 +1,7 @@
 package threefbx
 
+//TODO consider how they use transformdata and how it creates transforms
+//can we skip transform data and just jam things on as we get them?
 
 var tempMat = new THREE.Matrix4();
 	var tempEuler = new THREE.Euler();
