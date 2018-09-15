@@ -3,6 +3,7 @@ package threefbx
 
 //Notes:
 // 		* geometries with mutliple models that have different transforms may break this.
+//		* if Vertex has more than 4 skinning weights we throw out the extra
 
 
 // TODO: check assumptions
@@ -34,10 +35,30 @@ type WeightEntry{ //TODO: see if we can find a better way that doesnt use this (
 	Weight float64
 }
 
-
+// floatsToVertex3s is a helper function to convert flat float arrays into vertex3s 
+func floatsToVertex3s(arr []Float32) []Vertex3{
+	if len(arr) %3 != 0{
+		errors.New("Something went wrong parsing an array of floats to vertices as it was not divisible by 3")
+	}
+	output := make([]Vertex3, len(arr)/3)
+	for i := 0; i < len(arr)/3; i++{
+		output[i] = Vertex3{arr[i*3],arr[i*3+1],arr[i*3+2]}
+	}
+	return output
+}
+func floatsToVertex4s(arr []Float32) []Vertex4{
+	if len(arr) %4 != 0{
+		errors.New("Something went wrong parsing an array of floats to vertices as it was not divisible by 3")
+	}
+	output := make([]Vertex4, len(arr)/3)
+	for i := 0; i < len(arr)/4; i++{
+		output[i] = Vertex4{arr[i*4],arr[i*4+1],arr[i*4+2],arr[i*4+3]}
+	}
+	return output
+}
 // AddGroup was a THREE.js thing start of conversion is here it seems to store a range for which a value is the same
 func (g *Geometry) AddGroup(rangeStart, count, groupValue int){
-	if g.groups ==null{
+	if g.groups ==nil{
 		g.groups = {}
 	}
 	g.groups = append(g.groups, Group{rangeStart, count, groupValue})
@@ -183,21 +204,11 @@ func (l *Loader) genGeometry ( geoNode Node,  skeletons map[int64]Skeleton,morph
 		}
 	}
 
-	l.addMorphTargets( geo, geoNode, morphTarget, preTransform )
+	geo.addMorphTargets( l, geo, geoNode, morphTarget, preTransform )
 	return geo
 }
 
-// floatsToVertex3s is a helper function to convert flat float arrays into vertex3s 
-func floatsToVertex3s(arr []Float32) []Vertex3{
-	if len(arr) %3 != 0{
-		errors.New("Something went wrong parsing an array of floats to vertices as it was not divisible by 3")
-	}
-	output := make([]Vertex3, len(arr)/3)
-	for i := 0; i < len(arr)/3; i++{
-		output[i] = Vertex3{arr[i*3],arr[i*3+1],arr[i*3+2]}
-	}
-	return output
-}
+
 
 func (l *Loader) parseGeoNode ( geoNode Node , skeleton Skeleton) {
 	geoInfo := make(map[string]Property)
@@ -229,9 +240,9 @@ func (l *Loader) parseGeoNode ( geoNode Node , skeleton Skeleton) {
 		}
 	}
 
-	geoInfo["weightTable"] = ???{}
+	geoInfo["weightTable"] := ???{}
 
-	if skeleton != null{
+	if skeleton != nil{
 		geoInfo["skeleton"] = skeleton
 		// loop over the bone's vertex indices and weights
 		for i, rawb := range skeleton.rawBones{
@@ -246,30 +257,272 @@ func (l *Loader) parseGeoNode ( geoNode Node , skeleton Skeleton) {
 
 	return geoInfo
 }
+// genFace generates data for a single face in a geometry. If the face is a quad then split it into 2 tris
+func (l *Loader) genFace(buffers, geoInfo, facePositionIndexes, materialIndex,  faceNormals, faceColors, faceUVs, faceWeights, faceWeightIndices, faceLength ) {
+	for int i := 2 ; i < faceLength; i++{
+		geoInfo.vertexPositions[fce]
+		buffers.vertex = append(buffers.vertex, genFaceVertex(geoInfo.vertexPositions, facePositionIndexes, i)...)
+		if geoInfo.skeleton{
+			buffers.vertexWeights = append(buffers.vertexWeights, genIntFaceArray(4,faceWeights,i))
+			buffers.weightsIndices = append(buffers.weightsIndices, genIntFaceArray(4,faceWeightIndices, i))
+		}
+		if geoInfo.color {
+			buffers.color = append(buffers.color, genIntFaceArray(3,faceColors,i))
+		}
+		if geoInfo.material && geoInfo.material.mappingType != 'AllSame'{
+			buffers.materialIndex = append(buffers.materialIndex, materialIndex)//TODO: This seems wrong as it checks that materials are NOT all the same...
+			buffers.materialIndex = append(buffers.materialIndex, materialIndex)
+			buffers.materialIndex = append(buffers.materialIndex, materialIndex)
+		}
+		if geoInfo.normal{
+			buffers.normal  = append(buffers.normal, genIntFaceArray(3,faceNormals, i))
+		}
 
-genBuffers: function ( geoInfo ) {
-	var buffers = {
-		vertex: [],
-		normal: [],
-		colors: [],
-		uvs: [],
-		materialIndex: [],
-		vertexWeights: [],
-		weightsIndices: [],
-	};
-	var polygonIndex = 0;
-	var faceLength = 0;
-	var displayedWeightsWarning = false;
-	// these will hold data for a single face
-	var facePositionIndexes = [];
-	var faceNormals = [];
-	var faceColors = [];
-	var faceUVs = [];
-	var faceWeights = [];
-	var faceWeightIndices = [];
-	var self = this;
-	geoInfo.vertexIndices.forEach( function ( vertexIndex, polygonVertexIndex ) {
-		var endOfFace = false;
+		if geoInfo.uv {
+			for j, u := range geoInfo.uv{
+				if _, ok := buffers.uvs[j]; !ok{
+					buffers.uvs[j] = []int{} //todo replace with whatever type uv is
+				}
+				buffers.uvs[j] = append(buffers.uvs[j], genIntFaceArray(2,faceUVs[ j ], i)
+			}
+		}
+	}
+}
+
+// genFaceVertex simplifies a portion of genface to be less wordy in creation of the vertices for the face
+func genFaceVertex(vPos, posIdxs, idx){
+	return []int{
+		vPoss[ posIdxs[0]],vPos[posIdxs[1]],vPos[ posIdxs[2]],
+		vPoss[ posIdxs[( idx - 1 ) * 3 + 0]],vPos[posIdxs[(idx-1)*3+1]],vPos[ posIdxs[(idx-1)*3+2]],
+		vPoss[ posIdxs[ idx * 3 + 0]],vPos[posIdxs[ idx * 3 +1]],vPos[ posIdxs[idx * 3 +2]]
+	}
+}
+
+func genIntFaceArray(size, sourceArr, idx) []int{
+	out := make([]int{}, size * 3)
+	for j := 0 ; j < size; j++{
+		out[ j] = sourceArr[j ]
+	}
+	for i := 0 ; i < 2; i++{
+		for j := 0 ; j < size; j++{
+			out[(i+1)*size + j] = sourceArr[j + ((idx-1+i) *size)]
+		}
+	}
+}
+
+
+func (g *Geometery) addMorphTargets( l *Loader, parentGeo, parentGeoNode, morphTarget, preTransform ) {
+	if morphTarget == nil{
+		return
+	}
+	parentGeo.morphAttributes.position = []
+	parentGeo.morphAttributes.normal = []
+	for  idx, t := range	morphTarget.rawTargets{
+		morphGeoNode := l.Tree.Objects.Geometry[t.geoID]
+		if morphGeoNode != nil{
+			g.genMorphGeometry( parentGeo, parentGeoNode, morphGeoNode, preTransform )
+		}
+	}
+}
+
+// a morph geometry node is similar to a standard  node, and the node is also contained
+// in FBXTree.Objects.Geometry, however it can only have attributes for position, normal
+// and a special attribute Index defining which vertices of the original geometry are affected
+// Normal and position attributes only have data for the vertices that are affected by the morph
+func (g *Geometery) genMorphGeometry( parentGeo, parentGeoNode, morphGeoNode, preTransform ) {
+	morphGeo = new THREE.BufferGeometry() //TODO: figure out type
+	if morphGeoNode.attrName{
+		morphGeo.name = morphGeoNode.attrName
+	}
+	vertexIndices := parentGeoNode.PolygonVertexIndex
+	
+	// make a copy of the parent's vertex positions
+	vertexPositions := []int{}
+	copy(vertexPositions,  parentGeoNode.Vertices)
+	morphPositions := morphGeoNode.Vertices
+	indices := morphGeoNode.Indexes
+	for i := 0 ; i < len(indices); i++{
+		morphIndex = indices[i] * 3
+		// FBX format uses blend shapes rather than morph targets. This can be converted
+		// by additively combining the blend shape positions with the original geometry's positions
+		vertexPositions[ morphIndex ] += morphPositions[ i * 3 ]
+		vertexPositions[ morphIndex + 1 ] += morphPositions[ i * 3 + 1 ]
+		vertexPositions[ morphIndex + 2 ] += morphPositions[ i * 3 + 2 ]
+	}
+
+	morphGeoInfo := {
+		vertexIndices: vertexIndices,
+		vertexPositions: vertexPositions,
+	}
+	morphBuffers = g.genBuffers()
+
+	positionAttribute  := floatsToVertex3s(morphBuffers.vertex)
+	positionAttribute.name = morphGeoNode.attrName
+	preTransform.applyToBufferAttribute( positionAttribute )
+
+	parentGeo.morphAttirbutes.position = append(parentGeo.morphAttirbutes.position , positionAttribute)
+
+}
+
+
+//TODO remove this once we can by breaking out each data object into its own type
+type struct threeDataObject{
+	dataSize int,
+	buffer []int
+	indices []int
+	mappingType string
+	referenceType string
+}
+
+
+// Parse normal from FBXTree.Objects.Geometry.LayerElementNormal if it exists
+func parseNormals(NormalNode  ) threeDataObject{
+	indexBuffer := []int
+	if  referenceType == "IndexToDirect"  {
+		if _, ok := NormalNode.props["NormalIndex"] ; ok{
+			indexBuffer = NormalNode.NormalIndex.a;
+		} else if _, ok2 := NormalNode.props["NormalsIndex"] ; ok2{
+			indexBuffer = NormalNode.NormalsIndex.a;
+		}
+	}
+	return threeDataObject{
+		dataSize:3,
+		buffer: NormalNode.Normals,
+		indices: indexBuffer,
+		mappingType: NormalNode.MappingInformationType,
+		referenceType: NormalNode.ReferenceInformationType
+	}
+}
+// Parse UVs from FBXTree.Objects.Geometry.LayerElementUV if it exists
+func parseUVs(UVNode) threeDataObject{
+	mappingType := UVNode.MappingInformationType
+	 referenceType := UVNode.ReferenceInformationType
+	 buffer := UVNode.UV
+	 indexBuffer := []
+	if  referenceType =="IndexToDirect"  {
+		indexBuffer = UVNode.UVIndex
+	}
+	return threeDataObject{
+		dataSize: 2,
+		buffer: buffer,
+		indices: indexBuffer,
+		mappingType: mappingType,
+		referenceType: referenceType
+	}
+}
+// Parse Vertex Colors from FBXTree.Objects.Geometry.LayerElementColor if it exists
+func parseVertexColors(ColorNode) threeDataObject{
+	 indexBuffer := []int
+	if referenceType === "IndexToDirect" {
+		indexBuffer = ColorNode.ColorIndex
+	}
+	return threeDataObject{
+		dataSize: 4,
+		buffer: ColorNode.Colors,
+		indices: indexBuffer,
+		mappingType: ColorNode.MappingInformationType,
+		referenceType: ColorNode.ReferenceInformationType
+	}
+}
+// Parse mapping and material data in FBXTree.Objects.Geometry.LayerElementMaterial if it exists
+func parseMaterialIndices(MaterialNode)threeDataObject{
+	 mappingType := MaterialNode.MappingInformationType
+	 referenceType := MaterialNode.ReferenceInformationType
+
+	 if mappingType == "NoMappingInformation"{
+		 return threeDataObject{
+			dataSize: 1,
+			buffer: []int{0},
+			indices: []int{0},
+			mappingType: "AllSame",
+			referenceType: referenceType
+		 }
+	 }
+
+	materialIndexBuffer = MaterialNode.Materials
+	for i:=0; i < len(materialIndexBuffer) ; i++{
+		materialIndices = append(materialIndices, i)
+	}
+	 return threeDataObject{
+		dataSize: 1,
+		buffer: materialIndexBuffer,
+		indices: materialIndices,
+		mappingType: mappingType,
+		referenceType: referenceType
+	 }
+}
+
+func parseNurbsGeometry(geoNode Node) Geometry{
+	orderStr, ok :=  geoNode.props["order"]
+	if !ok{
+		return  Geometry{} // FIgure out how to do this fail state as it used to return new THREE.BufferGeometry();
+	}
+	order, err := strconv.Atoi(orderStr)
+	if err!=nil{
+		return  Geometry{} // FIgure out how to do this fail state as it used to return new THREE.BufferGeometry();
+		
+	}
+
+	
+	 degree := order - 1
+	 knots := geoNode.props["KnotVector"]
+	
+	 pointsValues := geoNode.props["Points"]
+	 controlPoints := floatsToVertex4s(pointsValues)
+
+	 var startKnot, endKnot int
+	 if geoNode.props["Form"] == "Closed"{
+		 controlPoints = append(controlPoints, controlPoints[0])
+	 }else if geoNode.props["Form"] == "Periodic"{
+		startKnot = degree
+		endKnot = knots.length - 1 - startKnot
+		for i:=1; i <= degree; i++{
+			controlPoints = append(controlPoints, controlPoints[i])
+		}
+	 }
+
+	curve := THREE.NURBSCurve( degree, knots, controlPoints, startKnot, endKnot );
+	 vertices := curve.getPoints( controlPoints.length * 7 );
+	 positions := floatsToVertex3s(vertices)
+	g := Geometry{}
+	g.position =  THREE.BufferAttribute( positions, 3 ) );
+	return g
+
+}
+
+// this may be a map<string>int[] for now to not messup prop activities making it a type
+type gBuffers struct{
+	vertex: []int
+		normal: []int
+		colors: []int
+		uvs: []int
+		materialIndex: []int
+		vertexWeights: []int
+		weightsIndices: []int
+}
+
+
+
+
+
+func genBuffers(geonInfo){
+	buffers := gBuffers{}
+	polygonIndex = 0
+	faceLength = 0
+	displayedWeightsWarning = false	
+
+
+	
+	// tracking faces
+	facePositionIndexes := []int
+	faceNormals := []int
+	faceColors := []int
+	faceUVs := []int
+	faceWeights := []int
+	faceWeightIndices := []int
+	materialIndex := -1
+
+	for polygonVertexIndex, vertexIndex := range geoInfo.vertexIndices{
 		// Face index and vertex index arrays are combined in a single array
 		// A cube with quad faces looks like this:
 		// PolygonVertexIndex: *24 {
@@ -277,29 +530,36 @@ genBuffers: function ( geoInfo ) {
 		//  }
 		// Negative numbers mark the end of a face - first face here is 0, 1, 3, -3
 		// to find index of last vertex bit shift the index: ^ - 1
-		if ( vertexIndex < 0 ) {
-			vertexIndex = vertexIndex ^ - 1; // equivalent to ( x * -1 ) - 1
-			endOfFace = true;
+		
+		endFace := false
+		if vertexIndex < 0{
+			vertexIndex = (vertex * -1) -1
+			endOfFace = true
 		}
-		var weightIndices = [];
-		var weights = [];
-		facePositionIndexes.push( vertexIndex * 3, vertexIndex * 3 + 1, vertexIndex * 3 + 2 );
-		if ( geoInfo.color ) {
-			var data = getData( polygonVertexIndex, polygonIndex, vertexIndex, geoInfo.color );
-			faceColors.push( data[ 0 ], data[ 1 ], data[ 2 ] );
+		weightIndices := []int
+		weights := []int
+		facePositionIndexes = append(facePositionIndexes,  vertexIndex * 3, vertexIndex * 3 + 1, vertexIndex * 3 + 2 )
+		if geoInfo.color!= nil{
+			data := getData( polygonVertexIndex, polygonIndex, vertexIndex, geoInfo.color ) //getData returns []int ?
+			faceColors = append(faceColors, data[ 0 ], data[ 1 ], data[ 2 ] )
 		}
-		if ( geoInfo.skeleton ) {
-			if ( geoInfo.weightTable[ vertexIndex ] !== undefined ) {
-				geoInfo.weightTable[ vertexIndex ].forEach( function ( wt ) {
-					weights.push( wt.Weight );
-					weightIndices.push( wt.ID );
-				} );
-			}
-			if ( weights.length > 4 ) {
-				if ( ! displayedWeightsWarning ) {
-					console.warn( 'THREE.FBXLoader: Vertex has more than 4 skinning weights assigned to vertex. Deleting additional weights.' );
-					displayedWeightsWarning = true;
+		if geoInfo.skeleton!= nil{
+			if ws, ok := geoInfo.weighTable[vertexIndex]; ok{
+				for _, w := range ws{
+					weights = append(weights, w.Weight)
+					weightIndices = append(w.ID)
 				}
+			}
+			if len(weights) > 4{
+				if !displayedWeightsWarning{
+					fmt.Println("Vertex has more than 4 skinning weights assigned to vertex. Deleting additional weights.")
+					displayedWeightsWarning = true
+				}
+				
+				//--------------------------------------------------------------------------------------------------------------
+				//--------------------------------------------------------------------------------------------------------------
+				// TODO: we should talk about this because I am confused about the for each on the Weight as we instantiate it as a [4]int
+				// Given that we know js can foreach on an object and interact with its props that makes sense but not incontext of the weight being [4]int
 				var wIndex = [ 0, 0, 0, 0 ];
 				var Weight = [ 0, 0, 0, 0 ];
 				weights.forEach( function ( weight, weightIndex ) {
@@ -317,290 +577,57 @@ genBuffers: function ( geoInfo ) {
 				} );
 				weightIndices = wIndex;
 				weights = Weight;
+				
+				//--------------------------------------------------------------------------------------------------------------
+				//--------------------------------------------------------------------------------------------------------------
 			}
 			// if the weight array is shorter than 4 pad with 0s
-			while ( weights.length < 4 ) {
-				weights.push( 0 );
-				weightIndices.push( 0 );
+			for len(weights) <4  {
+				weights = append(weights, 0)
+				weightsIndices = append(weightIndices, 0)
 			}
-			for ( var i = 0; i < 4; ++ i ) {
-				faceWeights.push( weights[ i ] );
-				faceWeightIndices.push( weightIndices[ i ] );
+
+			for i := 1 ; i <= 4; i++){
+				faceWeights = append(faceWeights, weights[i])
+				faceWeightIndices = append(faceWeightIndices, weightsIndices[i])
 			}
+
+
 		}
-		if ( geoInfo.normal ) {
-			var data = getData( polygonVertexIndex, polygonIndex, vertexIndex, geoInfo.normal );
-			faceNormals.push( data[ 0 ], data[ 1 ], data[ 2 ] );
+
+		if geoInfo.normal != nil{
+			data := getData( polygonVertexIndex, polygonIndex, vertexIndex, geoInfo.normal )
+			faceNormals = append(faceNormals,  data[ 0 ], data[ 1 ], data[ 2 ] )
 		}
-		if ( geoInfo.material && geoInfo.material.mappingType !== 'AllSame' ) {
-			var materialIndex = getData( polygonVertexIndex, polygonIndex, vertexIndex, geoInfo.material )[ 0 ];
+		if  geoInfo.material != nil && geoInfo.material.mappingType != "AllSame"{
+			materialIndex = getData( polygonVertexIndex, polygonIndex, vertexIndex, geoInfo.material )[ 0 ]
 		}
-		if ( geoInfo.uv ) {
-			geoInfo.uv.forEach( function ( uv, i ) {
-				var data = getData( polygonVertexIndex, polygonIndex, vertexIndex, uv );
-				if ( faceUVs[ i ] === undefined ) {
-					faceUVs[ i ] = [];
+		if geoInfo.uv !=nil{
+			for i, uv := range geoInfo.uv{
+				data = getData( polygonVertexIndex, polygonIndex, vertexIndex, uv )
+				uvs, ok := faceUVs[i]
+				if !ok{
+					faceUVs[i] = []int{}
 				}
-				faceUVs[ i ].push( data[ 0 ] );
-				faceUVs[ i ].push( data[ 1 ] );
-			} );
+				faceUvs = append(faceUVs, data[0], data[1])
+			}
 		}
-		faceLength ++;
-		if ( endOfFace ) {
-			self.genFace( buffers, geoInfo, facePositionIndexes, materialIndex, faceNormals, faceColors, faceUVs, faceWeights, faceWeightIndices, faceLength );
-			polygonIndex ++;
+		faceLength++
+		if endOfFace{
+			genFace( buffers, geoInfo, facePositionIndexes, materialIndex, faceNormals, faceColors, faceUVs, faceWeights, faceWeightIndices, faceLength )
+			polgonIndex++
 			faceLength = 0;
 			// reset arrays for the next face
-			facePositionIndexes = [];
-			faceNormals = [];
-			faceColors = [];
-			faceUVs = [];
-			faceWeights = [];
-			faceWeightIndices = [];
-		}
-	} );
-	return buffers;
-},
-// Generate data for a single face in a geometry. If the face is a quad then split it into 2 tris
-genFace: function ( buffers, geoInfo, facePositionIndexes, materialIndex, faceNormals, faceColors, faceUVs, faceWeights, faceWeightIndices, faceLength ) {
-	for ( var i = 2; i < faceLength; i ++ ) {
-		buffers.vertex.push( geoInfo.vertexPositions[ facePositionIndexes[ 0 ] ] );
-		buffers.vertex.push( geoInfo.vertexPositions[ facePositionIndexes[ 1 ] ] );
-		buffers.vertex.push( geoInfo.vertexPositions[ facePositionIndexes[ 2 ] ] );
-		buffers.vertex.push( geoInfo.vertexPositions[ facePositionIndexes[ ( i - 1 ) * 3 ] ] );
-		buffers.vertex.push( geoInfo.vertexPositions[ facePositionIndexes[ ( i - 1 ) * 3 + 1 ] ] );
-		buffers.vertex.push( geoInfo.vertexPositions[ facePositionIndexes[ ( i - 1 ) * 3 + 2 ] ] );
-		buffers.vertex.push( geoInfo.vertexPositions[ facePositionIndexes[ i * 3 ] ] );
-		buffers.vertex.push( geoInfo.vertexPositions[ facePositionIndexes[ i * 3 + 1 ] ] );
-		buffers.vertex.push( geoInfo.vertexPositions[ facePositionIndexes[ i * 3 + 2 ] ] );
-		if ( geoInfo.skeleton ) {
-			buffers.vertexWeights.push( faceWeights[ 0 ] );
-			buffers.vertexWeights.push( faceWeights[ 1 ] );
-			buffers.vertexWeights.push( faceWeights[ 2 ] );
-			buffers.vertexWeights.push( faceWeights[ 3 ] );
-			buffers.vertexWeights.push( faceWeights[ ( i - 1 ) * 4 ] );
-			buffers.vertexWeights.push( faceWeights[ ( i - 1 ) * 4 + 1 ] );
-			buffers.vertexWeights.push( faceWeights[ ( i - 1 ) * 4 + 2 ] );
-			buffers.vertexWeights.push( faceWeights[ ( i - 1 ) * 4 + 3 ] );
-			buffers.vertexWeights.push( faceWeights[ i * 4 ] );
-			buffers.vertexWeights.push( faceWeights[ i * 4 + 1 ] );
-			buffers.vertexWeights.push( faceWeights[ i * 4 + 2 ] );
-			buffers.vertexWeights.push( faceWeights[ i * 4 + 3 ] );
-			buffers.weightsIndices.push( faceWeightIndices[ 0 ] );
-			buffers.weightsIndices.push( faceWeightIndices[ 1 ] );
-			buffers.weightsIndices.push( faceWeightIndices[ 2 ] );
-			buffers.weightsIndices.push( faceWeightIndices[ 3 ] );
-			buffers.weightsIndices.push( faceWeightIndices[ ( i - 1 ) * 4 ] );
-			buffers.weightsIndices.push( faceWeightIndices[ ( i - 1 ) * 4 + 1 ] );
-			buffers.weightsIndices.push( faceWeightIndices[ ( i - 1 ) * 4 + 2 ] );
-			buffers.weightsIndices.push( faceWeightIndices[ ( i - 1 ) * 4 + 3 ] );
-			buffers.weightsIndices.push( faceWeightIndices[ i * 4 ] );
-			buffers.weightsIndices.push( faceWeightIndices[ i * 4 + 1 ] );
-			buffers.weightsIndices.push( faceWeightIndices[ i * 4 + 2 ] );
-			buffers.weightsIndices.push( faceWeightIndices[ i * 4 + 3 ] );
-		}
-		if ( geoInfo.color ) {
-			buffers.colors.push( faceColors[ 0 ] );
-			buffers.colors.push( faceColors[ 1 ] );
-			buffers.colors.push( faceColors[ 2 ] );
-			buffers.colors.push( faceColors[ ( i - 1 ) * 3 ] );
-			buffers.colors.push( faceColors[ ( i - 1 ) * 3 + 1 ] );
-			buffers.colors.push( faceColors[ ( i - 1 ) * 3 + 2 ] );
-			buffers.colors.push( faceColors[ i * 3 ] );
-			buffers.colors.push( faceColors[ i * 3 + 1 ] );
-			buffers.colors.push( faceColors[ i * 3 + 2 ] );
-		}
-		if ( geoInfo.material && geoInfo.material.mappingType !== 'AllSame' ) {
-			buffers.materialIndex.push( materialIndex );
-			buffers.materialIndex.push( materialIndex );
-			buffers.materialIndex.push( materialIndex );
-		}
-		if ( geoInfo.normal ) {
-			buffers.normal.push( faceNormals[ 0 ] );
-			buffers.normal.push( faceNormals[ 1 ] );
-			buffers.normal.push( faceNormals[ 2 ] );
-			buffers.normal.push( faceNormals[ ( i - 1 ) * 3 ] );
-			buffers.normal.push( faceNormals[ ( i - 1 ) * 3 + 1 ] );
-			buffers.normal.push( faceNormals[ ( i - 1 ) * 3 + 2 ] );
-			buffers.normal.push( faceNormals[ i * 3 ] );
-			buffers.normal.push( faceNormals[ i * 3 + 1 ] );
-			buffers.normal.push( faceNormals[ i * 3 + 2 ] );
-		}
-		if ( geoInfo.uv ) {
-			geoInfo.uv.forEach( function ( uv, j ) {
-				if ( buffers.uvs[ j ] === undefined ) buffers.uvs[ j ] = [];
-				buffers.uvs[ j ].push( faceUVs[ j ][ 0 ] );
-				buffers.uvs[ j ].push( faceUVs[ j ][ 1 ] );
-				buffers.uvs[ j ].push( faceUVs[ j ][ ( i - 1 ) * 2 ] );
-				buffers.uvs[ j ].push( faceUVs[ j ][ ( i - 1 ) * 2 + 1 ] );
-				buffers.uvs[ j ].push( faceUVs[ j ][ i * 2 ] );
-				buffers.uvs[ j ].push( faceUVs[ j ][ i * 2 + 1 ] );
-			} );
+			facePositionIndexes = []int{}
+			faceNormals = []int{}
+			faceColors = []int{}
+			faceUVs = []int{}
+			faceWeights = []int{}
+			faceWeightIndices = []int{}
 		}
 	}
-},
-addMorphTargets: function ( parentGeo, parentGeoNode, morphTarget, preTransform ) {
-	if ( morphTarget === null ) return;
-	parentGeo.morphAttributes.position = [];
-	parentGeo.morphAttributes.normal = [];
-	var self = this;
-	morphTarget.rawTargets.forEach( function ( rawTarget ) {
-		var morphGeoNode = fbxTree.Objects.Geometry[ rawTarget.geoID ];
-		if ( morphGeoNode !== undefined ) {
-			self.genMorphGeometry( parentGeo, parentGeoNode, morphGeoNode, preTransform );
-		}
-	} );
-},
-// a morph geometry node is similar to a standard  node, and the node is also contained
-// in FBXTree.Objects.Geometry, however it can only have attributes for position, normal
-// and a special attribute Index defining which vertices of the original geometry are affected
-// Normal and position attributes only have data for the vertices that are affected by the morph
-genMorphGeometry: function ( parentGeo, parentGeoNode, morphGeoNode, preTransform ) {
-	var morphGeo = new THREE.BufferGeometry();
-	if ( morphGeoNode.attrName ) morphGeo.name = morphGeoNode.attrName;
-	var vertexIndices = ( parentGeoNode.PolygonVertexIndex !== undefined ) ? parentGeoNode.PolygonVertexIndex.a : [];
-	// make a copy of the parent's vertex positions
-	var vertexPositions = ( parentGeoNode.Vertices !== undefined ) ? parentGeoNode.Vertices.a.slice() : [];
-	var morphPositions = ( morphGeoNode.Vertices !== undefined ) ? morphGeoNode.Vertices.a : [];
-	var indices = ( morphGeoNode.Indexes !== undefined ) ? morphGeoNode.Indexes.a : [];
-	for ( var i = 0; i < indices.length; i ++ ) {
-		var morphIndex = indices[ i ] * 3;
-		// FBX format uses blend shapes rather than morph targets. This can be converted
-		// by additively combining the blend shape positions with the original geometry's positions
-		vertexPositions[ morphIndex ] += morphPositions[ i * 3 ];
-		vertexPositions[ morphIndex + 1 ] += morphPositions[ i * 3 + 1 ];
-		vertexPositions[ morphIndex + 2 ] += morphPositions[ i * 3 + 2 ];
-	}
-	// TODO: add morph normal support
-	var morphGeoInfo = {
-		vertexIndices: vertexIndices,
-		vertexPositions: vertexPositions,
-	};
-	var morphBuffers = this.genBuffers( morphGeoInfo );
-	var positionAttribute = new THREE.Float32BufferAttribute( morphBuffers.vertex, 3 );
-	positionAttribute.name = morphGeoNode.attrName;
-	preTransform.applyToBufferAttribute( positionAttribute );
-	parentGeo.morphAttributes.position.push( positionAttribute );
-},
-// Parse normal from FBXTree.Objects.Geometry.LayerElementNormal if it exists
-parseNormals: function ( NormalNode ) {
-	var mappingType = NormalNode.MappingInformationType;
-	var referenceType = NormalNode.ReferenceInformationType;
-	var buffer = NormalNode.Normals.a;
-	var indexBuffer = [];
-	if ( referenceType === 'IndexToDirect' ) {
-		if ( 'NormalIndex' in NormalNode ) {
-			indexBuffer = NormalNode.NormalIndex.a;
-		} else if ( 'NormalsIndex' in NormalNode ) {
-			indexBuffer = NormalNode.NormalsIndex.a;
-		}
-	}
-	return {
-		dataSize: 3,
-		buffer: buffer,
-		indices: indexBuffer,
-		mappingType: mappingType,
-		referenceType: referenceType
-	};
-},
-// Parse UVs from FBXTree.Objects.Geometry.LayerElementUV if it exists
-parseUVs: function ( UVNode ) {
-	var mappingType = UVNode.MappingInformationType;
-	var referenceType = UVNode.ReferenceInformationType;
-	var buffer = UVNode.UV.a;
-	var indexBuffer = [];
-	if ( referenceType === 'IndexToDirect' ) {
-		indexBuffer = UVNode.UVIndex.a;
-	}
-	return {
-		dataSize: 2,
-		buffer: buffer,
-		indices: indexBuffer,
-		mappingType: mappingType,
-		referenceType: referenceType
-	};
-},
-// Parse Vertex Colors from FBXTree.Objects.Geometry.LayerElementColor if it exists
-parseVertexColors: function ( ColorNode ) {
-	var mappingType = ColorNode.MappingInformationType;
-	var referenceType = ColorNode.ReferenceInformationType;
-	var buffer = ColorNode.Colors.a;
-	var indexBuffer = [];
-	if ( referenceType === 'IndexToDirect' ) {
-		indexBuffer = ColorNode.ColorIndex.a;
-	}
-	return {
-		dataSize: 4,
-		buffer: buffer,
-		indices: indexBuffer,
-		mappingType: mappingType,
-		referenceType: referenceType
-	};
-},
-// Parse mapping and material data in FBXTree.Objects.Geometry.LayerElementMaterial if it exists
-parseMaterialIndices: function ( MaterialNode ) {
-	var mappingType = MaterialNode.MappingInformationType;
-	var referenceType = MaterialNode.ReferenceInformationType;
-	if ( mappingType === 'NoMappingInformation' ) {
-		return {
-			dataSize: 1,
-			buffer: [ 0 ],
-			indices: [ 0 ],
-			mappingType: 'AllSame',
-			referenceType: referenceType
-		};
-	}
-	var materialIndexBuffer = MaterialNode.Materials.a;
-	// Since materials are stored as indices, there's a bit of a mismatch between FBX and what
-	// we expect.So we create an intermediate buffer that points to the index in the buffer,
-	// for conforming with the other functions we've written for other data.
-	var materialIndices = [];
-	for ( var i = 0; i < materialIndexBuffer.length; ++ i ) {
-		materialIndices.push( i );
-	}
-	return {
-		dataSize: 1,
-		buffer: materialIndexBuffer,
-		indices: materialIndices,
-		mappingType: mappingType,
-		referenceType: referenceType
-	};
-},
-// Generate a NurbGeometry from a node in FBXTree.Objects.Geometry
-parseNurbsGeometry: function ( geoNode ) {
-	if ( THREE.NURBSCurve === undefined ) {
-		console.error( 'THREE.FBXLoader: The loader relies on THREE.NURBSCurve for any nurbs present in the model. Nurbs will show up as empty geometry.' );
-		return new THREE.BufferGeometry();
-	}
-	var order = parseInt( geoNode.Order );
-	if ( isNaN( order ) ) {
-		console.error( 'THREE.FBXLoader: Invalid Order %s given for geometry ID: %s', geoNode.Order, geoNode.id );
-		return new THREE.BufferGeometry();
-	}
-	var degree = order - 1;
-	var knots = geoNode.KnotVector.a;
-	var controlPoints = [];
-	var pointsValues = geoNode.Points.a;
-	for ( var i = 0, l = pointsValues.length; i < l; i += 4 ) {
-		controlPoints.push( new THREE.Vector4().fromArray( pointsValues, i ) );
-	}
-	var startKnot, endKnot;
-	if ( geoNode.Form === 'Closed' ) {
-		controlPoints.push( controlPoints[ 0 ] );
-	} else if ( geoNode.Form === 'Periodic' ) {
-		startKnot = degree;
-		endKnot = knots.length - 1 - startKnot;
-		for ( var i = 0; i < degree; ++ i ) {
-			controlPoints.push( controlPoints[ i ] );
-		}
-	}
-	var curve = new THREE.NURBSCurve( degree, knots, controlPoints, startKnot, endKnot );
-	var vertices = curve.getPoints( controlPoints.length * 7 );
-	var positions = new Float32Array( vertices.length * 3 );
-	vertices.forEach( function ( vertex, i ) {
-		vertex.toArray( positions, i * 3 );
-	} );
-	var geometry = new THREE.BufferGeometry();
-	geometry.addAttribute( 'position', new THREE.BufferAttribute( positions, 3 ) );
-	return geometry;
-},
+	return buffers
+}
+
+
+
