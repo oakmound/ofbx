@@ -1,9 +1,13 @@
 package threefbx
 
+import (
+	"github.com/oakmound/oak/alg"
+)
+
 type Loader struct {
 	tree Tree
 	connections ParsedConnections
-	sceneGraph ???
+	sceneGraph Group
 }
 
 func NewLoader() *Loader {
@@ -312,9 +316,6 @@ type Skeleton struct {
 	rawBones []Bone
 	bones []Bone
 }
-type MorphTarget struct {
-	ID int64
-}
 
 func (l *Loader) parseDeformers() (map[int64]Skeleton, map[int64]MorphTarget) {
 	skeletons := make(map[int64]Skeleton)
@@ -366,8 +367,8 @@ func (l *Loader) parseSkeleton(relationships ConnectionSet, deformerNodes map[in
 			Indices: []int{},
 			Weights: []float64{},
 			// Todo: matrices
-			Transform: new THREE.Matrix4().fromArray( boneNode.Transform.a ),
-			TransformLink: new THREE.Matrix4().fromArray( boneNode.TransformLink.a ),
+			Transform: floatgeom.Matrix4FromSlice(boneNode.Transform.a),
+			TransformLink: floatgeom.Matrix4FromSlice(boneNode.TransformLink.a),
 			LinkMode: boneNode.Mode,
 		}
 		// Todo types, what has 'a' as a field?
@@ -394,13 +395,13 @@ type MorphTarget struct {
 func (l *Loader) parseMorphTargets(relationships ConnectionSet, deformerNodes map[int64]Node) []MorphTarget {
 	rawMorphTargets := make([]MorphTarget, 0)
 	for i := 0; i < relationships.children.length; i++ {
-		if ( i === 8 ) {
+		if ( i == 8 ) {
 			fmt.Println("FBXLoader: maximum of 8 morph targets supported. Ignoring additional targets.")
 			break
 		}
 		child := relationships.children[i]
 		morphTargetNode := deformerNodes[child.ID]
-		if morphTargetNode.attrType !== "BlendShapeChannel" { 
+		if morphTargetNode.attrType != "BlendShapeChannel" { 
 			return
 		}
 		target := MorphTarget{
@@ -420,81 +421,84 @@ func (l *Loader) parseMorphTargets(relationships ConnectionSet, deformerNodes ma
 }
 
 // create the main THREE.Group() to be returned by the loader
-func (l *Loader) parseScene() {
-parseScene: function ( deformers, geometryMap, materialMap ) {
-	sceneGraph = new THREE.Group();
-	var modelMap = this.parseModels( deformers.skeletons, geometryMap, materialMap );
-	var modelNodes = tree.Objects.Model;
-	var self = this;
-	modelMap.forEach( function ( model ) {
-		var modelNode = modelNodes[ model.ID ];
-		self.setLookAtProperties( model, modelNode );
-		var parentConnections = connections.get( model.ID ).parents;
-		parentConnections.forEach( function ( connection ) {
-			var parent = modelMap.get( connection.ID );
-			if ( parent !== undefined ) parent.add( model );
-		} );
-		if ( model.parent === null ) {
-			sceneGraph.add( model );
+func (l *Loader) parseScene(
+	skeletons map[int64]Skeleton, 
+	morphTargets map[int64]MorphTarget, 
+	geometryMap Geometry,
+	materialMap map[int64]Material) {
+
+	sceneGraph := THREE.Group()
+	modelMap := l.parseModels(deformers.skeletons, geometryMap, materialMap)
+	modelNodes := tree.Objects.Model
+	for _, model := range modelMap {
+		modelNode := modelNodes[model.ID]
+		l.setLookAtProperties(model, modelNode)
+		parentConnections := l.connections.get(model.ID).parents;
+		for _, connection := range parentConnections {
+			var parent = modelMap.get( connection.ID )
+			if parent != nil {
+				parent.add(model)
+			}
 		}
-	} );
-	this.bindSkeleton( deformers.skeletons, geometryMap, modelMap );
-	this.createAmbientLight();
-	this.setupMorphMaterials();
-	var animations = new AnimationParser().parse();
+		if model.parent == nil {
+			sceneGraph.add(model)
+		}
+	}
+	l.bindSkeleton( deformers.skeletons, geometryMap, modelMap );
+	l.createAmbientLight();
+	l.setupMorphMaterials();
+	animations := l.parseAnimations()
 	// if all the models where already combined in a single group, just return that
-	if ( sceneGraph.children.length === 1 && sceneGraph.children[ 0 ].isGroup ) {
+	if sceneGraph.children.length == 1 && sceneGraph.children[0].isGroup {
 		sceneGraph.children[ 0 ].animations = animations;
 		sceneGraph = sceneGraph.children[ 0 ];
 	}
 	sceneGraph.animations = animations;
-},
+}
 // parse nodes in FBXTree.Objects.Model
-parseModels: function ( skeletons, geometryMap, materialMap ) {
-	var modelMap = new Map();
-	var modelNodes = tree.Objects.Model;
-	for ( var nodeID in modelNodes ) {
-		var id = parseInt( nodeID );
-		var node = modelNodes[ nodeID ];
-		var relationships = connections.get( id );
-		var model = this.buildSkeleton( relationships, skeletons, id, node.attrName );
-		if ( ! model ) {
+func (l *Loader) parseModels(skeletons map[int64]Skeleton, geometryMap map[int64]Geometry, materialMap map[int64]Material) map[int64]Model {
+	modelMap := map[int64]Model{}
+	modelNodes := tree.Objects.Model
+	for id, node := range modelNodes {
+		relationships := connections.get(id)
+		model := l.buildSkeleton(relationships, skeletons, id, node.attrName)
+		if model == nil {
 			switch ( node.attrType ) {
-				case 'Camera':
-					model = this.createCamera( relationships );
+				case "Camera":
+					model = l.createCamera( relationships );
 					break;
-				case 'Light':
-					model = this.createLight( relationships );
+				case "Light":
+					model = l.createLight( relationships );
 					break;
-				case 'Mesh':
-					model = this.createMesh( relationships, geometryMap, materialMap );
+				case "Mesh":
+					model = l.createMesh( relationships, geometryMap, materialMap );
 					break;
-				case 'NurbsCurve':
-					model = this.createCurve( relationships, geometryMap );
+				case "NurbsCurve":
+					model = l.createCurve( relationships, geometryMap );
 					break;
-				case 'LimbNode': // usually associated with a Bone, however if a Bone was not created we'll make a Group instead
-				case 'Null':
+				case "LimbNode": // usually associated with a Bone, however if a Bone was not created we"ll make a Group instead
+				case "Null":
 				default:
-					model = new THREE.Group();
+					model = THREE.Group()
 					break;
 			}
-			model.name = THREE.PropertyBinding.sanitizeNodeName( node.attrName );
+			model.name = THREE.PropertyBinding.sanitizeNodeName( node.attrName )
 			model.ID = id;
 		}
-		this.setModelTransforms( model, node );
+		l.setModelTransforms( model, node );
 		modelMap.set( id, model );
 	}
 	return modelMap;
-},
-buildSkeleton: function ( relationships, skeletons, id, name ) {
-	var bone = null;
-	relationships.parents.forEach( function ( parent ) {
-		for ( var ID in skeletons ) {
-			var skeleton = skeletons[ ID ];
-			skeleton.rawBones.forEach( function ( rawBone, i ) {
-				if ( rawBone.ID === parent.ID ) {
-					var subBone = bone;
-					bone = new THREE.Bone();
+}
+
+func (l *Loader) buildSkeleton(relationships ConnectionSet, skeletons map[int64]Skeleton, id int64, name string) Model {
+	var bone Model
+	for _, parent := range relationships.parents {
+		for id, skeleton := range skeletons {
+			for i, rawBone := range skeleton.rawBones {
+				if rawBone.ID == parent.ID {
+					subBone := bone
+					bone = THREE.Bone()
 					bone.matrixWorld.copy( rawBone.transformLink );
 					// set name and id here - otherwise in cases where "subBone" is created it will not have a name / id
 					bone.name = THREE.PropertyBinding.sanitizeNodeName( name );
@@ -502,15 +506,15 @@ buildSkeleton: function ( relationships, skeletons, id, name ) {
 					skeleton.bones[ i ] = bone;
 					// In cases where a bone is shared between multiple meshes
 					// duplicate the bone here and and it as a child of the first bone
-					if ( subBone !== null ) {
-						bone.add( subBone );
+					if subBone != nil {
+						bone.add( subBone )
 					}
 				}
-			} );
+			}
 		}
-	} );
+	}
 	return bone;
-},
+}
 // create a THREE.PerspectiveCamera or THREE.OrthographicCamera
 
 func createCamera(relationships ConnectionSet) Camera {
@@ -525,7 +529,7 @@ func createCamera(relationships ConnectionSet) Camera {
 		}
 	}
 	if cameraAttribute == "" {
-		model = new THREE.Object3D();
+		model = THREE.Object3D();
 	} else {
 		typ := 0
 		v, ok := cameraAttribute["CameraProjectionType"] 
@@ -559,195 +563,231 @@ func createCamera(relationships ConnectionSet) Camera {
 		}
 		switch typ {
 			case 0: // Perspective
-				model = new THREE.PerspectiveCamera( fov, aspect, nearClippingPlane, farClippingPlane );
-				if ( focalLength !== null ) model.setFocalLength( focalLength );
-				break;
+				model = THREE.PerspectiveCamera( fov, aspect, nearClippingPlane, farClippingPlane )
+				if focalLength != 0 { 
+					model.setFocalLength( focalLength )
+				}
 			case 1: // Orthographic
-				model = new THREE.OrthographicCamera( - width / 2, width / 2, height / 2, - height / 2, nearClippingPlane, farClippingPlane );
-				break;
+				model = THREE.OrthographicCamera( - width / 2, width / 2, height / 2, - height / 2, nearClippingPlane, farClippingPlane );
 			default:
 				fmt.Println("Unknown camera type", typ)
-				model = new THREE.Object3D();
-				break;
+				model = THREE.Object3D()
 		}
 	}
 	return model
 }
 
+type LightType int
+
+var (
+	LightPoint LightType = iota
+	LightDirectional LightType = iota
+	LightSpot LightType = iota
+)
+
+// Todo: less pointers, more reasonable zero values
+type LightAttribute struct {
+	LightType *LightType
+	Color *color.RGBA
+	Intensity *float64
+	FarAttenuationEnd *float64
+	InnerAngle *float64
+	OuterAngle *float64
+
+	CastLightOnObject bool
+	EnableFarAttenuation bool
+	CastShadows bool
+}
+
 // Create a THREE.DirectionalLight, THREE.PointLight or THREE.SpotLight
-createLight: function ( relationships ) {
-	var model;
-	var lightAttribute;
-	relationships.children.forEach( function ( child ) {
-		var attr = tree.Objects.NodeAttribute[ child.ID ];
-		if ( attr !== undefined ) {
-			lightAttribute = attr;
+func (l *Loader) createLight(relationships ConnectionSet) Light {
+	var model Light
+	var la LightAttribute
+
+	for i := len(relationships.children)-1; i >= 0; i-- {
+		var attr = tree.Objects.NodeAttribute[ relationships.children[i].ID ]
+		if attr != "" {
+			la = attr.(LightAttribute)
+			break
 		}
-	} );
-	if ( lightAttribute === undefined ) {
-		model = new THREE.Object3D();
+	}
+	if la == "" {
+		model = THREE.Object3D()
 	} else {
-		var type;
+		var typ int
 		// LightType can be undefined for Point lights
-		if ( lightAttribute.LightType === undefined ) {
-			type = 0;
-		} else {
-			type = lightAttribute.LightType.value;
+		if la.LightType != nil {
+			typ = *la.LightType
 		}
-		var color = 0xffffff;
-		if ( lightAttribute.Color !== undefined ) {
-			color = new THREE.Color().fromArray( lightAttribute.Color.value );
+		var color = color.RBGA{255,255,255,255}
+		if la.Color != nil {
+			color = *la.Color
 		}
-		var intensity = ( lightAttribute.Intensity === undefined ) ? 1 : lightAttribute.Intensity.value / 100;
+		intensity := 1.0
+		if *la.Intensity != nil {
+			intensity = *la.Intensity / 100
+		} 
 		// light disabled
-		if ( lightAttribute.CastLightOnObject !== undefined && lightAttribute.CastLightOnObject.value === 0 ) {
-			intensity = 0;
+		if !la.CastLightOnObject {
+			intensity = 0
 		}
-		var distance = 0;
-		if ( lightAttribute.FarAttenuationEnd !== undefined ) {
-			if ( lightAttribute.EnableFarAttenuation !== undefined && lightAttribute.EnableFarAttenuation.value === 0 ) {
-				distance = 0;
-			} else {
-				distance = lightAttribute.FarAttenuationEnd.value;
+		distance := 0.0
+		if la.FarAttenuationEnd != nil {
+			if la.EnableFarAttenuation {
+				distance = *la.FarAttenuationEnd
 			}
 		}
 		// TODO: could this be calculated linearly from FarAttenuationStart to FarAttenuationEnd?
 		var decay = 1;
-		switch ( type ) {
+		switch ( typ ) {
 			case 0: // Point
-				model = new THREE.PointLight( color, intensity, distance, decay );
-				break;
+				model = THREE.PointLight(color, intensity, distance, decay)
 			case 1: // Directional
-				model = new THREE.DirectionalLight( color, intensity );
-				break;
+				model = THREE.DirectionalLight(color, intensity)
 			case 2: // Spot
-				var angle = Math.PI / 3;
-				if ( lightAttribute.InnerAngle !== undefined ) {
-					angle = THREE.Math.degToRad( lightAttribute.InnerAngle.value );
+				angle := math.Pi / 3
+				if la.InnerAngle != nil  {
+					angle = alg.DegToRad * *la.InnerAngle.value
 				}
-				var penumbra = 0;
-				if ( lightAttribute.OuterAngle !== undefined ) {
+				penumbra := 0.0
+				if la.OuterAngle != nil {
 				// TODO: this is not correct - FBX calculates outer and inner angle in degrees
 				// with OuterAngle > InnerAngle && OuterAngle <= Math.PI
 				// while three.js uses a penumbra between (0, 1) to attenuate the inner angle
-					penumbra = THREE.Math.degToRad( lightAttribute.OuterAngle.value );
-					penumbra = Math.max( penumbra, 1 );
+					penumbra = alg.DegToRad * *la.OuterAngle
+					penumbra = math.Max(penumbra, 1) 
 				}
-				model = new THREE.SpotLight( color, intensity, distance, angle, penumbra, decay );
-				break;
+				model = THREE.SpotLight(color, intensity, distance, angle, penumbra, decay)
 			default:
-				console.warn( 'THREE.FBXLoader: Unknown light type ' + lightAttribute.LightType.value + ', defaulting to a THREE.PointLight.' );
-				model = new THREE.PointLight( color, intensity );
-				break;
+				fmt.Println("THREE.FBXLoader: Unknown light type " + la.LightType.value + ", defaulting to a THREE.PointLight." );
+				model = THREE.PointLight(color, intensity)
 		}
-		if ( lightAttribute.CastShadows !== undefined && lightAttribute.CastShadows.value === 1 ) {
-			model.castShadow = true;
+		if la.CastShadows {
+			model.castShadow = true
 		}
 	}
-	return model;
-},
-createMesh: function ( relationships, geometryMap, materialMap ) {
-	var model;
-	var geometry = null;
-	var material = null;
-	var materials = [];
+	return model
+}
+
+func (l *Loader) createMesh(relationships ConnectionSet, geometryMap map[int64]Geometry, materialMap map[int64]Material) {
+	var model Model
+	var geometry *Geometry
+	var material *Material
+	var materials = []Material{}
 	// get geometry and materials(s) from connections
+	for _, child := range 
 	relationships.children.forEach( function ( child ) {
 		if ( geometryMap.has( child.ID ) ) {
-			geometry = geometryMap.get( child.ID );
+			geometry = geometryMap.get( child.ID )
 		}
 		if ( materialMap.has( child.ID ) ) {
-			materials.push( materialMap.get( child.ID ) );
+			materials.push( materialMap.get( child.ID ) )
 		}
-	} );
+	} )
 	if ( materials.length > 1 ) {
-		material = materials;
+		material = materials
 	} else if ( materials.length > 0 ) {
-		material = materials[ 0 ];
+		material = materials[ 0 ]
 	} else {
-		material = new THREE.MeshPhongMaterial( { color: 0xcccccc } );
-		materials.push( material );
+		material = new THREE.MeshPhongMaterial( { color: 0xcccccc } )
+		materials.push( material )
 	}
-	if ( 'color' in geometry.attributes ) {
+	if ( "color" in geometry.attributes ) {
 		materials.forEach( function ( material ) {
-			material.vertexColors = THREE.VertexColors;
-		} );
+			material.vertexColors = THREE.VertexColors
+		} )
 	}
 	if ( geometry.FBX_Deformer ) {
 		materials.forEach( function ( material ) {
-			material.skinning = true;
-		} );
-		model = new THREE.SkinnedMesh( geometry, material );
+			material.skinning = true
+		} )
+		model = new THREE.SkinnedMesh( geometry, material )
 	} else {
-		model = new THREE.Mesh( geometry, material );
+		model = new THREE.Mesh( geometry, material )
 	}
-	return model;
-},
-createCurve: function ( relationships, geometryMap ) {
-	var geometry = relationships.children.reduce( function ( geo, child ) {
-		if ( geometryMap.has( child.ID ) ) geo = geometryMap.get( child.ID );
-		return geo;
-	}, null );
-	// FBX does not list materials for Nurbs lines, so we'll just put our own in here.
-	var material = new THREE.LineBasicMaterial( { color: 0x3300ff, linewidth: 1 } );
-	return new THREE.Line( geometry, material );
-},
+	return model
+}
+
 // parse the model node for transform details and apply them to the model
-setModelTransforms: function ( model, modelNode ) {
-	var transformData = {};
-	if ( 'RotationOrder' in modelNode ) transformData.eulerOrder = parseInt( modelNode.RotationOrder.value );
-	if ( 'Lcl_Translation' in modelNode ) transformData.translation = modelNode.Lcl_Translation.value;
-	if ( 'RotationOffset' in modelNode ) transformData.rotationOffset = modelNode.RotationOffset.value;
-	if ( 'Lcl_Rotation' in modelNode ) transformData.rotation = modelNode.Lcl_Rotation.value;
-	if ( 'PreRotation' in modelNode ) transformData.preRotation = modelNode.PreRotation.value;
-	if ( 'PostRotation' in modelNode ) transformData.postRotation = modelNode.PostRotation.value;
-	if ( 'Lcl_Scaling' in modelNode ) transformData.scale = modelNode.Lcl_Scaling.value;
-	var transform = generateTransform( transformData );
-	model.applyMatrix( transform );
-},
-setLookAtProperties: function ( model, modelNode ) {
-	if ( 'LookAtProperty' in modelNode ) {
-		var children = connections.get( model.ID ).children;
-		children.forEach( function ( child ) {
-			if ( child.relationship === 'LookAtProperty' ) {
-				var lookAtTarget = tree.Objects.Model[ child.ID ];
-				if ( 'Lcl_Translation' in lookAtTarget ) {
-					var pos = lookAtTarget.Lcl_Translation.value;
+func (l *Loader) setModelTransforms(model Model, modelNode Node) {
+	var td = TransformData{}
+	if v, ok := modelNode.props["RotationOrder"]; ok { 
+		td.eulerOrder = &EulerOrder(v.Payload().(int))
+	}
+	if v, ok := modelNode.props["Lcl_Translation"]; ok {
+		td.translation = &v.Payload().(floatgeom.Point3)
+	}
+	if v, ok := modelNode.props["RotationOffset"]; ok { 
+		td.rotationOffset = &v.Payload().(floatgeom.Point3)
+	}
+	if v, ok := modelNode.props["Lcl_Rotation"]; ok {
+		td.rotation = &v.Payload().(floatgeom.Matrix4)
+	}
+	if v, ok := modelNode.props["PreRotation"]; ok { 
+		td.preRotation = &v.Payload().(floatgeom.Matrix4)
+	}
+	if v, ok := modelNode.props["PostRotation"]; ok {
+		td.postRotation = &v.Payload().(floatgeom.Matrix4)
+	}
+	if v, ok := modelNode.props["Lcl_Scaling"]; ok { 
+		td.scale = &v.Payload().(floatgeom.Point3)
+	}
+	model.applyMatrix(generateTransform(td))
+}
+
+func (l *Loader) createCurve(relationships ConnectionSet, geometryMap map[int64]Geometry) Curve {
+	var geometry Geometry
+	for i := len(relationships.children)-1; i >= 0; i-- {
+		child := relationships.children[i]
+		if geo, ok := geometryMap[child.ID]; ok {
+			geometry = geo 
+			break
+		}
+	} 
+	// FBX does not list materials for Nurbs lines, so we'll just put our own in here.
+	material := THREE.LineBasicMaterial(0x3300ff, 1)
+	return THREE.Line(geometry, material)
+}
+
+func (l *Loader) setLookAtProperties(model Model, modelNode Node) {
+	if _, ok := modelNode.props["LookAtProperty"]; ok {
+		children := l.connections[model.ID].children
+		for _, child := range children {
+			if child.Relationship == "LookAtProperty" {
+				lookAtTarget := tree.Objects.Model[child.ID]
+				if _, ok := lookAtTarget["Lcl_Translation"]; ok {
+					pos := lookAtTarget["Lcl_Translation"].Payload().([]float64)
 					// DirectionalLight, SpotLight
-					if ( model.target !== undefined ) {
-						model.target.position.fromArray( pos );
-						sceneGraph.add( model.target );
+					if model.target != nil {
+						model.target.position.fromArray(pos)
+						sceneGraph.add(model.target)
 					} else { // Cameras and other Object3Ds
-						model.lookAt( new THREE.Vector3().fromArray( pos ) );
+						model.lookAt(floatgeom.Point3{pos[0], pos[1], pos[2]})
 					}
 				}
 			}
-		} );
+		}
 	}
-},
-bindSkeleton: function ( skeletons, geometryMap, modelMap ) {
-	var bindMatrices = this.parsePoseNodes();
-	for ( var ID in skeletons ) {
-		var skeleton = skeletons[ ID ];
-		var parents = connections.get( parseInt( skeleton.ID ) ).parents;
-		parents.forEach( function ( parent ) {
-			if ( geometryMap.has( parent.ID ) ) {
-				var geoID = parent.ID;
-				var geoRelationships = connections.get( geoID );
-				geoRelationships.parents.forEach( function ( geoConnParent ) {
-					if ( modelMap.has( geoConnParent.ID ) ) {
-						var model = modelMap.get( geoConnParent.ID );
-						model.bind( new THREE.Skeleton( skeleton.bones ), bindMatrices[ geoConnParent.ID ] );
+}
+
+func bindSkeleton(skeletons map[int64]Skeleton, geometryMap map[int64]Geometry, modelMap map[int64]*Model) {
+	bindMatrices := l.parsePoseNodes()
+	for id, skeleton := range skeletons {
+		for _, parent := range connections.get(skeleton.ID).parents {
+			if _, ok := geometryMap[parent.ID]; ok {
+				for _, geoConnParent := range connections.get(parent.ID).parents {
+					if model, ok := modelMap[geoConnParent.ID]; ok {
+						model.bind(THREE.Skeleton(skeleton.bones), bindMatrices[geoConnParent.ID])
 					}
-				} );
+				}
 			}
-		} );
+		}
 	}
-},
+}
 
 func parsePoseNodes() {
 	var bindMatrices = map[Node]Matrix4{}
-	if BindPoseNode, ok := tree.Objects["Pose"] {
+	if BindPoseNode, ok := tree.Objects["Pose"]; ok {
 		for nodeID, v := range BindPoseNode {
 			if v.attrType == "BindPose"  {
 				poseNodes := v.props["PoseNode"]
@@ -762,7 +802,7 @@ func parsePoseNodes() {
 		}
 	}
 	return bindMatrices
-},
+}
 // Parse ambient color in tree.GlobalSettings - if it's not set to black (default), create an ambient light
 func createAmbientLight() {
 	_, ok := tree["GlobalSetttings"]
@@ -772,31 +812,31 @@ func createAmbientLight() {
 			sceneGraph.add(THREE.AmbientLight(ambientColor, 1))
 		}
 	}
-},
+}
 
 func (l *Loader) setupMorphMaterials() {
-	sceneGraph.traverse(func (c ???) {
+	sceneGraph.traverse(func (c SceneNode) {
 		if c.isMesh {
 			_, ok := c.geometry.morphAttributes["position"]
 			_, ok2 := c.geometry.morphAttributes["normal"]
 			if ok || ok2 {
 				// if a geometry has morph targets, it cannot share the material with other geometries
 				sharedMat := false
-				sceneGraph.traverse( func ( c2 ???) {
+				sceneGraph.traverse( func ( c2 SceneNode) {
 					if (c2.isMesh) {
-						if (c2.material.uuid === c.material.uuid && c2.uuid !== c.uuid ) {
+						if c2.material.uuid == c.material.uuid && c2.uuid != c.uuid {
 							sharedMat = true
 							return
 						}
 					}
-				}
+				})
 				if sharedMat {
 					 c.material = child.material.clone()
 				}
 				c.material.morphTargets = true
 			}
 		}
-	}
+	})
 }
 
 
