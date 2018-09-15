@@ -104,10 +104,10 @@ type CurveNode struct {
 	initialPosition floatgeom.Point3
 	initialRotation floatgeom.Point3
 	initialScale floatgeom.Point3
-	T Translate??
-	R Rotation??
-	S Scale??
-	transform ???
+	T floatgeom.Point3
+	R floatgeom.Matrix4
+	S floatgeom.Point3
+	transform floatgeom.Matrix4
 
 }
 
@@ -189,44 +189,47 @@ func (l *Loader) parseAnimationLayers( curveNodesMap ) map[int64][]CurveNode {
 	return layersMap
 }
 
+// All fields are optional
 type TransformData struct {
-	eulerOrder int
-	translation ???
-	rotationOffset ???
-	rotation ???
-	preRotation ???
-	postRotation ???
-	scale ???
+	eulerOrder *EulerOrder
+	translation *floatgeom.Point3
+	rotationOffset *floatgeom.Point3
+	rotation *floatgeom.Matrix4
+	preRotation *floatgeom.Matrix4
+	postRotation *floatgeom.Matrix4
+	scale *floatgeom.Point3
 }
 
 func (l *Loader) getModelAnimTransform(modelNode Node) {
-	var transformData TransformData
+	var td TransformData
 	if v, ok := modelNode.props["RotationOrder"]; ok {
-		transformData.eulerOrder, err = strconv.Atoi(v.Payload().(string))
-		if err != nil {
+		eo, err = strconv.Atoi(v.Payload().(string))
+		if err != nil  || eo >= LastEulerOrder  || eo < 0{
 			fmt.Println("Error decoding euler rotation order")
+		} else {
+			td.eulerOrder = &EulerOrder(eo)
 		}
 	}
 	if v, ok := modelNode.props["Lcl_Translation"]; ok {
-		transformData.translation = v.Payload()
+		td.translation = &v.Payload().(floatgeom.Point3)
 	}
 	if v, ok := modelNode.props["RotationOffset"]; ok {
-		transformData.rotationOffset = v.Payload()
+		td.rotationOffset = &v.Payload().(floatgeom.Point3)
 	}
 	if v, ok := modelNode.props["Lcl_Rotation"]; ok {
-		transformData.rotation = v.Payload()
+		td.rotation = &v.Payload().(floatgeom.Matrix4)
 	}
 	if v, ok := modelNode.props["PreRotation"]; ok {
-		transformData.preRotation = v.Payload()
+		td.preRotation = &v.Payload().(floatgeom.Matrix4)
 	}
 	if v, ok := modelNode.props["PostRotation"]; ok {
-		transformData.postRotation = v.Payload()
+		td.postRotation = &v.Payload().(floatgeom.Matrix4)
 	}
 	if v, ok := modelNode.props["Lcl_Scaling"]; ok {
-		 transformData.scale = v.Payload()
+		 td.scale = &v.Payload().(floatgeom.Point3)
 	}
-	return generateTransform(transformData)
-},
+	return generateTransform(td)
+}
 
 type Clip struct {
 	name string
@@ -276,25 +279,25 @@ func (l *Loader) generateTracks(rawTracks CurveNode) []Track {
 	}
 	// ????
 	//initialRotation = new THREE.Euler().setFromQuaternion( initialRotation ).toArray(); // todo: euler order
-	if ( rawTracks.T !== undefined && Object.keys(rawTracks.T.curves).length > 0 ) {
+	if ( rawTracks.T != undefined && Object.keys(rawTracks.T.curves).length > 0 ) {
 		positionTrack, err := l.generateVectorTrack(rawTracks.modelName, rawTracks.T.curves, initialPosition, "position");
 		if err != nil {
 			tracks.push(positionTrack)
 		}
 	}
-	if ( rawTracks.R !== undefined && Object.keys(rawTracks.R.curves).length > 0 ) {
+	if ( rawTracks.R != undefined && Object.keys(rawTracks.R.curves).length > 0 ) {
 		rotationTrack, err := l.generateRotationTrack(rawTracks.modelName, rawTracks.R.curves, initialRotation, rawTracks.preRotations, rawTracks.postRotations);
 		if err != nil {
 			tracks.push(rotationTrack)
 		}
 	}
-	if ( rawTracks.S !== undefined && Object.keys(rawTracks.S.curves).length > 0 ) {
+	if ( rawTracks.S != undefined && Object.keys(rawTracks.S.curves).length > 0 ) {
 		scaleTrack, err := l.generateVectorTrack(rawTracks.modelName, rawTracks.S.curves, initialScale, "scale");
 		if err != nil {
 			tracks.push(scaleTrack)
 		}
 	}
-	if ( rawTracks.DeformPercent !== undefined ) {
+	if ( rawTracks.DeformPercent != undefined ) {
 		morphTrack, err := l.generateMorphTrack(rawTracks)
 		if err != nil {
 			tracks.push(morphTrack)
@@ -332,13 +335,13 @@ func (l *Loader) generateRotationTrack(modelName string, curves map[string]Anima
 	times = l.getTimesForAllAxes(curves);
 	values = l.getKeyframeTrackValues( times, curves, initialValue )
 	// ????
-	if ( preRotations !== undefined ) {
+	if ( preRotations != undefined ) {
 		preRotations = preRotations.map( THREE.Math.degToRad )
 		preRotations.push( 'ZYX' )
 		preRotations = new THREE.Euler().fromArray( preRotations )
 		preRotations = new THREE.Quaternion().setFromEuler( preRotations )
 	}
-	if ( postRotations !== undefined ) {
+	if ( postRotations != undefined ) {
 		postRotations = postRotations.map( THREE.Math.degToRad )
 		postRotations.push("ZYX")
 		postRotations = new THREE.Euler().fromArray( postRotations )

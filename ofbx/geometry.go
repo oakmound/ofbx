@@ -1,5 +1,21 @@
 package threefbx
 
+import (
+	"github.com/oakmound/oak/alg"
+)
+
+type EulerOrder int
+
+var (
+	ZYXOrder EulerOrder = iota // -> XYZ extrinsic
+	YZXOrder EulerOrder = iota // -> XZY extrinsic
+	XZYOrder EulerOrder = iota // -> YZX extrinsic
+	ZXYOrder EulerOrder = iota // -> YXZ extrinsic
+	YXZOrder EulerOrder = iota // -> ZXY extrinsic
+	XYZOrder EulerOrder = iota // -> ZYX extrinsic
+	LastEulerOrder EulerOrder = iota
+)
+
 //TODO consider how they use transformdata and how it creates transforms
 //can we skip transform data and just jam things on as we get them?
 
@@ -20,76 +36,80 @@ var tempMat = new THREE.Matrix4();
 	//   scale
 	// }
 	// all entries are optional
-	function generateTransform( transformData ) {
-		var transform = new THREE.Matrix4();
-		translation.set( 0, 0, 0 );
-		rotation.identity();
-		var order = ( transformData.eulerOrder ) ? getEulerOrder( transformData.eulerOrder ) : getEulerOrder( 0 );
-		if ( transformData.translation ) translation.fromArray( transformData.translation );
-		if ( transformData.rotationOffset ) translation.add( tempVec.fromArray( transformData.rotationOffset ) );
-		if ( transformData.rotation ) {
-			var array = transformData.rotation.map( THREE.Math.degToRad );
-			array.push( order );
-			rotation.makeRotationFromEuler( tempEuler.fromArray( array ) );
-		}
-		if ( transformData.preRotation ) {
-			var array = transformData.preRotation.map( THREE.Math.degToRad );
-			array.push( order );
-			tempMat.makeRotationFromEuler( tempEuler.fromArray( array ) );
-			rotation.premultiply( tempMat );
-		}
-		if ( transformData.postRotation ) {
-			var array = transformData.postRotation.map( THREE.Math.degToRad );
-			array.push( order );
-			tempMat.makeRotationFromEuler( tempEuler.fromArray( array ) );
-			tempMat.getInverse( tempMat );
-			rotation.multiply( tempMat );
-		}
-		if ( transformData.scale ) transform.scale( tempVec.fromArray( transformData.scale ) );
-		transform.setPosition( translation );
-		transform.multiply( rotation );
-		return transform;
+
+func generateTransform(td TransformData) floatgeom.Matrix4 {	
+	order := ZYXOrder
+	if td.eulerOrder != nil {
+		order = *td.eulerOrder 
 	}
-	var dataArray = [];
-	// extracts the data from the correct position in the FBX array based on indexing type
-	function getData( polygonVertexIndex, polygonIndex, vertexIndex, infoObject ) {
-		var index;
-		switch ( infoObject.mappingType ) {
-			case 'ByPolygonVertex' :
-				index = polygonVertexIndex;
-				break;
-			case 'ByPolygon' :
-				index = polygonIndex;
-				break;
-			case 'ByVertice' :
-				index = vertexIndex;
-				break;
-			case 'AllSame' :
-				index = infoObject.indices[ 0 ];
-				break;
-			default :
-				console.warn( 'THREE.FBXLoader: unknown attribute mapping type ' + infoObject.mappingType );
-		}
-		if ( infoObject.referenceType === 'IndexToDirect' ) index = infoObject.indices[ index ];
-		var from = index * infoObject.dataSize;
-		var to = from + infoObject.dataSize;
-		return slice( dataArray, infoObject.buffer, from, to );
+	
+	translation := floatgeom.Point3{}
+	if td.translation != nil {
+		translation = *td.translation
 	}
-	// Returns the three.js intrinsic Euler order corresponding to FBX extrinsic Euler order
-	// ref: http://help.autodesk.com/view/FBX/2017/ENU/?guid=__cpp_ref_class_fbx_euler_html
-	function getEulerOrder( order ) {
-		var enums = [
-			'ZYX', // -> XYZ extrinsic
-			'YZX', // -> XZY extrinsic
-			'XZY', // -> YZX extrinsic
-			'ZXY', // -> YXZ extrinsic
-			'YXZ', // -> ZXY extrinsic
-			'XYZ', // -> ZYX extrinsic
-		//'SphericXYZ', // not possible to support
-		];
-		if ( order === 6 ) {
-			console.warn( 'THREE.FBXLoader: unsupported Euler Order: Spherical XYZ. Animations and rotations may be incorrect.' );
-			return enums[ 0 ];
-		}
-		return enums[ order ];
+
+	if td.rotationOffset != nil {
+		translation = translation.Add(*td.rotationOffset)
 	}
+
+	rotation := floatgeom.IdentityMatrix4()
+	if td.rotation != nil {
+		rot := td.rotation.Scale(alg.DegToRad)
+		rotation = makeRotationFromEuler(rot, order)
+	}
+
+	if td.preRotation != nil {
+		rot := td.preRotation.Scale(alg.DegToRad)
+		mat := makeRotationFromEuler(rot, order)
+		rotation = rotation.PreMultiply(mat)
+	}
+	if td.postRotation != nil {
+		rot := td.postRotation.Scale(alg.DegToRad)
+		mat := makeRotationFromEuler(rot, order)
+		mat = mat.Inverse()
+		rotation = rotation.multiply(mat)
+	}
+
+	transform := floatgeom.IdentityMatrix4()
+
+	if td.scale != nil {
+		transform = transform.Scale(*td.scale)
+	}
+	transform = transform.WithPosition(translation)
+	transform = transform.Multiply(rotation)
+	return transform
+}
+
+type InfoObject struct {
+	MappingType string
+	ReferenceType string
+	DataSize int
+	Indices []int
+	Buffer []byte
+}
+
+var dataArray = [];
+// extracts the data from the correct position in the FBX array based on indexing type
+func getData(polygonVertexIndex, polygonIndex, vertexIndex int, info InfoObject) {
+	var index int
+	switch info.MappingType {
+		case "ByPolygonVertex":
+			index = polygonVertexIndex
+		case "ByPolygon":
+			index = polygonIndex
+		case "ByVertice":
+			index = vertexIndex
+		case "AllSame":
+			index = infoObject.indices[ 0 ]
+		default:
+			fmt.Println("THREE.FBXLoader: unknown attribute mapping type " + info.MappingType )
+	}
+	if info.ReferenceType == "IndexToDirect" {
+		index = info.Indices[index]
+	}
+	from := index * info.DataSize
+	to := from + info.DataSize
+	out := make([]byte, info.DataSize)
+	copy(out, info.Buffer[from:to])
+	return out
+}
