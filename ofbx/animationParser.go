@@ -108,6 +108,8 @@ type CurveNode struct {
 	R floatgeom.Matrix4
 	S floatgeom.Point3
 	transform floatgeom.Matrix4
+	preRotations []floatgeom.Matrix4
+	postRotations []floatgeom.Matrix4
 
 }
 
@@ -264,14 +266,14 @@ func (l *Loader) addClip(clip Clip) Animation {
 		tracks = append(tracks, l.generateTracks(rawTracks))
 	}
 	// ??
-	return new THREE.AnimationClip( rawClip.name, - 1, tracks )
+	return AnimationClip(rawClip.name, - 1, tracks)
 }
 
 func (l *Loader) generateTracks(rawTracks CurveNode) []Track {
 	tracks := []Track{}
 	initialPosition := floatgeom.Point3{}
 	// Could be a matrix
-	initialRotation := floatgeom.Point4{}
+	initialRotation := Euler{}
 	initialScale := floatgeom.Point3{}
 	if !rawTracks.transform.Zero() {
 		// todo: does this perform side effects, or return a transform, or return three new values?
@@ -306,14 +308,13 @@ func (l *Loader) generateTracks(rawTracks CurveNode) []Track {
 	return tracks
 }
 
-func (l *Loader) generateVectorTrack( modelName string, curves ???, initialValue ???, typ string ) {
+func (l *Loader) generateVectorTrack( modelName string, curves map[string]AnimationCurve, initialValue floatgeom.Point3, typ string ) KeyframeTrack {
 	times := l.getTimesForAllAxes(curves)
 	values := l.getKeyframeTrackValues(times, curves, initialValue)
-	// ???
-	return new THREE.VectorKeyframeTrack(modelName + "." + typ, times, values)
+	return VectorKeyframeTrack(modelName + "." + typ, times, values)
 }
 
-func (l *Loader) generateRotationTrack(modelName string, curves map[string]AnimationCurve, initialValue, preRotations, postRotations ??) {
+func (l *Loader) generateRotationTrack(modelName string, curves map[string]AnimationCurve, initialValue Euler, preRotations, postRotations [3]float64) KeyframeTrack {
 	if c, ok := curves["x"]; ok {
 		c = l.interpolateRotations(c)
 		for i, val := range c.values {
@@ -334,42 +335,57 @@ func (l *Loader) generateRotationTrack(modelName string, curves map[string]Anima
 	}
 	times = l.getTimesForAllAxes(curves);
 	values = l.getKeyframeTrackValues( times, curves, initialValue )
-	// ????
-	if ( preRotations != undefined ) {
-		preRotations = preRotations.map( THREE.Math.degToRad )
-		preRotations.push( 'ZYX' )
-		preRotations = new THREE.Euler().fromArray( preRotations )
-		preRotations = new THREE.Quaternion().setFromEuler( preRotations )
+	var preRot *floatgeom.Point4
+	if preRotations != nil {
+		preRotations[0] *= alg.DegToRad
+		preRotations[1]*= alg.DegToRad
+		preRotations[2]*= alg.DegToRad
+		eul := Euler{
+			floatgeom.Point3(preRotations),
+			ZYXOrder,
+		}
+		preRot = &eul.ToQuaternion()
 	}
-	if ( postRotations != undefined ) {
-		postRotations = postRotations.map( THREE.Math.degToRad )
-		postRotations.push("ZYX")
-		postRotations = new THREE.Euler().fromArray( postRotations )
-		postRotations = new THREE.Quaternion().setFromEuler( postRotations ).inverse()
+	var postRot *floatgeom.Point4
+	if postRotations != nil {
+		postRotations[0] *= alg.DegToRad
+		postRotations[1]*= alg.DegToRad
+		postRotations[2]*= alg.DegToRad
+		eul := Euler{
+			floatgeom.Point3(postRotations),
+			ZYXOrder,
+		}
+		postRot = &eul.ToQuaternion().Inverse()
 	}
-	quaternion = new THREE.Quaternion();
-	euler = new THREE.Euler();
-	quaternionValues = [];
+
+	quaternion = floatgeom.Point4{}
+	
+	keyFrameVals := []float64{}
 	for i := 0; i < len(values); i += 3 {
-		euler.set( values[ i ], values[ i + 1 ], values[ i + 2 ], 'ZYX' )
-		quaternion.setFromEuler( euler )
-		if ( preRotations !== undefined ) quaternion.premultiply( preRotations )
-		if ( postRotations !== undefined ) quaternion.multiply( postRotations )
-		quaternion.toArray( quaternionValues, ( i / 3 ) * 4 )
+		euler = Euler{
+			floatgeom.Point3{values[i], values[i+1], values[i+2]},
+			ZYXOrder,
+		}
+		quaternion := euler.ToQuaternion()
+		if preRot != nil {
+			quaternion.PreMultiply(preRot)
+		} 
+		if postRot != nil {  
+			quaternion.Multiply( postRot )
+		}
+		keyFrameVals = append(quaternion[0], quaternion[1], quaternion[2], quaternion[3])
 	}
-	return new THREE.QuaternionKeyframeTrack(modelName + ".quaternion", times, quaternionValues)
-	// end ????
+	return QuaternionKeyframeTrack(modelName + ".quaternion", times, keyFrameVals)
 }
 
-func (l *Loader) generateMorphTrack(rawTracks CurveNode) ??? {
+func (l *Loader) generateMorphTrack(rawTracks CurveNode) KeyframeTrack {
 	curves := rawTracks.DeformPercent.curves["morph"]
 	values := make([]float64, len(curves.values))
 	for i, val := range curves.values {
 		values[i] = val / 100
 	}
 	morphNum := sceneGraph.getObjectByName(rawTracks.modelName).morphTargetDictionary[rawTracks.morphName]
-	??
-	return new THREE.NumberKeyframeTrack(rawTracks.modelName + ".morphTargetInfluences[" + morphNum + "]", curves.times, values )
+	return NumberKeyframeTrack(rawTracks.modelName + ".morphTargetInfluences[" + morphNum + "]", curves.times, values)
 }
 
 // For all animated objects, times are defined separately for each axis
@@ -479,7 +495,7 @@ func (l *Loader) interpolateRotations(curve AnimationCurve) AnimationCurve {
 			nextTime := initialTime + interval
 			interpolatedTimes := []float64{}
 			interpolatedValues := []float64{}
-			while ( nextTime < curve.times[ i ] ) {
+			for nextTime < curve.times[i] {
 				interpolatedTimes.push(nextTime)
 				nextTime += interval
 				interpolatedValues.push(nextValue)
