@@ -19,24 +19,6 @@ var (
 //TODO consider how they use transformdata and how it creates transforms
 //can we skip transform data and just jam things on as we get them?
 
-var tempMat = new THREE.Matrix4();
-	var tempEuler = new THREE.Euler();
-	var tempVec = new THREE.Vector3();
-	var translation = new THREE.Vector3();
-	var rotation = new THREE.Matrix4();
-	// generate transformation from FBX transform data
-	// ref: https://help.autodesk.com/view/FBX/2017/ENU/?guid=__files_GUID_10CDD63C_79C1_4F2D_BB28_AD2BE65A02ED_htm
-	// transformData = {
-	//	 eulerOrder: int,
-	//	 translation: [],
-	//   rotationOffset: [],
-	//	 preRotation
-	//	 rotation
-	//	 postRotation
-	//   scale
-	// }
-	// all entries are optional
-
 func generateTransform(td TransformData) floatgeom.Matrix4 {	
 	order := ZYXOrder
 	if td.eulerOrder != nil {
@@ -88,7 +70,6 @@ type InfoObject struct {
 	Buffer []byte
 }
 
-var dataArray = [];
 // extracts the data from the correct position in the FBX array based on indexing type
 func getData(polygonVertexIndex, polygonIndex, vertexIndex int, info InfoObject) {
 	var index int
