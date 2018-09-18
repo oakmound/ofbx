@@ -14,7 +14,7 @@ import (
 type TextParser struct{
 	nodeStack []Node
 	currentProp Property
-	allNodes FBXTree
+	allNodes Tree
 	currentIndent int
 }
 
@@ -34,7 +34,7 @@ func NewTextParser() TextParser{
 }
 
 // parse takes in ascii formatted text and parses it into a node structure for the FBX tree
-func (tp *TextParser) parse(text String){
+func (tp *TextParser) parse(text string){
 	//TODO: how does this know bout the fbxTree
 	fmt.Println("FBXTree: ", FBxTree)
 	tp.allNodes = NewFBXTree()

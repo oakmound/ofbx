@@ -1,7 +1,12 @@
 package threefbx
 
 import (
+	"io"
+
+
+	"github.com/oakmound/oak/alg/floatgeom"
 	"github.com/oakmound/oak/alg"
+	"github.com/go-gl/mathgl/mgl64"
 )
 
 type Loader struct {
@@ -10,9 +15,18 @@ type Loader struct {
 	sceneGraph Group
 }
 
-func NewLoader() *Loader {
+func NewLoader() *Loader { 
 	return &Loader{}
 }
+
+type Scene struct {} // ???
+type Track struct {} // ???
+type KeyframeTrack interface{} // ???
+type Camera struct{}
+type Light struct{}
+type Model struct{}
+type Material struct{}
+type Curve struct{}
 
 func (l *Loader) Load(r io.Reader, textureDir string) (*Scene, error) {
 	var err error
@@ -64,6 +78,7 @@ func NewParsedConnections() ParsedConnections {
 }
 
 type Connection struct {
+	ID int64
 	To, From int64
 	Relationship string
 }
@@ -138,7 +153,7 @@ type Texture struct {
 	content io.Reader
 }
 
-func (l *Loader) parseTexture(tx TextureNode, images map[int64]io.Reader) (Texture, error) {
+func (l *Loader) parseTexture(tx Node, images map[int64]io.Reader) (Texture, error) {
 	r, err := l.loadTexture(tx, images)
 	return Texture{
 		ID: tx.ID,
@@ -169,7 +184,7 @@ func (l *Loader) parseMaterial(mn MaterialNode, txs map[int64]Texture) Material 
 	return mat
 }
 
-func (l *Loader) loadTexture(tx TextureNode, images map[int64]io.Reader) (io.Reader, error) {
+func (l *Loader) loadTexture(tx Node, images map[int64]io.Reader) (io.Reader, error) {
 	// Todo: filetype parsing
 	cns := l.connections[tx.ID].children
 	if len(cns) < 1 {
@@ -347,9 +362,9 @@ type Bone struct {
 	ID int64
 	Indices []int
 	Weights []float64
-	Transform Matrix
-	TransformLink Matrix
-	LinkMode
+	Transform mgl64.Mat4
+	TransformLink mgl64.Mat4
+	LinkMode interface{}
 }
 
 // Parse single nodes in tree.Objects.Deformer
@@ -367,9 +382,9 @@ func (l *Loader) parseSkeleton(relationships ConnectionSet, deformerNodes map[in
 			Indices: []int{},
 			Weights: []float64{},
 			// Todo: matrices
-			Transform: floatgeom.Matrix4FromSlice(boneNode.Transform.a),
-			TransformLink: floatgeom.Matrix4FromSlice(boneNode.TransformLink.a),
-			LinkMode: boneNode.Mode,
+			Transform: mgl64.Mat4FromSlice(boneNode.Transform.a),
+			TransformLink: mgl64.Mat4FromSlice(boneNode.TransformLink.a),
+			LinkMode: boneNode.props["Mode"],
 		}
 		// Todo types, what has 'a' as a field?
 		if idxs, ok := boneNode.props["Indexes"]; ok {
@@ -579,7 +594,7 @@ func createCamera(relationships ConnectionSet) Camera {
 
 type LightType int
 
-var (
+const (
 	LightPoint LightType = iota
 	LightDirectional LightType = iota
 	LightSpot LightType = iota
@@ -588,7 +603,7 @@ var (
 // Todo: less pointers, more reasonable zero values
 type LightAttribute struct {
 	LightType *LightType
-	Color *color.RGBA
+	Color Color
 	Intensity *float64
 	FarAttenuationEnd *float64
 	InnerAngle *float64
@@ -714,13 +729,13 @@ func (l *Loader) setModelTransforms(model Model, modelNode Node) {
 		td.rotationOffset = &v.Payload().(floatgeom.Point3)
 	}
 	if v, ok := modelNode.props["Lcl_Rotation"]; ok {
-		td.rotation = &v.Payload().(floatgeom.Matrix4)
+		td.rotation = &v.Payload().(mgl64.Mat4)
 	}
 	if v, ok := modelNode.props["PreRotation"]; ok { 
-		td.preRotation = &v.Payload().(floatgeom.Matrix4)
+		td.preRotation = &v.Payload().(mgl64.Mat4)
 	}
 	if v, ok := modelNode.props["PostRotation"]; ok {
-		td.postRotation = &v.Payload().(floatgeom.Matrix4)
+		td.postRotation = &v.Payload().(mgl64.Mat4)
 	}
 	if v, ok := modelNode.props["Lcl_Scaling"]; ok { 
 		td.scale = &v.Payload().(floatgeom.Point3)
@@ -836,7 +851,7 @@ func (l *Loader) setupMorphMaterials() {
 // FBXTree holds a representation of the FBX data, returned by the TextParser ( FBX ASCII format)
 // and BinaryParser( FBX Binary format)
 type Tree struct {
-
+	Objects map[string][]Node
 }
 
 func isBinary(r io.Reader) bool {

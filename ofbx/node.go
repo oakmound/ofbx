@@ -15,11 +15,10 @@ type Node struct {
 }
 
 // NewNode creates a new node
-func NewNode(name string, t, typ Type) *Node {
+func NewNode(name string) *Node {
 	n := &Node{}
 	n.Name = name
 	n.isNode = true
-	n.typ = typ
 
 	return n
 }

@@ -1,5 +1,10 @@
 package threefbx
 
+import (
+	"github.com/oakmound/oak/alg/floatgeom"
+	"github.com/go-gl/mathgl/mgl64"
+)
+
 //Notes:
 // 		* geometries with mutliple models that have different transforms may break this.
 //		* if Vertex has more than 4 skinning weights we throw out the extra
@@ -10,7 +15,7 @@ package threefbx
 // Geometry tries to replace the need for THREE.BufferGeometry
 type Geometry struct {
 	name string
-	position []floatgeom.Point3
+	position []floatgeom.Point3 
 	color []Color
 
 	skinIndex [4]uint16
@@ -22,6 +27,8 @@ type Geometry struct {
 
 	groups []Group
 }
+
+type UV struct {} // ???
 
 func NewGeometry() Geometry {
 	g := Geometry{}
@@ -43,7 +50,7 @@ type WeightEntry struct { //TODO: see if we can find a better way that doesnt us
 }
 
 // floatsToVertex3s is a helper function to convert flat float arrays into vertex3s 
-func floatsToVertex3s(arr []Float32) []Vertex3{
+func floatsToVertex3s(arr []float32) []floatgeom.Point3{
 	if len(arr) %3 != 0{
 		errors.New("Something went wrong parsing an array of floats to vertices as it was not divisible by 3")
 	}
@@ -53,7 +60,7 @@ func floatsToVertex3s(arr []Float32) []Vertex3{
 	}
 	return output
 }
-func floatsToVertex4s(arr []Float32) []Vertex4{
+func floatsToVertex4s(arr []float32) []floatgeom.Point4{
 	if len(arr) %4 != 0{
 		errors.New("Something went wrong parsing an array of floats to vertices as it was not divisible by 3")
 	}
@@ -149,7 +156,7 @@ func (l *Loader) parseMeshGeometry( relationships ConnectionSet, geoNode Node,  
 }
 
 // genGeometry generates a THREE.BufferGeometry(ish) from a node in FBXTree.Objects.Geometry
-func (l *Loader) genGeometry (geoNode Node, skeleton *Skeleton, morphTarget *MorphTarget, preTransform floatgeom.Matrix4) Geometry {
+func (l *Loader) genGeometry (geoNode Node, skeleton *Skeleton, morphTarget *MorphTarget, preTransform mgl64.Mat4) Geometry {
 	geo := NewGeometry() //https://threejs.org/docs/#api/en/core/BufferGeometry
 	geo.name = geoNode.attrName
 
@@ -259,7 +266,8 @@ func (l *Loader) parseGeoNode(geoNode Node, skeleton *Skeleton) map[string]Prope
 	return geoInfo
 }
 // genFace generates data for a single face in a geometry. If the face is a quad then split it into 2 tris
-func (l *Loader) genFace(buffers, geoInfo, facePositionIndexes, materialIndex,  faceNormals, faceColors, faceUVs, faceWeights, faceWeightIndices, faceLength ) {
+func (l *Loader) genFace(buffers []FaceBuffer, geoInfo map[string]Property, facePositionIndexes []int, materialIndex int, 
+		faceNormals []float64, faceColors []Color, faceUVs []int, faceWeights []int, faceWeightIndices []int, faceLength int) {
 	for i := 2 ; i < faceLength; i++{
 		geoInfo.vertexPositions[fce]
 		buffers.vertex = append(buffers.vertex, genFaceVertex(geoInfo.vertexPositions, facePositionIndexes, i)...)
@@ -291,15 +299,15 @@ func (l *Loader) genFace(buffers, geoInfo, facePositionIndexes, materialIndex,  
 }
 
 // genFaceVertex simplifies a portion of genface to be less wordy in creation of the vertices for the face
-func genFaceVertex(vPos, posIdxs, idx){
-	return []int{
-		vPoss[ posIdxs[0]],vPos[posIdxs[1]],vPos[ posIdxs[2]],
-		vPoss[ posIdxs[( idx - 1 ) * 3 + 0]],vPos[posIdxs[(idx-1)*3+1]],vPos[ posIdxs[(idx-1)*3+2]],
-		vPoss[ posIdxs[ idx * 3 + 0]],vPos[posIdxs[ idx * 3 +1]],vPos[ posIdxs[idx * 3 +2]],
+func genFaceVertex(vPos []float64, posIdxs []int, idx int) []float64 {
+	return []float64{
+		vPos[ posIdxs[0]],vPos[posIdxs[1]],vPos[ posIdxs[2]],
+		vPos[ posIdxs[( idx - 1 ) * 3 + 0]],vPos[posIdxs[(idx-1)*3+1]],vPos[ posIdxs[(idx-1)*3+2]],
+		vPos[ posIdxs[ idx * 3 + 0]],vPos[posIdxs[ idx * 3 +1]],vPos[ posIdxs[idx * 3 +2]],
 	}
 }
 
-func genIntFaceArray(size, sourceArr, idx) []int{
+func genIntFaceArray(size int, sourceArr []int, idx int) []int{
 	out := make([]int{}, size * 3)
 	for j := 0 ; j < size; j++{
 		out[ j] = sourceArr[j ]
@@ -320,7 +328,7 @@ type FaceBuffer struct{
     materialIndex int
 }
 
-func (g *Geometery) addMorphTargets( l *Loader, parentGeo *Geometry, parentGeoNode Node, morphTarget *MorphTarget, preTransform floatgeom.Matrix4) {
+func (g *Geometry) addMorphTargets( l *Loader, parentGeo *Geometry, parentGeoNode Node, morphTarget *MorphTarget, preTransform mgl64.Mat4) {
 	if morphTarget == nil{
 		return
 	}
@@ -343,7 +351,7 @@ type MorphGeoInfo struct {
 // in FBXTree.Objects.Geometry, however it can only have attributes for position, normal
 // and a special attribute Index defining which vertices of the original geometry are affected
 // Normal and position attributes only have data for the vertices that are affected by the morph
-func (g *Geometery) genMorphGeometry(parentGeo *Geometry, parentGeoNode, morphGeoNode Node, preTransform floatgeom.Matrix4) {
+func (g *Geometry) genMorphGeometry(parentGeo *Geometry, parentGeoNode, morphGeoNode Node, preTransform mgl64.Mat4) {
 	morphGeo = THREE.BufferGeometry() //TODO: figure out type
 	if morphGeoNode.attrName{
 		morphGeo.name = morphGeoNode.attrName
@@ -407,7 +415,7 @@ func parseNormals(NormalNode Node) threeDataObject{
 	}
 }
 // Parse UVs from FBXTree.Objects.Geometry.LayerElementUV if it exists
-func parseUVs(UVNode) threeDataObject{
+func parseUVs(UVNode Node) threeDataObject{
 	mappingType := UVNode.MappingInformationType
 	referenceType := UVNode.ReferenceInformationType
 	buffer := UVNode.UV
@@ -424,7 +432,7 @@ func parseUVs(UVNode) threeDataObject{
 	}
 }
 // Parse Vertex Colors from FBXTree.Objects.Geometry.LayerElementColor if it exists
-func parseVertexColors(ColorNode) threeDataObject{
+func parseVertexColors(ColorNode Node) threeDataObject{
 	 indexBuffer := []int
 	if referenceType == "IndexToDirect" {
 		indexBuffer = ColorNode.ColorIndex
@@ -518,7 +526,7 @@ type gBuffers struct{
 
 
 
-func genBuffers(geonInfo){
+func genBuffers(geomInfo map[string]Property){
 	buffers := gBuffers{}
 	polygonIndex = 0
 	faceLength = 0
