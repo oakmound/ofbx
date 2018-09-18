@@ -672,38 +672,31 @@ func (l *Loader) createLight(relationships ConnectionSet) Light {
 func (l *Loader) createMesh(relationships ConnectionSet, geometryMap map[int64]Geometry, materialMap map[int64]Material) {
 	var model Model
 	var geometry *Geometry
-	var material *Material
-	var materials = []Material{}
+	var materials = []*Material{}
 	// get geometry and materials(s) from connections
-	for _, child := range 
-	relationships.children.forEach( function ( child ) {
-		if ( geometryMap.has( child.ID ) ) {
-			geometry = geometryMap.get( child.ID )
+	for _, child := range relationships.children {
+		if g, ok := geometryMap[child.ID]; ok {
+			geometry = g
 		}
-		if ( materialMap.has( child.ID ) ) {
-			materials.push( materialMap.get( child.ID ) )
+		if m, ok := materialMap[child.ID]; ok {
+			materials = append(materials, m)
 		}
-	} )
-	if ( materials.length > 1 ) {
-		material = materials
-	} else if ( materials.length > 0 ) {
-		material = materials[ 0 ]
-	} else {
-		material = new THREE.MeshPhongMaterial( { color: 0xcccccc } )
-		materials.push( material )
 	}
-	if ( "color" in geometry.attributes ) {
-		materials.forEach( function ( material ) {
-			material.vertexColors = THREE.VertexColors
-		} )
+	if len(materials) == 0 {
+		materials = []*Material{THREE.MeshPhongMaterial( map[string]Color{ "color": 0xcccccc } )}
 	}
-	if ( geometry.FBX_Deformer ) {
-		materials.forEach( function ( material ) {
-			material.skinning = true
-		} )
-		model = new THREE.SkinnedMesh( geometry, material )
+	if len(geometry.color) > 0 {
+		for _, m := range materials {
+			m.vertexColors = THREE.VertexColors
+		}
+	}
+	if geometry.FBX_Deformer != nil {
+		for _, m := range materials {
+			m.skinning = true
+		}
+		model = THREE.SkinnedMesh( geometry, materials)
 	} else {
-		model = new THREE.Mesh( geometry, material )
+		model = THREE.Mesh( geometry, materials)
 	}
 	return model
 }
@@ -863,7 +856,7 @@ var fbxVersionMatch *regexp.Regexp
 
 func init() {
 	var err error
-	fbxVersionMatch, err = regexp.Compile("/FBXVersion: (\d+)/")
+	fbxVersionMatch, err = regexp.Compile("FBXVersion: (\\d+)")
 	if err != nil {
 		fmt.Println("Unable to compile fbx version regex:", err)
 	}
