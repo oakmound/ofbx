@@ -69,6 +69,21 @@ func (m1 Matrix) Mul(m2 Matrix) Matrix {
 	return Matrix{res}
 }
 
+// Transpose Gets returns the transpose of the given matrix
+func (m1 Matrix) Transpose() Matrix {
+	res := [16]float64{}
+	for i := 0; i < 4; i++ {
+		for j := 0; j < 4; j++ {
+			res[i*4+j] = m1.m[j*4+i]
+		}
+	}
+	return Matrix{res}
+}
+
+func (m1 Matrix) Inverse() Matrix {
+	//TODO: we gotta implement
+}
+
 func setTranslation(v floatgeom.Point3, m *Matrix) {
 	m.m[12] = v.X()
 	m.m[13] = v.Y()

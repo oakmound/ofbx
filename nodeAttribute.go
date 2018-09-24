@@ -6,7 +6,7 @@ type NodeAttribute struct {
 	Attribute *DataView
 }
 
-// NewNodeAttribute creates a stube NodeAttribute
+// NewNodeAttribute creates a stub NodeAttribute
 func NewNodeAttribute(scene *Scene, element *Element) *NodeAttribute {
 	o := *NewObject(scene, element)
 	return &NodeAttribute{o, nil}
