@@ -118,13 +118,15 @@ type CurveNode struct {
 	initialPosition floatgeom.Point3
 	initialRotation floatgeom.Point3
 	initialScale    floatgeom.Point3
-	T               floatgeom.Point3
-	R               mgl64.Mat4
-	S               floatgeom.Point3
+	T               *CurveNode
+	R               *CurveNode
+	S               *CurveNode
 	transform       mgl64.Mat4
-	preRotations    []mgl64.Mat4
-	postRotations   []mgl64.Mat4
+	preRotations    *[3]float64
+	postRotations   *[3]float64
 	curves          map[string]AnimationCurve
+
+	DeformPercent float64
 }
 
 // parse nodes in FBXTree.Objects.AnimationLayer. Each layers holds references
@@ -276,8 +278,8 @@ func (l *Loader) parseAnimStacks(layersMap map[int64][]CurveNode) map[int64]Clip
 	return rawClips
 }
 
-func (l *Loader) addClip(clip Clip) ??? {
-	tracks := make([]Track, 0, len(clip.layer))
+func (l *Loader) addClip(clip Clip) Animation {
+	tracks := make([]KeyframeTrack, 0, len(clip.layer))
 	for _, rawTracks := range clip.layer {
 		tracks = append(tracks, l.generateTracks(rawTracks)...)
 	}
@@ -285,40 +287,29 @@ func (l *Loader) addClip(clip Clip) ??? {
 	return NewAnimationClip(rawClip.name, -1, tracks)
 }
 
-func (l *Loader) generateTracks(rawTracks CurveNode) []Track {
-	tracks := []Track{}
+func (l *Loader) generateTracks(rawTracks CurveNode) []KeyframeTrack {
+	tracks := []KeyframeTrack{}
 	initialPosition := floatgeom.Point3{}
-	// Could be a matrix
-	initialRotation := Euler{} //THREE.quaternion 
+	initialRotation := Euler{}
 	initialScale := floatgeom.Point3{}
-	if !rawTracks.transform.Zero() { // not sure about this part
-		initialPosition, initialRotation, initialScale = rawTracks.transform.decompose(initialPosition, initialRotation, initialScale)
+	if !IsZeroMat(rawTracks.transform) {
+		initialPosition, initialRotation, initialScale = decomposeMat(rawTracks.transform)
 	}
-	// ????
-	//initialRotation = new THREE.Euler().setFromQuaternion( initialRotation ).toArray(); // todo: euler order
-	if rawTracks.T != undefined && Object.keys(rawTracks.T.curves).length > 0 {
-		positionTrack, err := l.generateVectorTrack(rawTracks.modelName, rawTracks.T.curves, initialPosition, "position")
-		if err != nil {
-			tracks.push(positionTrack)
-		}
+	if rawTracks.T != nil && len(rawTracks.T.curves) > 0 {
+		positionTrack := l.generateVectorTrack(rawTracks.modelName, rawTracks.T.curves, initialPosition, "position")
+		tracks = append(tracks, positionTrack)
 	}
-	if rawTracks.R != undefined && Object.keys(rawTracks.R.curves).length > 0 {
-		rotationTrack, err := l.generateRotationTrack(rawTracks.modelName, rawTracks.R.curves, initialRotation, rawTracks.preRotations, rawTracks.postRotations)
-		if err != nil {
-			tracks.push(rotationTrack)
-		}
+	if rawTracks.R != nil && len(rawTracks.R.curves) > 0 {
+		rotationTrack := l.generateRotationTrack(rawTracks.modelName, rawTracks.R.curves, initialRotation, rawTracks.preRotations, rawTracks.postRotations)
+		tracks = append(tracks, rotationTrack)
 	}
-	if rawTracks.S != undefined && Object.keys(rawTracks.S.curves).length > 0 {
-		scaleTrack, err := l.generateVectorTrack(rawTracks.modelName, rawTracks.S.curves, initialScale, "scale")
-		if err != nil {
-			tracks.push(scaleTrack)
-		}
+	if rawTracks.S != nil && len(rawTracks.S.curves) > 0 {
+		scaleTrack := l.generateVectorTrack(rawTracks.modelName, rawTracks.S.curves, initialScale, "scale")
+		tracks = append(tracks, scaleTrack)
 	}
-	if rawTracks.DeformPercent != undefined {
-		morphTrack, err := l.generateMorphTrack(rawTracks)
-		if err != nil {
-			tracks.push(morphTrack)
-		}
+	if rawTracks.DeformPercent != 0.0 {
+		morphTrack := l.generateMorphTrack(rawTracks)
+		tracks = append(tracks, morphTrack)
 	}
 	return tracks
 }
@@ -329,37 +320,38 @@ func (l *Loader) generateVectorTrack(modelName string, curves map[string]Animati
 	return VectorKeyframeTrack(modelName+"."+typ, times, values)
 }
 
-func (l *Loader) generateRotationTrack(modelName string, curves map[string]AnimationCurve, initialValue Euler, preRotations, postRotations [3]float64) KeyframeTrack {
+func (l *Loader) generateRotationTrack(modelName string, curves map[string]AnimationCurve, initialValue Euler, preRotations, postRotations *[3]float64) KeyframeTrack {
 	if c, ok := curves["x"]; ok {
 		c = l.interpolateRotations(c)
-		for i, val := range c.values {
-			c.values[i] = alg.DegToRad * val
+		for i, val := range c.Values {
+			c.Values[i] = alg.DegToRad * val
 		}
 	}
 	if c, ok := curves["y"]; ok {
 		c = l.interpolateRotations(c)
-		for i, val := range c.values {
-			c.values[i] = alg.DegToRad * val
+		for i, val := range c.Values {
+			c.Values[i] = alg.DegToRad * val
 		}
 	}
 	if c, ok := curves["z"]; ok {
 		c = l.interpolateRotations(c)
-		for i, val := range c.values {
-			c.values[i] = alg.DegToRad * val
+		for i, val := range c.Values {
+			c.Values[i] = alg.DegToRad * val
 		}
 	}
-	times = l.getTimesForAllAxes(curves)
-	values = l.getKeyframeTrackValues(times, curves, initialValue)
+	times := l.getTimesForAllAxes(curves)
+	values := l.getKeyframeTrackValues(times, curves, initialValue.Point3)
 	var preRot *floatgeom.Point4
 	if preRotations != nil {
 		preRotations[0] *= alg.DegToRad
 		preRotations[1] *= alg.DegToRad
 		preRotations[2] *= alg.DegToRad
 		eul := Euler{
-			floatgeom.Point3(preRotations),
+			floatgeom.Point3(*preRotations),
 			ZYXOrder,
 		}
-		preRot = &eul.ToQuaternion()
+		q := eul.ToQuaternion()
+		preRot = &q
 	}
 	var postRot *floatgeom.Point4
 	if postRotations != nil {
@@ -367,28 +359,29 @@ func (l *Loader) generateRotationTrack(modelName string, curves map[string]Anima
 		postRotations[1] *= alg.DegToRad
 		postRotations[2] *= alg.DegToRad
 		eul := Euler{
-			floatgeom.Point3(postRotations),
-			ZYXOrder,
+			floatgeom.Point3(*postRotations),
+			ZYXOrder, 
 		}
-		postRot = &eul.ToQuaternion().Inverse()
+		q := eul.ToQuaternion().Inverse() 
+		postRot = &q
 	}
 
-	quaternion = floatgeom.Point4{}
-s
+	quaternion := floatgeom.Point4{}
+
 	keyFrameVals := []float64{}
 	for i := 0; i < len(values); i += 3 {
-		euler = Euler{
+		euler := Euler{
 			floatgeom.Point3{values[i], values[i+1], values[i+2]},
 			ZYXOrder,
 		}
 		quaternion := euler.ToQuaternion()
 		if preRot != nil {
-			quaternion.PreMultiply(preRot)
+			quaternion = preRot.MulQuat(quaternion)
 		}
 		if postRot != nil {
-			quaternion.Multiply(postRot)
+			quaternion = quaternion.MulQuat(*postRot)
 		}
-		keyFrameVals = append(quaternion[0], quaternion[1], quaternion[2], quaternion[3])
+		keyFrameVals = append(keyFrameVals, quaternion[0], quaternion[1], quaternion[2], quaternion[3])
 	}
 	return QuaternionKeyframeTrack(modelName+".quaternion", times, keyFrameVals)
 }

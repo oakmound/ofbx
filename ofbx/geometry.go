@@ -8,18 +8,6 @@ import (
 	"github.com/oakmound/oak/alg/floatgeom"
 )
 
-type EulerOrder int
-
-const (
-	ZYXOrder       EulerOrder = iota // -> XYZ extrinsic
-	YZXOrder       EulerOrder = iota // -> XZY extrinsic
-	XZYOrder       EulerOrder = iota // -> YZX extrinsic
-	ZXYOrder       EulerOrder = iota // -> YXZ extrinsic
-	YXZOrder       EulerOrder = iota // -> ZXY extrinsic
-	XYZOrder       EulerOrder = iota // -> ZYX extrinsic
-	LastEulerOrder EulerOrder = iota
-)
-
 //TODO consider how they use transformdata and how it creates transforms
 //can we skip transform data and just jam things on as we get them?
 
