@@ -289,11 +289,10 @@ func (l *Loader) generateTracks(rawTracks CurveNode) []Track {
 	tracks := []Track{}
 	initialPosition := floatgeom.Point3{}
 	// Could be a matrix
-	initialRotation := Euler{}
+	initialRotation := Euler{} //THREE.quaternion 
 	initialScale := floatgeom.Point3{}
-	if !rawTracks.transform.Zero() {
-		// todo: does this perform side effects, or return a transform, or return three new values?
-		rawTracks.transform = rawTracks.transform.decompose(initialPosition, initialRotation, initialScale)
+	if !rawTracks.transform.Zero() { // not sure about this part
+		initialPosition, initialRotation, initialScale = rawTracks.transform.decompose(initialPosition, initialRotation, initialScale)
 	}
 	// ????
 	//initialRotation = new THREE.Euler().setFromQuaternion( initialRotation ).toArray(); // todo: euler order
@@ -375,7 +374,7 @@ func (l *Loader) generateRotationTrack(modelName string, curves map[string]Anima
 	}
 
 	quaternion = floatgeom.Point4{}
-
+s
 	keyFrameVals := []float64{}
 	for i := 0; i < len(values); i += 3 {
 		euler = Euler{
@@ -400,7 +399,7 @@ func (l *Loader) generateMorphTrack(rawTracks CurveNode) KeyframeTrack {
 	for i, val := range curves.values {
 		values[i] = val / 100
 	}
-	morphNum := sceneGraph.getObjectByName(rawTracks.modelName).morphTargetDictionary[rawTracks.morphName]
+	morphNum := sceneGraph.ByName(rawTracks.modelName).morphTargetDictionary[rawTracks.morphName]
 	return NumberKeyframeTrack(rawTracks.modelName+".morphTargetInfluences["+morphNum+"]", curves.times, values)
 }
 
