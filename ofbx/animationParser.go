@@ -15,7 +15,8 @@ import (
 
 // mgl64.Mat4
 
-type Animation struct{}
+type Animation struct {
+}
 
 // parse animation data from FBXTree
 // take raw animation clips and turn them into three.js animation clips
@@ -129,6 +130,15 @@ type CurveNode struct {
 	DeformPercent float64
 }
 
+// sanitizeNodeName was a method on propertybinding that would: Replaces spaces with underscores and removes unsupported characters from
+//  * node names, to ensure compatibility with parseTrackName().
+func sanitizeNodeName(nodeName string) string {
+	re := regexp.MustCompile("/s")
+	enclo := regexp.MustCompile("[(.*)]")
+	nodeName = re.ReplaceAllString(nodeName, "_")
+	return enclo.ReplaceAllString(nodeName, "$1")
+}
+
 // parse nodes in FBXTree.Objects.AnimationLayer. Each layers holds references
 // to various AnimationCurveNodes and is referenced by an AnimationStack node
 // note: theoretically a stack can have multiple layers, however in practice there always seems to be one per stack
@@ -156,7 +166,7 @@ func (l *Loader) parseAnimationLayers(curveNodesMap map[int64]CurveNode) map[int
 						}
 						rawModel := l.tree.Objects["Model"][modelID]
 						node := CurveNode{
-							modelName:       THREE.PropertyBinding.sanitizeNodeName(rawModel.attrName),
+							modelName:       sanitizeNodeName(rawModel.attrName),
 							initialPosition: floatgeom.Point3{0, 0, 0},
 							initialRotation: floatgeom.Point3{0, 0, 0},
 							initialScale:    floatgeom.Point3{1, 1, 1},
@@ -188,7 +198,7 @@ func (l *Loader) parseAnimationLayers(curveNodesMap map[int64]CurveNode) map[int
 						modelID := l.connections[geoID].parents[0].ID
 						rawModel := l.tree.Objects["Model"][modelID]
 						var node = CurveNode{
-							modelName: THREE.PropertyBinding.sanitizeNodeName(rawModel.attrName),
+							modelName: sanitizeNodeName(rawModel.attrName),
 							morphName: l.tree.Objects["Deformer"][deformerID].attrName,
 						}
 						layerCurveNodes[i] = node
@@ -360,9 +370,9 @@ func (l *Loader) generateRotationTrack(modelName string, curves map[string]Anima
 		postRotations[2] *= alg.DegToRad
 		eul := Euler{
 			floatgeom.Point3(*postRotations),
-			ZYXOrder, 
+			ZYXOrder,
 		}
-		q := eul.ToQuaternion().Inverse() 
+		q := eul.ToQuaternion().Inverse()
 		postRot = &q
 	}
 

@@ -1,27 +1,37 @@
 package threefbx
 
 import (
+	"bytes"
+	"errors"
+	"fmt"
 	"io"
+	"math"
+	"regexp"
+	"strconv"
 
-
-	"github.com/oakmound/oak/alg/floatgeom"
-	"github.com/oakmound/oak/alg"
 	"github.com/go-gl/mathgl/mgl64"
+	"github.com/oakmound/oak/alg"
+	"github.com/oakmound/oak/alg/floatgeom"
 )
 
 type Loader struct {
-	tree Tree
+	tree        Tree
 	connections ParsedConnections
-	sceneGraph Group
+	sceneGraph  Group
 }
 
-func NewLoader() *Loader { 
+func NewLoader() *Loader {
 	return &Loader{}
 }
 
-type Scene struct {} // ???
-type Track struct {} // ???
-type KeyframeTrack interface{} // ???
+type Scene struct{} // ???
+type Track struct{} // ???
+type KeyframeTrack struct {
+	name          string
+	times         []float32
+	values        []int //TODO: get actual value type. as long as the times
+	interpolation string
+} // ???
 type Camera struct{}
 type Light struct{}
 type Model struct{}
@@ -36,9 +46,9 @@ func (l *Loader) Load(r io.Reader, textureDir string) (*Scene, error) {
 		l.tree, err = l.parseASCII(r)
 	}
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if l.tree.Objects.LayeredTexture != nil { 
+	if l.tree.Objects.LayeredTexture != nil {
 		fmt.Println("layered textures are not supported. Discarding all but first layer.")
 	}
 	return l.parseTree(textureDir)
@@ -69,7 +79,7 @@ func (l *Loader) parseTree(textureDir string) (*Scene, error) {
 type ParsedConnections map[int64]ConnectionSet
 
 type ConnectionSet struct {
-	parents []Connection
+	parents  []Connection
 	children []Connection
 }
 
@@ -78,8 +88,8 @@ func NewParsedConnections() ParsedConnections {
 }
 
 type Connection struct {
-	ID int64
-	To, From int64
+	ID           int64
+	To, From     int64
 	Relationship string
 }
 
@@ -94,8 +104,8 @@ func (l *Loader) parseConnections() ParsedConnections {
 
 type VideoNode struct {
 	ContentType string
-	Filename string
-	Content io.Reader
+	Filename    string
+	Content     io.Reader
 }
 
 func (l *Loader) parseImages() (map[int64]io.Reader, error) {
@@ -140,27 +150,27 @@ func (l *Loader) parseTextures() (map[int64]Texture, error) {
 type Wrapping int
 
 const (
-	RepeatWrapping Wrapping = iota
+	RepeatWrapping      Wrapping = iota
 	ClampToEdgeWrapping Wrapping = iota
 )
 
 type Texture struct {
-	ID int64
-	name string
-	wrapS Wrapping
-	wrapT Wrapping
-	repeat floatgeom.Point2
+	ID      int64
+	name    string
+	wrapS   Wrapping
+	wrapT   Wrapping
+	repeat  floatgeom.Point2
 	content io.Reader
 }
 
 func (l *Loader) parseTexture(tx Node, images map[int64]io.Reader) (Texture, error) {
 	r, err := l.loadTexture(tx, images)
 	return Texture{
-		ID: tx.ID,
-		name: tx.attrName,
-		wrapS: tx.WrapModeU,
-		wrapT: tx.WrapModeV,
-		repeat: tx.Scaling,
+		ID:      tx.ID,
+		name:    tx.attrName,
+		wrapS:   tx.WrapModeU,
+		wrapT:   tx.WrapModeV,
+		repeat:  tx.Scaling,
 		content: r,
 	}, err
 }
@@ -198,91 +208,91 @@ type Color struct {
 }
 
 type MaterialNode struct {
-	BumpFactor *float64
-	Diffuse *[3]float32
-	DiffuseColor *[3]float32
+	BumpFactor         *float64
+	Diffuse            *[3]float32
+	DiffuseColor       *[3]float32
 	DisplacementFactor *float64
-	Emissive *[3]float32
-	EmissiveColor *[3]float32
-	EmissiveFactor *float64
-	Opacity *float64
-	ReflectionFactor *float64
-	Shininess *float64
-	Specular *[3]float32
-	SpecularColor *[3]float32
+	Emissive           *[3]float32
+	EmissiveColor      *[3]float32
+	EmissiveFactor     *float64
+	Opacity            *float64
+	ReflectionFactor   *float64
+	Shininess          *float64
+	Specular           *[3]float32
+	SpecularColor      *[3]float32
 }
 
 type MaterialParameters struct {
-	BumpFactor float64
-	Diffuse Color
+	BumpFactor         float64
+	Diffuse            Color
 	DisplacementFactor float64
-	Emissive Color
-	EmissiveFactor float64
-	Opacity float64
-	ReflectionFactor float64
-	Shininess float64
-	Specular Color
-	Transparent bool
+	Emissive           Color
+	EmissiveFactor     float64
+	Opacity            float64
+	ReflectionFactor   float64
+	Shininess          float64
+	Specular           Color
+	Transparent        bool
 
-	bumpMap Texture
-	normalMap Texture
-	specularMap Texture
-	emissiveMap Texture
-	diffuseMap Texture
-	alphaMap Texture
+	bumpMap         Texture
+	normalMap       Texture
+	specularMap     Texture
+	emissiveMap     Texture
+	diffuseMap      Texture
+	alphaMap        Texture
 	displacementMap Texture
-	envMap Texture
-} 
+	envMap          Texture
+}
 
 func (l *Loader) parseParameters(mn MaterialNode, txs map[int64]Texture, id int64) MaterialParameters {
 	parameters := MaterialParameters{}
 
-	if materialNode.BumpFactor != nil  {
+	if materialNode.BumpFactor != nil {
 		parameters.BumpFactor = *materialNode.BumpFactor
 	}
-	if materialNode.Diffuse != nil  {
+	if materialNode.Diffuse != nil {
 		parameters.Diffuse.R = (*MaterialNode.Diffuse)[0]
 		parameters.Diffuse.G = (*MaterialNode.Diffuse)[1]
 		parameters.Diffuse.B = (*MaterialNode.Diffuse)[2]
-	} else if materialNode.DiffuseColor != nil  {
+	} else if materialNode.DiffuseColor != nil {
 		// The blender exporter exports diffuse here instead of in materialNode.Diffuse
 		parameters.Diffuse.R = (*MaterialNode.DiffuseColor)[0]
 		parameters.Diffuse.G = (*MaterialNode.DiffuseColor)[1]
 		parameters.Diffuse.B = (*MaterialNode.DiffuseColor)[2]
 	}
-	if materialNode.DisplacementFactor != nil  {
-		parameters.displacementScale = *materialNode.DisplacementFactor;
+	if materialNode.DisplacementFactor != nil {
+		parameters.displacementScale = *materialNode.DisplacementFactor
 	}
-	if materialNode.Emissive != nil  {
+	if materialNode.Emissive != nil {
 		parameters.Emissive.R = (*MaterialNode.Emissive)[0]
 		parameters.Emissive.G = (*MaterialNode.Emissive)[1]
 		parameters.Emissive.B = (*MaterialNode.Emissive)[2]
-	} else if materialNode.EmissiveColor != nil  {
+	} else if materialNode.EmissiveColor != nil {
 		// The blender exporter exports emissive color here instead of in materialNode.Emissive
 		parameters.Emissive.R = (*MaterialNode.EmissiveColor)[0]
 		parameters.Emissive.G = (*MaterialNode.EmissiveColor)[1]
 		parameters.Emissive.B = (*MaterialNode.EmissiveColor)[2]
 	}
-	if materialNode.EmissiveFactor != nil  {
+	if materialNode.EmissiveFactor != nil {
 		parameters.EmissiveFactor = *materialNode.EmissiveFactor
 	}
-	if materialNode.Opacity != nil  {
+	if materialNode.Opacity != nil {
 		parameters.Opacity = *materialNode.Opacity
 	}
-	if parameters.opacity < 1.0 != nil  {
-		parameters.Transparent = true;
+	if parameters.opacity < 1.0 != nil {
+		parameters.Transparent = true
 	}
-	if materialNode.ReflectionFactor != nil  {
-		parameters.ReflectionFactor = *materialNode.ReflectionFactor;
+	if materialNode.ReflectionFactor != nil {
+		parameters.ReflectionFactor = *materialNode.ReflectionFactor
 	}
-	if materialNode.Shininess != nil  {
-		parameters.Shininess = *materialNode.Shininess;
+	if materialNode.Shininess != nil {
+		parameters.Shininess = *materialNode.Shininess
 	}
-	if materialNode.Specular != nil  {
+	if materialNode.Specular != nil {
 		parameters.Specular.R = (*MaterialNode.Specular)[0]
 		parameters.Specular.G = (*MaterialNode.Specular)[1]
 		parameters.Specular.B = (*MaterialNode.Specular)[2]
-	} else if materialNode.SpecularColor != nil  {
+	} else if materialNode.SpecularColor != nil {
 		// The blender exporter exports specular color here instead of in materialNode.Specular
 		parameters.Specular.R = (*MaterialNode.SpecularColor)[0]
 		parameters.Specular.G = (*MaterialNode.SpecularColor)[1]
@@ -293,31 +303,31 @@ func (l *Loader) parseParameters(mn MaterialNode, txs map[int64]Texture, id int6
 		// TODO: Remember to throw away layered things and use the first layer's
 		// ID for layered textures
 		txt := txs[child.id]
-		switch child.Relationship  {
-			case "Bump":
-				parameters.bumpMap = txt
-			case "DiffuseColor":
-				parameters.diffuseMap = txt
-			case "DisplacementColor":
-				parameters.displacementMap = txt
-			case "EmissiveColor":
-				parameters.emissiveMap = txt
-			case "NormalMap":
-				parameters.normalMap = txt
-			case "ReflectionColor":
-				parameters.envMap = txt
-				parameters.envMap.mapping = EquirectangularReflectionMapping;
-			case "SpecularColor":
-				parameters.specularMap = txt
-			case "TransparentColor":
-				parameters.alphaMap = txt
-				parameters.transparent = true
-			//case "AmbientColor":
-			//case "ShininessExponent": // AKA glossiness map
-			//case "SpecularFactor": // AKA specularLevel
-			//case "VectorDisplacementColor": // NOTE: Seems to be a copy of DisplacementColor
-			default:
-				fmt.Printf("%s map is not supported in three.js, skipping texture.\n", child.Relationship )
+		switch child.Relationship {
+		case "Bump":
+			parameters.bumpMap = txt
+		case "DiffuseColor":
+			parameters.diffuseMap = txt
+		case "DisplacementColor":
+			parameters.displacementMap = txt
+		case "EmissiveColor":
+			parameters.emissiveMap = txt
+		case "NormalMap":
+			parameters.normalMap = txt
+		case "ReflectionColor":
+			parameters.envMap = txt
+			parameters.envMap.mapping = EquirectangularReflectionMapping
+		case "SpecularColor":
+			parameters.specularMap = txt
+		case "TransparentColor":
+			parameters.alphaMap = txt
+			parameters.transparent = true
+		//case "AmbientColor":
+		//case "ShininessExponent": // AKA glossiness map
+		//case "SpecularFactor": // AKA specularLevel
+		//case "VectorDisplacementColor": // NOTE: Seems to be a copy of DisplacementColor
+		default:
+			fmt.Printf("%s map is not supported in three.js, skipping texture.\n", child.Relationship)
 		}
 	}
 	return parameters
@@ -327,9 +337,9 @@ type Skeleton struct {
 	ID int64
 	// Todo: instead of rawBones and Bones,
 	// if rawBones isn't used after it is 'refined'
-	// into bones, have a 'processed' bool? 
+	// into bones, have a 'processed' bool?
 	rawBones []Bone
-	bones []Bone
+	bones    []Bone
 }
 
 func (l *Loader) parseDeformers() (map[int64]Skeleton, map[int64]MorphTarget) {
@@ -359,12 +369,12 @@ func (l *Loader) parseDeformers() (map[int64]Skeleton, map[int64]MorphTarget) {
 }
 
 type Bone struct {
-	ID int64
-	Indices []int
-	Weights []float64
-	Transform mgl64.Mat4
+	ID            int64
+	Indices       []int
+	Weights       []float64
+	Transform     mgl64.Mat4
 	TransformLink mgl64.Mat4
-	LinkMode interface{}
+	LinkMode      interface{}
 }
 
 // Parse single nodes in tree.Objects.Deformer
@@ -378,13 +388,13 @@ func (l *Loader) parseSkeleton(relationships ConnectionSet, deformerNodes map[in
 			return
 		}
 		rawBone := Bone{
-			ID: child.ID,
+			ID:      child.ID,
 			Indices: []int{},
 			Weights: []float64{},
 			// Todo: matrices
-			Transform: mgl64.Mat4FromSlice(boneNode.Transform.a),
+			Transform:     mgl64.Mat4FromSlice(boneNode.Transform.a),
 			TransformLink: mgl64.Mat4FromSlice(boneNode.TransformLink.a),
-			LinkMode: boneNode.props["Mode"],
+			LinkMode:      boneNode.props["Mode"],
 		}
 		// Todo types, what has 'a' as a field?
 		if idxs, ok := boneNode.props["Indexes"]; ok {
@@ -395,35 +405,35 @@ func (l *Loader) parseSkeleton(relationships ConnectionSet, deformerNodes map[in
 	}
 	return Skeleton{
 		rawBones: rawBones,
-		bones: []Bone{},
+		bones:    []Bone{},
 	}
 }
 
 type MorphTarget struct {
-	ID int64
-	Name string
+	ID            int64
+	Name          string
 	InitialWeight float64
-	FullWeights []float64
+	FullWeights   []float64
 }
 
 // The top level morph deformer node has type "BlendShape" and sub nodes have type "BlendShapeChannel"
 func (l *Loader) parseMorphTargets(relationships ConnectionSet, deformerNodes map[int64]Node) []MorphTarget {
 	rawMorphTargets := make([]MorphTarget, 0)
 	for i := 0; i < relationships.children.length; i++ {
-		if ( i == 8 ) {
+		if i == 8 {
 			fmt.Println("FBXLoader: maximum of 8 morph targets supported. Ignoring additional targets.")
 			break
 		}
 		child := relationships.children[i]
 		morphTargetNode := deformerNodes[child.ID]
-		if morphTargetNode.attrType != "BlendShapeChannel" { 
+		if morphTargetNode.attrType != "BlendShapeChannel" {
 			return
 		}
 		target := MorphTarget{
-			name: morphTargetNode.attrName,
+			name:          morphTargetNode.attrName,
 			initialWeight: morphTargetNode.props["DeformPercent"],
-			id: morphTargetNode.ID,
-			fullWeights: morphTargetNode.FullWeights.Payload().([]float64),
+			id:            morphTargetNode.ID,
+			fullWeights:   morphTargetNode.FullWeights.Payload().([]float64),
 		}
 		for _, child := range connections.get(child.ID).children {
 			if child.relationship == "" {
@@ -437,8 +447,8 @@ func (l *Loader) parseMorphTargets(relationships ConnectionSet, deformerNodes ma
 
 // create the main THREE.Group() to be returned by the loader
 func (l *Loader) parseScene(
-	skeletons map[int64]Skeleton, 
-	morphTargets map[int64]MorphTarget, 
+	skeletons map[int64]Skeleton,
+	morphTargets map[int64]MorphTarget,
 	geometryMap Geometry,
 	materialMap map[int64]Material) {
 
@@ -448,9 +458,9 @@ func (l *Loader) parseScene(
 	for _, model := range modelMap {
 		modelNode := modelNodes[model.ID]
 		l.setLookAtProperties(model, modelNode)
-		parentConnections := l.connections.get(model.ID).parents;
+		parentConnections := l.connections.get(model.ID).parents
 		for _, connection := range parentConnections {
-			var parent = modelMap.get( connection.ID )
+			var parent = modelMap.get(connection.ID)
 			if parent != nil {
 				parent.add(model)
 			}
@@ -459,17 +469,18 @@ func (l *Loader) parseScene(
 			sceneGraph.add(model)
 		}
 	}
-	l.bindSkeleton( deformers.skeletons, geometryMap, modelMap );
-	l.createAmbientLight();
-	l.setupMorphMaterials();
+	l.bindSkeleton(deformers.skeletons, geometryMap, modelMap)
+	l.createAmbientLight()
+	l.setupMorphMaterials()
 	animations := l.parseAnimations()
 	// if all the models where already combined in a single group, just return that
 	if sceneGraph.children.length == 1 && sceneGraph.children[0].isGroup {
-		sceneGraph.children[ 0 ].animations = animations;
-		sceneGraph = sceneGraph.children[ 0 ];
+		sceneGraph.children[0].animations = animations
+		sceneGraph = sceneGraph.children[0]
 	}
-	sceneGraph.animations = animations;
+	sceneGraph.animations = animations
 }
+
 // parse nodes in FBXTree.Objects.Model
 func (l *Loader) parseModels(skeletons map[int64]Skeleton, geometryMap map[int64]Geometry, materialMap map[int64]Material) map[int64]Model {
 	modelMap := map[int64]Model{}
@@ -478,32 +489,32 @@ func (l *Loader) parseModels(skeletons map[int64]Skeleton, geometryMap map[int64
 		relationships := connections.get(id)
 		model := l.buildSkeleton(relationships, skeletons, id, node.attrName)
 		if model == nil {
-			switch ( node.attrType ) {
-				case "Camera":
-					model = l.createCamera( relationships );
-					break;
-				case "Light":
-					model = l.createLight( relationships );
-					break;
-				case "Mesh":
-					model = l.createMesh( relationships, geometryMap, materialMap );
-					break;
-				case "NurbsCurve":
-					model = l.createCurve( relationships, geometryMap );
-					break;
-				case "LimbNode": // usually associated with a Bone, however if a Bone was not created we"ll make a Group instead
-				case "Null":
-				default:
-					model = THREE.Group()
-					break;
+			switch node.attrType {
+			case "Camera":
+				model = l.createCamera(relationships)
+				break
+			case "Light":
+				model = l.createLight(relationships)
+				break
+			case "Mesh":
+				model = l.createMesh(relationships, geometryMap, materialMap)
+				break
+			case "NurbsCurve":
+				model = l.createCurve(relationships, geometryMap)
+				break
+			case "LimbNode": // usually associated with a Bone, however if a Bone was not created we"ll make a Group instead
+			case "Null":
+			default:
+				model = THREE.Group()
+				break
 			}
-			model.name = THREE.PropertyBinding.sanitizeNodeName( node.attrName )
-			model.ID = id;
+			model.name = sanitizeNodeName(node.attrName)
+			model.ID = id
 		}
-		l.setModelTransforms( model, node );
-		modelMap.set( id, model );
+		l.setModelTransforms(model, node)
+		modelMap.set(id, model)
 	}
-	return modelMap;
+	return modelMap
 }
 
 func (l *Loader) buildSkeleton(relationships ConnectionSet, skeletons map[int64]Skeleton, id int64, name string) Model {
@@ -514,28 +525,29 @@ func (l *Loader) buildSkeleton(relationships ConnectionSet, skeletons map[int64]
 				if rawBone.ID == parent.ID {
 					subBone := bone
 					bone = THREE.Bone()
-					bone.matrixWorld.copy( rawBone.transformLink );
+					bone.matrixWorld.copy(rawBone.transformLink)
 					// set name and id here - otherwise in cases where "subBone" is created it will not have a name / id
-					bone.name = THREE.PropertyBinding.sanitizeNodeName( name );
-					bone.ID = id;
-					skeleton.bones[ i ] = bone;
+					bone.name = sanitizeNodeName(name)
+					bone.ID = id
+					skeleton.bones[i] = bone
 					// In cases where a bone is shared between multiple meshes
 					// duplicate the bone here and and it as a child of the first bone
 					if subBone != nil {
-						bone.add( subBone )
+						bone.add(subBone)
 					}
 				}
 			}
 		}
 	}
-	return bone;
+	return bone
 }
+
 // create a THREE.PerspectiveCamera or THREE.OrthographicCamera
 
 func createCamera(relationships ConnectionSet) Camera {
-	var model Camera 
+	var model Camera
 	var cameraAttribute map[string]interface{}
-	for i := len(relationships.children)-1; i > 0; i-- {
+	for i := len(relationships.children) - 1; i > 0; i-- {
 		child := relationships.children[i]
 		attr := tree.Objects.NodeAttribute[child.ID]
 		if attr != nil {
@@ -544,10 +556,10 @@ func createCamera(relationships ConnectionSet) Camera {
 		}
 	}
 	if cameraAttribute == "" {
-		model = THREE.Object3D();
+		model = THREE.Object3D()
 	} else {
 		typ := 0
-		v, ok := cameraAttribute["CameraProjectionType"] 
+		v, ok := cameraAttribute["CameraProjectionType"]
 		if ok && v.(int64) == 1 {
 			typ := 1
 		}
@@ -562,7 +574,7 @@ func createCamera(relationships ConnectionSet) Camera {
 		width := 240
 		height := 240
 		if v, ok := cameraAttribute["AspectWidth"]; ok {
-			width = v 
+			width = v
 		}
 		if v, ok := cameraAttribute["AspectHeight"]; ok {
 			height = v
@@ -577,16 +589,16 @@ func createCamera(relationships ConnectionSet) Camera {
 			focalLength = v
 		}
 		switch typ {
-			case 0: // Perspective
-				model = THREE.PerspectiveCamera( fov, aspect, nearClippingPlane, farClippingPlane )
-				if focalLength != 0 { 
-					model.setFocalLength( focalLength )
-				}
-			case 1: // Orthographic
-				model = THREE.OrthographicCamera( - width / 2, width / 2, height / 2, - height / 2, nearClippingPlane, farClippingPlane );
-			default:
-				fmt.Println("Unknown camera type", typ)
-				model = THREE.Object3D()
+		case 0: // Perspective
+			model = THREE.PerspectiveCamera(fov, aspect, nearClippingPlane, farClippingPlane)
+			if focalLength != 0 {
+				model.setFocalLength(focalLength)
+			}
+		case 1: // Orthographic
+			model = THREE.OrthographicCamera(-width/2, width/2, height/2, -height/2, nearClippingPlane, farClippingPlane)
+		default:
+			fmt.Println("Unknown camera type", typ)
+			model = THREE.Object3D()
 		}
 	}
 	return model
@@ -595,23 +607,23 @@ func createCamera(relationships ConnectionSet) Camera {
 type LightType int
 
 const (
-	LightPoint LightType = iota
+	LightPoint       LightType = iota
 	LightDirectional LightType = iota
-	LightSpot LightType = iota
+	LightSpot        LightType = iota
 )
 
 // Todo: less pointers, more reasonable zero values
 type LightAttribute struct {
-	LightType *LightType
-	Color Color
-	Intensity *float64
+	LightType         *LightType
+	Color             Color
+	Intensity         *float64
 	FarAttenuationEnd *float64
-	InnerAngle *float64
-	OuterAngle *float64
+	InnerAngle        *float64
+	OuterAngle        *float64
 
-	CastLightOnObject bool
+	CastLightOnObject    bool
 	EnableFarAttenuation bool
-	CastShadows bool
+	CastShadows          bool
 }
 
 // Create a THREE.DirectionalLight, THREE.PointLight or THREE.SpotLight
@@ -619,8 +631,8 @@ func (l *Loader) createLight(relationships ConnectionSet) Light {
 	var model Light
 	var la LightAttribute
 
-	for i := len(relationships.children)-1; i >= 0; i-- {
-		var attr = tree.Objects.NodeAttribute[ relationships.children[i].ID ]
+	for i := len(relationships.children) - 1; i >= 0; i-- {
+		var attr = tree.Objects.NodeAttribute[relationships.children[i].ID]
 		if attr != "" {
 			la = attr.(LightAttribute)
 			break
@@ -634,14 +646,14 @@ func (l *Loader) createLight(relationships ConnectionSet) Light {
 		if la.LightType != nil {
 			typ = *la.LightType
 		}
-		var color = color.RBGA{255,255,255,255}
+		var color = color.RBGA{255, 255, 255, 255}
 		if la.Color != nil {
 			color = *la.Color
 		}
 		intensity := 1.0
 		if *la.Intensity != nil {
 			intensity = *la.Intensity / 100
-		} 
+		}
 		// light disabled
 		if !la.CastLightOnObject {
 			intensity = 0
@@ -653,29 +665,29 @@ func (l *Loader) createLight(relationships ConnectionSet) Light {
 			}
 		}
 		// TODO: could this be calculated linearly from FarAttenuationStart to FarAttenuationEnd?
-		var decay = 1;
-		switch ( typ ) {
-			case 0: // Point
-				model = THREE.PointLight(color, intensity, distance, decay)
-			case 1: // Directional
-				model = THREE.DirectionalLight(color, intensity)
-			case 2: // Spot
-				angle := math.Pi / 3
-				if la.InnerAngle != nil  {
-					angle = alg.DegToRad * *la.InnerAngle.value
-				}
-				penumbra := 0.0
-				if la.OuterAngle != nil {
+		var decay = 1
+		switch typ {
+		case 0: // Point
+			model = THREE.PointLight(color, intensity, distance, decay)
+		case 1: // Directional
+			model = THREE.DirectionalLight(color, intensity)
+		case 2: // Spot
+			angle := math.Pi / 3
+			if la.InnerAngle != nil {
+				angle = alg.DegToRad * *la.InnerAngle.value
+			}
+			penumbra := 0.0
+			if la.OuterAngle != nil {
 				// TODO: this is not correct - FBX calculates outer and inner angle in degrees
 				// with OuterAngle > InnerAngle && OuterAngle <= Math.PI
 				// while three.js uses a penumbra between (0, 1) to attenuate the inner angle
-					penumbra = alg.DegToRad * *la.OuterAngle
-					penumbra = math.Max(penumbra, 1) 
-				}
-				model = THREE.SpotLight(color, intensity, distance, angle, penumbra, decay)
-			default:
-				fmt.Println("THREE.FBXLoader: Unknown light type " + la.LightType.value + ", defaulting to a THREE.PointLight." );
-				model = THREE.PointLight(color, intensity)
+				penumbra = alg.DegToRad * *la.OuterAngle
+				penumbra = math.Max(penumbra, 1)
+			}
+			model = THREE.SpotLight(color, intensity, distance, angle, penumbra, decay)
+		default:
+			fmt.Println("THREE.FBXLoader: Unknown light type " + la.LightType.value + ", defaulting to a THREE.PointLight.")
+			model = THREE.PointLight(color, intensity)
 		}
 		if la.CastShadows {
 			model.castShadow = true
@@ -698,7 +710,7 @@ func (l *Loader) createMesh(relationships ConnectionSet, geometryMap map[int64]G
 		}
 	}
 	if len(materials) == 0 {
-		materials = []*Material{THREE.MeshPhongMaterial( map[string]Color{ "color": 0xcccccc } )}
+		materials = []*Material{THREE.MeshPhongMaterial(map[string]Color{"color": 0xcccccc})}
 	}
 	if len(geometry.color) > 0 {
 		for _, m := range materials {
@@ -709,9 +721,9 @@ func (l *Loader) createMesh(relationships ConnectionSet, geometryMap map[int64]G
 		for _, m := range materials {
 			m.skinning = true
 		}
-		model = THREE.SkinnedMesh( geometry, materials)
+		model = THREE.SkinnedMesh(geometry, materials)
 	} else {
-		model = THREE.Mesh( geometry, materials)
+		model = THREE.Mesh(geometry, materials)
 	}
 	return model
 }
@@ -719,25 +731,25 @@ func (l *Loader) createMesh(relationships ConnectionSet, geometryMap map[int64]G
 // parse the model node for transform details and apply them to the model
 func (l *Loader) setModelTransforms(model Model, modelNode Node) {
 	var td = TransformData{}
-	if v, ok := modelNode.props["RotationOrder"]; ok { 
+	if v, ok := modelNode.props["RotationOrder"]; ok {
 		td.eulerOrder = &EulerOrder(v.Payload().(int))
 	}
 	if v, ok := modelNode.props["Lcl_Translation"]; ok {
 		td.translation = &v.Payload().(floatgeom.Point3)
 	}
-	if v, ok := modelNode.props["RotationOffset"]; ok { 
+	if v, ok := modelNode.props["RotationOffset"]; ok {
 		td.rotationOffset = &v.Payload().(floatgeom.Point3)
 	}
 	if v, ok := modelNode.props["Lcl_Rotation"]; ok {
 		td.rotation = &v.Payload().(mgl64.Mat4)
 	}
-	if v, ok := modelNode.props["PreRotation"]; ok { 
+	if v, ok := modelNode.props["PreRotation"]; ok {
 		td.preRotation = &v.Payload().(mgl64.Mat4)
 	}
 	if v, ok := modelNode.props["PostRotation"]; ok {
 		td.postRotation = &v.Payload().(mgl64.Mat4)
 	}
-	if v, ok := modelNode.props["Lcl_Scaling"]; ok { 
+	if v, ok := modelNode.props["Lcl_Scaling"]; ok {
 		td.scale = &v.Payload().(floatgeom.Point3)
 	}
 	model.applyMatrix(generateTransform(td))
@@ -745,13 +757,13 @@ func (l *Loader) setModelTransforms(model Model, modelNode Node) {
 
 func (l *Loader) createCurve(relationships ConnectionSet, geometryMap map[int64]Geometry) Curve {
 	var geometry Geometry
-	for i := len(relationships.children)-1; i >= 0; i-- {
+	for i := len(relationships.children) - 1; i >= 0; i-- {
 		child := relationships.children[i]
 		if geo, ok := geometryMap[child.ID]; ok {
-			geometry = geo 
+			geometry = geo
 			break
 		}
-	} 
+	}
 	// FBX does not list materials for Nurbs lines, so we'll just put our own in here.
 	material := THREE.LineBasicMaterial(0x3300ff, 1)
 	return THREE.Line(geometry, material)
@@ -797,7 +809,7 @@ func parsePoseNodes() {
 	var bindMatrices = map[Node]Matrix4{}
 	if BindPoseNode, ok := tree.Objects["Pose"]; ok {
 		for nodeID, v := range BindPoseNode {
-			if v.attrType == "BindPose"  {
+			if v.attrType == "BindPose" {
 				poseNodes := v.props["PoseNode"]
 				if poseNodes.IsArray() {
 					for _, n := range poseNodes {
@@ -811,6 +823,7 @@ func parsePoseNodes() {
 	}
 	return bindMatrices
 }
+
 // Parse ambient color in tree.GlobalSettings - if it's not set to black (default), create an ambient light
 func createAmbientLight() {
 	_, ok := tree["GlobalSetttings"]
@@ -823,15 +836,15 @@ func createAmbientLight() {
 }
 
 func (l *Loader) setupMorphMaterials() {
-	sceneGraph.traverse(func (c SceneNode) {
+	sceneGraph.traverse(func(c SceneNode) {
 		if c.isMesh {
 			_, ok := c.geometry.morphAttributes["position"]
 			_, ok2 := c.geometry.morphAttributes["normal"]
 			if ok || ok2 {
 				// if a geometry has morph targets, it cannot share the material with other geometries
 				sharedMat := false
-				sceneGraph.traverse( func ( c2 SceneNode) {
-					if (c2.isMesh) {
+				sceneGraph.traverse(func(c2 SceneNode) {
+					if c2.isMesh {
 						if c2.material.uuid == c.material.uuid && c2.uuid != c.uuid {
 							sharedMat = true
 							return
@@ -839,14 +852,13 @@ func (l *Loader) setupMorphMaterials() {
 					}
 				})
 				if sharedMat {
-					 c.material = child.material.clone()
+					c.material = child.material.clone()
 				}
 				c.material.morphTargets = true
 			}
 		}
 	})
 }
-
 
 // FBXTree holds a representation of the FBX data, returned by the TextParser ( FBX ASCII format)
 // and BinaryParser( FBX Binary format)
@@ -860,14 +872,14 @@ func isBinary(r io.Reader) bool {
 	n, err := r.Read(header)
 	if n != len(header) {
 		return false
-	} 
+	}
 	if err != nil {
 		return false
 	}
 	return bytes.Equal(magic, header)
 }
 
-var fbxVersionMatch *regexp.Regexp 
+var fbxVersionMatch *regexp.Regexp
 
 func init() {
 	var err error
