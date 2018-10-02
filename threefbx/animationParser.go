@@ -13,11 +13,6 @@ import (
 	"github.com/oakmound/oak/alg/floatgeom"
 )
 
-// mgl64.Mat4
-
-type Animation struct {
-}
-
 // parse animation data from FBXTree
 // take raw animation clips and turn them into three.js animation clips
 func (l *Loader) parseAnimations() []Animation {
@@ -60,12 +55,6 @@ func (l *Loader) parseAnimationCurveNodes() map[int64]CurveNode {
 		}
 	}
 	return curveNodesMap
-}
-
-type AnimationCurve struct {
-	ID     int64
-	Times  []float64
-	Values []float64
 }
 
 // parse nodes in FBXTree.Objects.AnimationCurve and connect them up to
@@ -130,13 +119,16 @@ type CurveNode struct {
 	DeformPercent float64
 }
 
+var (
+	sanitizeRe    = regexp.MustCompile("/s")
+	sanitizeEnclo = regexp.MustCompile("[(.*)]")
+)
+
 // sanitizeNodeName was a method on propertybinding that would: Replaces spaces with underscores and removes unsupported characters from
 //  * node names, to ensure compatibility with parseTrackName().
 func sanitizeNodeName(nodeName string) string {
-	re := regexp.MustCompile("/s")
-	enclo := regexp.MustCompile("[(.*)]")
-	nodeName = re.ReplaceAllString(nodeName, "_")
-	return enclo.ReplaceAllString(nodeName, "$1")
+	nodeName = sanitizeRe.ReplaceAllString(nodeName, "_")
+	return sanitizeEnclo.ReplaceAllString(nodeName, "$1")
 }
 
 // parse nodes in FBXTree.Objects.AnimationLayer. Each layers holds references
@@ -175,10 +167,12 @@ func (l *Loader) parseAnimationLayers(curveNodesMap map[int64]CurveNode) map[int
 						// if the animated model is pre rotated, we'll have to apply the pre rotations to every
 						// animation value as well
 						if v, ok := rawModel.props["PreRotation"]; ok {
-							node.preRotations = v.Payload().([]mgl64.Mat4)
+							v2 := v.Payload().([3]float64)
+							node.preRotations = &v2
 						}
 						if v, ok := rawModel.props["PostRotation"]; ok {
-							node.postRotations = v.Payload().([]mgl64.Mat4)
+							v2 := v.Payload().([3]float64)
+							node.postRotations = &v2
 						}
 						// This is questionable!
 						layerCurveNodes[i] = node
@@ -223,7 +217,7 @@ type TransformData struct {
 	scale          *floatgeom.Point3
 }
 
-func (l *Loader) getModelAnimTransform(modelNode Node) mgl64.Mat4 {
+func (l *Loader) getModelAnimTransform(modelNode *Node) mgl64.Mat4 {
 	var td TransformData
 	if v, ok := modelNode.props["RotationOrder"]; ok {
 		eo, err := strconv.Atoi(v.Payload().(string))
@@ -294,7 +288,7 @@ func (l *Loader) addClip(clip Clip) Animation {
 		tracks = append(tracks, l.generateTracks(rawTracks)...)
 	}
 	// ??
-	return NewAnimationClip(rawClip.name, -1, tracks)
+	return NewAnimationClip(clip.name, -1, tracks)
 }
 
 func (l *Loader) generateTracks(rawTracks CurveNode) []KeyframeTrack {
@@ -402,8 +396,8 @@ func (l *Loader) generateMorphTrack(rawTracks CurveNode) KeyframeTrack {
 	for i, val := range curves.values {
 		values[i] = val / 100
 	}
-	morphNum := sceneGraph.ByName(rawTracks.modelName).morphTargetDictionary[rawTracks.morphName]
-	return NumberKeyframeTrack(rawTracks.modelName+".morphTargetInfluences["+morphNum+"]", curves.times, values)
+	morphNum := l.sceneGraph.ByName(rawTracks.modelName).morphTargetDictionary[rawTracks.morphName]
+	return NumberKeyframeTrack(rawTracks.modelName+".morphTargetInfluences["+morphNum+"]", curves.Times, values)
 }
 
 // For all animated objects, times are defined separately for each axis
@@ -412,13 +406,13 @@ func (l *Loader) getTimesForAllAxes(curves map[string]AnimationCurve) []float64 
 	var times = []float64{}
 	// first join together the times for each axis, if defined
 	if c, ok := curves["x"]; ok {
-		times = append(times, c.times)
+		times = append(times, c.Times...)
 	}
 	if c, ok := curves["y"]; ok {
-		times = append(times, c.times)
+		times = append(times, c.Times...)
 	}
 	if c, ok := curves["z"]; ok {
-		times = append(times, c.times)
+		times = append(times, c.Times...)
 	}
 	// then sort them and remove duplicates
 	sort.Slice(times, func(i, j int) bool {
@@ -430,7 +424,7 @@ func (l *Loader) getTimesForAllAxes(curves map[string]AnimationCurve) []float64 
 			break
 		}
 		if times[i] == times[i+1] {
-			times = append(times[:i], times[i+1:])
+			times = append(times[:i], times[i+1:]...)
 			continue
 		}
 		i++
@@ -446,24 +440,24 @@ func (l *Loader) getKeyframeTrackValues(times []float64, curves map[string]Anima
 	zIndex := -1
 	for _, time := range times {
 		if _, ok := curves["x"]; ok {
-			for i, t2 := range curve["x"].times {
-				if t2 == t {
+			for i, t2 := range curves["x"].Times {
+				if t2 == time {
 					xIndex = i
 					break
 				}
 			}
 		}
 		if _, ok := curves["y"]; ok {
-			for i, t2 := range curve["y"].times {
-				if t2 == t {
+			for i, t2 := range curves["y"].Times {
+				if t2 == time {
 					yIndex = i
 					break
 				}
 			}
 		}
 		if _, ok := curves["z"]; ok {
-			for i, t2 := range curve["z"].times {
-				if t2 == t {
+			for i, t2 := range curves["z"].Times {
+				if t2 == time {
 					zIndex = i
 					break
 				}
@@ -471,7 +465,7 @@ func (l *Loader) getKeyframeTrackValues(times []float64, curves map[string]Anima
 		}
 		// if there is an x value defined for this frame, use that
 		if xIndex != -1 {
-			xValue = curves["x"].values[xIndex]
+			xValue := curves["x"].Values[xIndex]
 			values = append(values, xValue)
 			prevValue[0] = xValue
 		} else {
@@ -479,16 +473,16 @@ func (l *Loader) getKeyframeTrackValues(times []float64, curves map[string]Anima
 			values = append(values, prevValue[0])
 		}
 		if yIndex != -1 {
-			yValue = curves["y"].values[yIndex]
+			yValue := curves["y"].Values[yIndex]
 			values = append(values, yValue)
 			prevValue[1] = yValue
 		} else {
 			values = append(values, prevValue[1])
 		}
 		if zIndex != -1 {
-			zValue = curves["z"].values[zIndex]
+			zValue := curves["z"].Values[zIndex]
 			values = append(values, zValue)
-			prevValue[z] = zValue
+			prevValue[2] = zValue
 		} else {
 			values = append(values, prevValue[2])
 		}
@@ -500,28 +494,29 @@ func (l *Loader) getKeyframeTrackValues(times []float64, curves map[string]Anima
 // These will be converted to quaternions which don't support values greater than
 // PI, so we'll interpolate large rotations
 func (l *Loader) interpolateRotations(curve AnimationCurve) AnimationCurve {
-	for i := 1; i < len(curve.values); i++ {
-		initialValue := curve.values[i-1]
-		valuesSpan := curve.values[i] - initialValue
+	for i := 1; i < len(curve.Values); i++ {
+		initialValue := curve.Values[i-1]
+		valuesSpan := curve.Values[i] - initialValue
 		absoluteSpan := math.Abs(valuesSpan)
 		if absoluteSpan >= 180 {
 			numSubIntervals := absoluteSpan / 180
 			step := valuesSpan / numSubIntervals
 			nextValue := initialValue + step
-			initialTime := curve.times[i-1]
-			timeSpan := curve.times[i] - initialTime
+			initialTime := curve.Times[i-1]
+			timeSpan := curve.Times[i] - initialTime
 			interval := timeSpan / numSubIntervals
 			nextTime := initialTime + interval
 			interpolatedTimes := []float64{}
 			interpolatedValues := []float64{}
-			for nextTime < curve.times[i] {
-				interpolatedTimes.push(nextTime)
+			for nextTime < curve.Times[i] {
+				interpolatedTimes = append(interpolatedTimes, nextTime)
 				nextTime += interval
-				interpolatedValues.push(nextValue)
+				interpolatedValues = append(interpolatedValues, nextValue)
 				nextValue += step
 			}
-			curve.times = append(curve.times[:i], append(interpolatedTimes, curve.times[i:]))
-			curve.values = append(curve.values[:i], append(interpolatedValues, curve.values[i:]))
+			curve.Times = append(curve.Times[:i], append(interpolatedTimes, curve.Times[i:]...)...)
+			curve.Values = append(curve.Values[:i], append(interpolatedValues, curve.Values[i:]...)...)
 		}
 	}
+	return curve
 }

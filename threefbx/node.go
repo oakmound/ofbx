@@ -9,9 +9,11 @@ type Node struct {
 
 	singleProperty bool
 
-	a        Property
-	props    map[string]Property
-	poseNode []Property
+	a            Property
+	props        map[string]Property
+	poseNode     []Property
+	propertyList []Property
+	connections  []Property
 }
 
 // NewNode creates a new node
@@ -28,4 +30,11 @@ func (n *Node) String() string {
 }
 func (n *Node) stringPrefix(prefix string) string {
 	return prefix + n.typ.String() + ":\n" + n.Object.stringPrefix("\t"+prefix)
+}
+func (n *Node) IsArray() bool {
+	return false
+}
+func (n *Node) Payload() interface{} {
+	//Maybe return property map?
+	return n
 }

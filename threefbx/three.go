@@ -28,8 +28,8 @@ type Scene struct{} // ???
 type Track struct{} // ???
 type KeyframeTrack struct {
 	name          string
-	times         []float32
-	values        []int //TODO: get actual value type. as long as the times
+	times         []float64
+	values        []float64 // as long as the times
 	interpolation string
 } // ???
 type Camera struct{}
@@ -863,7 +863,7 @@ func (l *Loader) setupMorphMaterials() {
 // FBXTree holds a representation of the FBX data, returned by the TextParser ( FBX ASCII format)
 // and BinaryParser( FBX Binary format)
 type Tree struct {
-	Objects map[string][]Node
+	Objects map[string][]*Node
 }
 
 func isBinary(r io.Reader) bool {

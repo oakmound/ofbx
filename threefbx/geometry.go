@@ -26,31 +26,31 @@ func generateTransform(td TransformData) mgl64.Mat4 {
 		translation = translation.Add(*td.rotationOffset)
 	}
 
-	rotation := floatgeom.IdentityMatrix4()
+	rotation := mgl64.Ident4()
 	if td.rotation != nil {
-		rot := td.rotation.Scale(alg.DegToRad)
+		rot := td.rotation.Mul(alg.DegToRad)
 		rotation = makeRotationFromEuler(rot, order)
 	}
 
 	if td.preRotation != nil {
-		rot := td.preRotation.Scale(alg.DegToRad)
+		rot := td.preRotation.Mul(alg.DegToRad)
 		mat := makeRotationFromEuler(rot, order)
-		rotation = rotation.PreMultiply(mat)
+		rotation = mat.Mul4(rotation)
 	}
 	if td.postRotation != nil {
-		rot := td.postRotation.Scale(alg.DegToRad)
+		rot := td.postRotation.Mul(alg.DegToRad)
 		mat := makeRotationFromEuler(rot, order)
 		mat = mat.Inverse()
-		rotation = rotation.multiply(mat)
+		rotation = rotation.Mul4(mat)
 	}
 
-	transform := floatgeom.IdentityMatrix4()
+	transform := mgl64.Ident4()
 
 	if td.scale != nil {
-		transform = transform.Scale(*td.scale)
+		transform = transform.Mul(*td.scale)
 	}
 	transform = transform.WithPosition(translation)
-	transform = transform.Multiply(rotation)
+	transform = transform.Mul4(rotation)
 	return transform
 }
 

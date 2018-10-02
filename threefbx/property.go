@@ -28,3 +28,27 @@ func (ap *ArrayProperty) IsArray() bool {
 func (ap *ArrayProperty) Payload() interface{} {
 	return ap.payload
 }
+
+type MapProperty struct {
+	m map[string]Property
+}
+
+func (mp *MapProperty) IsArray() bool {
+	return false
+}
+
+func (mp *MapProperty) Payload() interface{} {
+	return mp.m
+}
+
+type IDMapProperty struct {
+	m map[int64]Property
+}
+
+func (mp *IDMapProperty) IsArray() bool {
+	return false
+}
+
+func (mp *IDMapProperty) Payload() interface{} {
+	return mp.m
+}
