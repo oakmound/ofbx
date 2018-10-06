@@ -26,7 +26,45 @@ func scaleMat4(m mgl64.Mat4, s floatgeom.Point3) mgl64.Mat4 {
 	m[7] *= s.Y()
 	m[11] *= s.Z()
 	return m
+}
 
+// applyBufferAttribute so far has been used to apply pretransforms on a set of points
+func applyBufferAttribute(m mgl64.Mat4, a []floatgeom.Point3) []floatgeom.Point3 {
+	for i := 0; i < len(a); i++ {
+		a[i] = applyMat4(m, a[i])
+	}
+	return a
+}
+
+func applyBufferAttributeMat3(m mgl64.Mat3, a []floatgeom.Point3) []floatgeom.Point3 {
+	for i := 0; i < len(a); i++ {
+		a[i] = applyMat3(m, a[i])
+	}
+	return a
+}
+
+// applyMat3 is puleld from three.js vector3 it applies the mat3 as a transformation
+func applyMat3(m mgl64.Mat3, p floatgeom.Point3) floatgeom.Point3 {
+	x := p.X()
+	y := p.Y()
+	z := p.Z()
+	p[0] = e[0]*x + e[3]*y + e[6]*z
+	p[1] = e[1]*x + e[4]*y + e[7]*z
+	p[2] = e[2]*x + e[5]*y + e[8]*z
+	return p
+}
+
+// applyMat4 is puleld from three.js vector3 it applies the mat4 as a transformation
+func applyMat4(m mgl64.Mat4, p floatgeom.Point3) floatgeom.Point3 {
+	x := p.X()
+	y := p.Y()
+	z := p.Z()
+	w := 1 / (m[3]*x + m[7]*y + m[11]*z + m[15])
+
+	p[0] = (m[0]*x + m[4]*y + m[8]*z + m[12]) * w
+	p[1] = (m[1]*x + m[5]*y + m[9]*z + m[13]) * w
+	p[2] = (m[2]*x + m[6]*y + m[10]*z + m[14]) * w
+	return p
 }
 
 func decomposeMat(mat mgl64.Mat4) (floatgeom.Point3, Euler, floatgeom.Point3) {

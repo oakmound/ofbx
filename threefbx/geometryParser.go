@@ -1,6 +1,7 @@
 package threefbx
 
 import (
+	"errors"
 	"github.com/oakmound/oak/alg/floatgeom"
 	"github.com/go-gl/mathgl/mgl64"
 )
@@ -18,12 +19,12 @@ type Geometry struct {
 	position []floatgeom.Point3 
 	color []Color
 
-	skinIndex [4]uint16
-	skinWeight [4]float32 
+	skinIndex [][4]uint16
+	skinWeight [][4]float32 
 	FBX_Deformer *Skeleton
 
-	normal floatgeom.Point3
-	uvs []UV
+	normal []floatgeom.Point3
+	uvs []float64
 
 	groups []Group
 }
@@ -32,10 +33,10 @@ type UV struct {} // ???
 
 func NewGeometry() Geometry {
 	g := Geometry{}
-	g.groups = make([]Group)
-	g.uvs = make([]UV)
-	g.position = make([]floatgeom.Point3)
-	g.color = make([]Color)
+	g.groups = make([]Group, 0)
+	g.uvs = make([]float64, 0)
+	g.position = make([]floatgeom.Point3, 0)
+	g.color = make([]Color, 0)
 
 	return g
 }
@@ -50,25 +51,25 @@ type WeightEntry struct { //TODO: see if we can find a better way that doesnt us
 }
 
 // floatsToVertex3s is a helper function to convert flat float arrays into vertex3s 
-func floatsToVertex3s(arr []float32) []floatgeom.Point3{
+func floatsToVertex3s(arr []float64) ([]floatgeom.Point3, error){
 	if len(arr) %3 != 0{
-		errors.New("Something went wrong parsing an array of floats to vertices as it was not divisible by 3")
+		return nil, errors.New("Something went wrong parsing an array of floats to vertices as it was not divisible by 3")
 	}
-	output := make([]Vertex3, len(arr)/3)
+	output := make([]floatgeom.Point3, len(arr)/3)
 	for i := 0; i < len(arr)/3; i++{
-		output[i] = Vertex3{arr[i*3],arr[i*3+1],arr[i*3+2]}
+		output[i] = floatgeom.Point3{float64(arr[i*3]),float64(arr[i*3+1]),float64(arr[i*3+2])}
 	}
-	return output
+	return output, nil
 }
-func floatsToVertex4s(arr []float32) []floatgeom.Point4{
+func floatsToVertex4s(arr []float32) ([]floatgeom.Point4, error){
 	if len(arr) %4 != 0{
-		errors.New("Something went wrong parsing an array of floats to vertices as it was not divisible by 3")
+		return nil, errors.New("Something went wrong parsing an array of floats to vertices as it was not divisible by 3")
 	}
-	output := make([]Vertex4, len(arr)/3)
+	output := make([]floatgeom.Point4, len(arr)/3)
 	for i := 0; i < len(arr)/4; i++{
-		output[i] = Vertex4{arr[i*4],arr[i*4+1],arr[i*4+2],arr[i*4+3]}
+		output[i] = floatgeom.Point4{float64(arr[i*4]),float64(arr[i*4+1]),float64(arr[i*4+2]),float64(arr[i*4+3])}
 	}
-	return output
+	return output, nil
 }
 // AddGroup was a THREE.js thing start of conversion is here it seems to store a range for which a value is the same
 func (g *Geometry) AddGroup(rangeStart, count, groupValue int){
@@ -81,39 +82,47 @@ func (g *Geometry) AddGroup(rangeStart, count, groupValue int){
 // parseGeometry converted from parse in the geometry section of the original code
 // parse Geometry data from FBXTree and return map of BufferGeometries
 // Parse nodes in FBXTree.Objects.Geometry
-func (l *Loader) parseGeometry(skeletons map[int64]Skeleton,morphTargets map[int64]MorphTarget ) map[int64]Geometry {
+func (l *Loader) parseGeometry(skeletons map[int64]Skeleton,morphTargets map[int64]MorphTarget ) (map[int64]Geometry, error) {
 	geometryMap := make(map[int64]Geometry)
 	if geoNodes, ok := l.tree.Objects["Geometry"]; ok{
-		for _, nodeID := range geoNodes{
-			relationships := l.connections.get(nodeID)
-			geo := l.parseGeometrySingle(relationships, geoNodes[nodeID], skeletons, morphTargets)
+		for _, node := range geoNodes{
+			nodeID := node.ID
+			relationships := l.connections[nodeID]
+			geo, err := l.parseGeometrySingle(relationships, geoNodes[nodeID], skeletons, morphTargets)
+			if err != nil{
+				return nil, err
+			}
+			geometryMap[nodeID] = geo
 		}
 	}
-	return geometryMap
+	return geometryMap, nil
 }
 // parseGeometrySingle parses a single node in FBXTree.Objects.Geometry //updated name due to collisions
-func (l *Loader) parseGeometrySingle(relationships ConnectionSet, geoNode Node, skeletons map[int64]Skeleton,morphTargets map[int64]MorphTarget ) Geometry{
+func (l *Loader) parseGeometrySingle(relationships ConnectionSet, geoNode *Node, skeletons map[int64]Skeleton,morphTargets map[int64]MorphTarget ) (Geometry, error){
 	switch geoNode.attrType{
 	case "Mesh":
-		return l.parseMeshGeometry(relationships, geoNode, skeletons, morphTargets)
+		return l.parseMeshGeometry(relationships, *geoNode, skeletons, morphTargets), nil
 	case "NurbsCurve":
-		return l.parseNurbsGeometry(geoNode)
+		return l.parseNurbsGeometry(*geoNode),nil
 	}
-	errors.New("Unknown geometry type when parsing" + geoNode.attrType)
-	return 
+	
+	return Geometry{}, errors.New("Unknown geometry type when parsing" + geoNode.attrType)
 }
+
+
+
 
 // parseMeshGeometry parses a single node mesh geometry in FBXTree.Objects.Geometry
 func (l *Loader) parseMeshGeometry( relationships ConnectionSet, geoNode Node,  skeletons map[int64]Skeleton,morphTargets map[int64]MorphTarget) Geometry {
 
-	modelNodes := make([]Node,len(relationships.parents))
-	for i, parents := range relationships.parents{
-		modelNodes[i] = l.tree.Objects.Model[parent.ID]
+	modelNodes := make([]*Node,len(relationships.parents))
+	for i, parent := range relationships.parents{
+		modelNodes[i] = l.tree.Objects["Model"][parent.ID]
 	}
 
 	// dont create if geometry has no models
 	if len(modelNodes) ==0{
-		return nil
+		return Geometry{}
 	}
 
 	var skeleton *Skeleton	//TODO: whats this type
@@ -137,20 +146,25 @@ func (l *Loader) parseMeshGeometry( relationships ConnectionSet, geoNode Node,  
 	// if ( modelNodes.length > 1 ) { }
 	// For now just assume one model and get the preRotations from that
 	modelNode := modelNodes[0]
-	transformData := newTransformData() //TODO: figure out type and if this should just be a transform
+	transformData := TransformData{} 
 	if val, ok := modelNode.props["RotationOrder"]; ok{
-		transformData.eulerOrder =val
+		vp := (val.Payload().(EulerOrder))
+		transformData.eulerOrder = &vp
+		
 	}
 	if val, ok := modelNode.props["GeometricTranslation"]; ok{
-		transformData.translation = val
+		vp := (val.Payload().(floatgeom.Point3))
+		transformData.translation = &vp
 	}
 	if val, ok := modelNode.props["GeometricRotation"]; ok{
-		transformData.rotation =val
+		vp := (val.Payload().(floatgeom.Point3))
+		transformData.rotation =&vp
 	}
 	if val, ok := modelNode.props["GeometricScaling"]; ok{
-		transformData.scale = val
+		vp := (val.Payload().(floatgeom.Point3))
+		transformData.scale = &vp
 	}
-	transform = generateTransform(transformData) //TODO: see above about how this ordering might change
+	transform := generateTransform(transformData) //TODO: see above about how this ordering might change
 	return l.genGeometry(geoNode, skeleton, morphTarget, transform )
 
 }
@@ -165,54 +179,71 @@ func (l *Loader) genGeometry (geoNode Node, skeleton *Skeleton, morphTarget *Mor
 	//TODO: unroll buffers into its consituent slices and do away with the buffer construct
 	buffers := l.genBuffers(geoInfo)
 
-	positionAttribute :=floatsToVertex3s(buffers.vertex) //https://threejs.org/docs/#api/en/core/BufferAttribute
-	
-	preTransform.applyToBufferAttribute( positionAttribute )
+	positionAttribute, err :=floatsToVertex3s(buffers.vertex) //https://threejs.org/docs/#api/en/core/BufferAttribute
+
+	positionAttribute = applyBufferAttribute(preTransform,positionAttribute)
 
 	geo.position =  positionAttribute
-	if len(buffers.color)> 0 {
-		geo.color = floatsToVertex3s(buffers.color)
+	if len(buffers.colors)> 0 {
+		colors, err := floatsToVertex3s(buffers.colors)
+		geo.color = make([]Color, len(colors))
+		for i, c := range colors{
+			geo.color[i] = Color{float32(c.X()), float32(c.Y()), float32(c.Z())}
+		}
 	}
 
 	if skeleton != nil {
-		geos.skinIndex = THREE.Uint16BufferAttribute( buffers.weightsIndices, 4 )
-		geo.skinWeight = THREE.Float32BufferAttribute( buffers.vertexWeights, 4 )
+		geo.skinIndex = make([][4]uint16, len(buffers.weightsIndices)/4)
+		geo.skinWeight = make([][4]float32, len(buffers.vertexWeights)/4)
+
+		for i:= 0 ; i < len(buffers.weightsIndices); i+=4{
+			geo.skinIndex[i/4] = [4]uint16{buffers.weightsIndices[i], buffers.weightsIndices[i+1], buffers.weightsIndices[i+2], buffers.weightsIndices[i+3]}	
+		}
+		for i:= 0 ; i < len(buffers.vertexWeights); i+=4{
+			geo.skinWeight[i/4] = [4]float32{buffers.vertexWeights[i], buffers.vertexWeights[i+1], buffers.vertexWeights[i+2], buffers.vertexWeights[i+3]}	
+		}
 		geo.FBX_Deformer = skeleton;
 	}
 
 	if len(buffers.normal) > 0{
-		normalAttribute := floatsToVertex3s(buffers.normal)
-		normalMatrix := THREE.Matrix3().getNormalMatrix( preTransform ) //TODO: convert out https://threejs.org/docs/#api/en/math/Matrix3.getNormalMatrix
-		normalMatrix.applyToBufferAttribute(normalAttribute)
+		normalAttribute, err := floatsToVertex3s(buffers.normal)
+		normalMatrix := mgl64.Mat4Normal(preTransform) 
+
+		normalAttribute = applyBufferAttributeMat3(normalMatrix,normalAttribute)
 		geo.normal = normalAttribute
 	}
 
-	geo.uvs = buffer.uvs //NOTE: pulled back from variadic array of uvs where they progress down uv -> uv1 -> uv2 and so on
+	geo.uvs = buffers.uvs //NOTE: pulled back from variadic array of uvs where they progress down uv -> uv1 -> uv2 and so on
 
-	if geoInfo.material && geoInfo.material.mappingType != "AllSame"{
+	if matProperty, ok := geoInfo["material"]; ok{
+		if mat, ok := matProperty.Payload().( threeDataObject); ok{
+			
+		if mat.mappingType != "AllSame"{
 		// Convert the material indices of each vertex into rendering groups on the geometry.
 		prevMaterialIndex := buffers.materialIndex[0]
 		startIndex := 0
 		for i, matIndex := range buffers.materialIndex{
 			if matIndex != prevMaterialIndex{
 				geo.AddGroup(startIndex, i-startIndex, prevMaterialIndex) 
-				prevMaterialIndex = materialIndex
+				prevMaterialIndex = matIndex
 				startIndex = i
 			}
 		}
-		if len( geo.groups > 0){ //add last group
+		if len( geo.groups) > 0{ //add last group
 			lastGroup := geo.groups[ len(geo.groups) - 1 ]
 			lastIndex := lastGroup[0] + lastGroup[1]
 			if lastIndex != len(buffers.materialIndex) {
-				geo.addGroup( lastIndex, len(buffers.materialIndex) - lastIndex, prevMaterialIndex )
+				geo.AddGroup( lastIndex, len(buffers.materialIndex) - lastIndex, prevMaterialIndex )
 			}
 		}
 		if len(geo.groups) == 0  {
-			geo.addGroup( 0, len(buffers.materialIndex), buffers.materialIndex[ 0 ] )
+			geo.AddGroup( 0, len(buffers.materialIndex), buffers.materialIndex[ 0 ] )
+		}
+	}
 		}
 	}
 
-	geo.addMorphTargets( l, geo, geoNode, morphTarget, preTransform )
+	addMorphTargets( l, &geo , geoNode, morphTarget, preTransform )
 	return geo
 }
 
@@ -221,23 +252,23 @@ func (l *Loader) genGeometry (geoNode Node, skeleton *Skeleton, morphTarget *Mor
 func (l *Loader) parseGeoNode(geoNode Node, skeleton *Skeleton) map[string]Property {
 	geoInfo := make(map[string]Property)
  
-	geoInfo["vertexPositions"] =  []float32{} //TODO: convert this out to preparse rather than worrying about it later
 	if v, ok := geoNode.props["Vertices"]; ok{
 		geoInfo["vertexPositions"] = v
 	}
-	geoInfo["vertexIndices"] =  []int{}
+	
 	if v, ok := geoNode.props["PolygonVertexIndex"]; ok{
 		geoInfo["vertexIndices"] = v
 	}
 
 	if v, ok :=  geoNode.props["LayerElementColor"]; ok{
-		geoInfo["color"] = l.parseVertexColors(v[0])
+		
+		geoInfo["color"] = &SimpleProperty{parseVertexColors(v.Payload().([]Node)[0])}
 	}
 	if v, ok :=  geoNode.props["LayerElementMaterial"]; ok{
-		geoInfo["material"] = l.parseMaterialIndices(v[0])
+		geoInfo["material"] = &SimpleProperty{l.parseMaterialIndices(v.Payload().([]MaterialNode)[0])}
 	}
 	if v, ok :=  geoNode.props["LayerElementNormal"]; ok{
-		geoInfo["normal"] = l.parseNormals(v[0])
+		geoInfo["normal"] = &SimpleProperty{parseNormals(v.Payload().([]Node)[0])}
 	}
 
 	if uvList, ok :=  geoNode.props["LayerElementUV"]; ok{
@@ -328,7 +359,7 @@ type FaceBuffer struct{
     materialIndex int
 }
 
-func (g *Geometry) addMorphTargets( l *Loader, parentGeo *Geometry, parentGeoNode Node, morphTarget *MorphTarget, preTransform mgl64.Mat4) {
+func addMorphTargets( l *Loader, parentGeo *Geometry, parentGeoNode Node, morphTarget *MorphTarget, preTransform mgl64.Mat4) {
 	if morphTarget == nil{
 		return
 	}
@@ -446,7 +477,7 @@ func parseVertexColors(ColorNode Node) threeDataObject{
 	}
 }
 // Parse mapping and material data in FBXTree.Objects.Geometry.LayerElementMaterial if it exists
-func parseMaterialIndices(MaterialNode)threeDataObject{
+func (l *Loader) parseMaterialIndices(MaterialNode) threeDataObject{
 	 mappingType := MaterialNode.MappingInformationType
 	 referenceType := MaterialNode.ReferenceInformationType
 
@@ -473,7 +504,7 @@ func parseMaterialIndices(MaterialNode)threeDataObject{
 	 }
 }
 
-func parseNurbsGeometry(geoNode Node) Geometry{
+func (l *Loader) parseNurbsGeometry(geoNode Node) Geometry{
 	orderStr, ok :=  geoNode.props["order"]
 	if !ok{
 		return NewGeometry() // FIgure out how to do this fail state as it used to return new THREE.BufferGeometry();
@@ -513,20 +544,20 @@ func parseNurbsGeometry(geoNode Node) Geometry{
 
 // this may be a map<string>int[] for now to not messup prop activities making it a type
 type gBuffers struct{
-	vertex []int
-		normal []int
-		colors []int
-		uvs []int
-		materialIndex []int
-		vertexWeights []int
-		weightsIndices []int
+	vertex []float64
+	normal []float64
+	colors []float64
+	uvs []float64
+	materialIndex []int
+	vertexWeights []float32
+	weightsIndices []uint16
 }
 
 
 
 
 
-func genBuffers(geomInfo map[string]Property){
+func (l *Loader) genBuffers(geomInfo map[string]Property) gBuffers{
 	buffers := gBuffers{}
 	polygonIndex = 0
 	faceLength = 0
