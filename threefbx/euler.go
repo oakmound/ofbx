@@ -40,7 +40,7 @@ func (e Euler) ToQuaternion() floatgeom.Point4 {
 	}
 }
 
-func (euler Euler) makeRotation() {
+func (euler Euler) makeRotation() mgl64.Mat4 {
 	te := mgl64.Mat4{}
 	a := math.Cos(euler.X())
 	b := math.Sin(euler.X())
@@ -145,5 +145,5 @@ func (euler Euler) makeRotation() {
 		te[10] = bd*f + ac
 	}
 	te[15] = 1
-
+	return te
 }
