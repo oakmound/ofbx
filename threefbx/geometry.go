@@ -28,18 +28,18 @@ func generateTransform(td TransformData) mgl64.Mat4 {
 
 	rotation := mgl64.Ident4()
 	if td.rotation != nil {
-		rot := td.rotation.Mul(alg.DegToRad)
-		rotation = makeRotationFromEuler(rot, order)
+		rot := td.rotation.MulConst(alg.DegToRad)
+		rotation = Euler{rot, order}.makeRotation()
 	}
 
 	if td.preRotation != nil {
-		rot := td.preRotation.Mul(alg.DegToRad)
-		mat := makeRotationFromEuler(rot, order)
+		rot := td.preRotation.MulConst(alg.DegToRad)
+		mat := Euler{rot, order}.makeRotation()
 		rotation = mat.Mul4(rotation)
 	}
 	if td.postRotation != nil {
-		rot := td.postRotation.Mul(alg.DegToRad)
-		mat := makeRotationFromEuler(rot, order)
+		rot := td.postRotation.MulConst(alg.DegToRad)
+		mat := Euler{rot, order}.makeRotation()
 		mat = mat.Inverse()
 		rotation = rotation.Mul4(mat)
 	}
@@ -63,7 +63,7 @@ type InfoObject struct {
 }
 
 // extracts the data from the correct position in the FBX array based on indexing type
-func getData(polygonVertexIndex, polygonIndex, vertexIndex int, info InfoObject) {
+func getData(polygonVertexIndex, polygonIndex, vertexIndex int, info InfoObject) []byte {
 	var index int
 	switch info.MappingType {
 	case "ByPolygonVertex":
@@ -73,7 +73,7 @@ func getData(polygonVertexIndex, polygonIndex, vertexIndex int, info InfoObject)
 	case "ByVertice":
 		index = vertexIndex
 	case "AllSame":
-		index = infoObject.indices[0]
+		index = info.Indices[0]
 	default:
 		fmt.Println("THREE.FBXLoader: unknown attribute mapping type " + info.MappingType)
 	}

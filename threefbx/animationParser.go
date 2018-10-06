@@ -211,9 +211,9 @@ type TransformData struct {
 	eulerOrder     *EulerOrder
 	translation    *floatgeom.Point3
 	rotationOffset *floatgeom.Point3
-	rotation       *mgl64.Mat4
-	preRotation    *mgl64.Mat4
-	postRotation   *mgl64.Mat4
+	rotation       *floatgeom.Point3
+	preRotation    *floatgeom.Point3
+	postRotation   *floatgeom.Point3
 	scale          *floatgeom.Point3
 }
 
@@ -237,15 +237,15 @@ func (l *Loader) getModelAnimTransform(modelNode *Node) mgl64.Mat4 {
 		td.rotationOffset = &v2
 	}
 	if v, ok := modelNode.props["Lcl_Rotation"]; ok {
-		v2 := v.Payload().(mgl64.Mat4)
+		v2 := v.Payload().(floatgeom.Point3)
 		td.rotation = &v2
 	}
 	if v, ok := modelNode.props["PreRotation"]; ok {
-		v2 := v.Payload().(mgl64.Mat4)
+		v2 := v.Payload().(floatgeom.Point3)
 		td.preRotation = &v2
 	}
 	if v, ok := modelNode.props["PostRotation"]; ok {
-		v2 := v.Payload().(mgl64.Mat4)
+		v2 := v.Payload().(floatgeom.Point3)
 		td.postRotation = &v2
 	}
 	if v, ok := modelNode.props["Lcl_Scaling"]; ok {
