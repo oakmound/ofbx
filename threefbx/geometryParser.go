@@ -272,10 +272,9 @@ func (l *Loader) parseGeoNode(geoNode Node, skeleton *Skeleton) map[string]Prope
 	}
 
 	if uvList, ok :=  geoNode.props["LayerElementUV"]; ok{
-	//TODO: correct this once we understand all things in a UV object
-		geoInfo["uv"] = make([]UVParsed,len(uvList) )
-		for i, v := range uvList {
-			geoInfo["uv"][i] = l.parseUVs(v)
+		uvPropery := make([]threeDataObject, len(uvList.Payload().([]Node)))
+		for i, v := range uvList.Payload().([]Node) {
+			uvPropery[i] = l.parseUVs(v)
 		}
 	}
 
