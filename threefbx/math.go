@@ -11,6 +11,24 @@ func IsZeroMat(mat mgl64.Mat4) bool {
 	return mat == mgl64.Mat4{}
 }
 
+// scaleMat4 covers the gap from three.js where you can scale a mat4 by a vec3 scale
+func scaleMat4(m mgl64.Mat4, s floatgeom.Point3) mgl64.Mat4 {
+	m[0] *= s.X()
+	m[4] *= s.Y()
+	m[8] *= s.Z()
+	m[1] *= s.X
+	m[5] *= s.Y()
+	m[9] *= s.Z()
+	m[2] *= s.X
+	m[6] *= s.Y()
+	m[10] *= s.Z()
+	m[3] *= s.X
+	m[7] *= s.Y()
+	m[11] *= s.Z()
+	return m
+
+}
+
 func decomposeMat(mat mgl64.Mat4) (floatgeom.Point3, Euler, floatgeom.Point3) {
 	pos := floatgeom.Point3{mat[12], mat[13], mat[14]}
 	scale := floatgeom.Point3{

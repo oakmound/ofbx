@@ -40,18 +40,25 @@ func generateTransform(td TransformData) mgl64.Mat4 {
 	if td.postRotation != nil {
 		rot := td.postRotation.MulConst(alg.DegToRad)
 		mat := Euler{rot, order}.makeRotation()
-		mat = mat.Inverse()
+		mat = mat.Inv()
 		rotation = rotation.Mul4(mat)
 	}
 
 	transform := mgl64.Ident4()
 
 	if td.scale != nil {
-		transform = transform.Mul(*td.scale)
+		transform = scaleMat4(transform, *td.scale)
 	}
-	transform = transform.WithPosition(translation)
+	transform = PositionMat4(transform, translation)
 	transform = transform.Mul4(rotation)
 	return transform
+}
+
+func PositionMat4(m mgl64.Mat4, t floatgeom.Point3) mgl64.Mat4 {
+	m[12] = t.X()
+	m[13] = t.Y()
+	m[14] = t.Z()
+	return m
 }
 
 type InfoObject struct {
