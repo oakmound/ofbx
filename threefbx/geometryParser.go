@@ -1,6 +1,7 @@
 package threefbx
 
 import (
+	"fmt"
 	"errors"
 	"github.com/oakmound/oak/alg/floatgeom"
 	"github.com/go-gl/mathgl/mgl64"
@@ -20,11 +21,11 @@ type Geometry struct {
 	color []Color
 
 	skinIndex [][4]uint16
-	skinWeight [][4]float32 
+	skinWeight [][4]float64
 	FBX_Deformer *Skeleton
 
 	normal []floatgeom.Point3
-	uvs []float64
+	uvs [][]float64
 
 	groups []Group
 }
@@ -34,7 +35,7 @@ type UV struct {} // ???
 func NewGeometry() Geometry {
 	g := Geometry{}
 	g.groups = make([]Group, 0)
-	g.uvs = make([]float64, 0)
+	g.uvs = make([][]float64, 0)
 	g.position = make([]floatgeom.Point3, 0)
 	g.color = make([]Color, 0)
 
@@ -46,7 +47,7 @@ type UVRaw [2]float32
 type Group [3]int
 
 type WeightEntry struct { //TODO: see if we can find a better way that doesnt use this (we could do array or split weightable itself out to two props.)
-	ID int
+	ID uint16
 	Weight float64
 }
 
@@ -101,7 +102,7 @@ func (l *Loader) parseGeometry(skeletons map[int64]Skeleton,morphTargets map[int
 func (l *Loader) parseGeometrySingle(relationships ConnectionSet, geoNode *Node, skeletons map[int64]Skeleton,morphTargets map[int64]MorphTarget ) (Geometry, error){
 	switch geoNode.attrType{
 	case "Mesh":
-		return l.parseMeshGeometry(relationships, *geoNode, skeletons, morphTargets), nil
+		return l.parseMeshGeometry(relationships, *geoNode, skeletons, morphTargets)
 	case "NurbsCurve":
 		return l.parseNurbsGeometry(*geoNode),nil
 	}
@@ -113,7 +114,7 @@ func (l *Loader) parseGeometrySingle(relationships ConnectionSet, geoNode *Node,
 
 
 // parseMeshGeometry parses a single node mesh geometry in FBXTree.Objects.Geometry
-func (l *Loader) parseMeshGeometry( relationships ConnectionSet, geoNode Node,  skeletons map[int64]Skeleton,morphTargets map[int64]MorphTarget) Geometry {
+func (l *Loader) parseMeshGeometry( relationships ConnectionSet, geoNode Node,  skeletons map[int64]Skeleton,morphTargets map[int64]MorphTarget) (Geometry, error) {
 
 	modelNodes := make([]*Node,len(relationships.parents))
 	for i, parent := range relationships.parents{
@@ -122,7 +123,7 @@ func (l *Loader) parseMeshGeometry( relationships ConnectionSet, geoNode Node,  
 
 	// dont create if geometry has no models
 	if len(modelNodes) ==0{
-		return Geometry{}
+		return Geometry{}, nil
 	}
 
 	var skeleton *Skeleton	//TODO: whats this type
@@ -170,11 +171,14 @@ func (l *Loader) parseMeshGeometry( relationships ConnectionSet, geoNode Node,  
 }
 
 // genGeometry generates a THREE.BufferGeometry(ish) from a node in FBXTree.Objects.Geometry
-func (l *Loader) genGeometry (geoNode Node, skeleton *Skeleton, morphTarget *MorphTarget, preTransform mgl64.Mat4) Geometry {
+func (l *Loader) genGeometry (geoNode Node, skeleton *Skeleton, morphTarget *MorphTarget, preTransform mgl64.Mat4) (Geometry, error) {
 	geo := NewGeometry() //https://threejs.org/docs/#api/en/core/BufferGeometry
 	geo.name = geoNode.attrName
 
-	geoInfo := l.parseGeoNode(geoNode, skeleton)
+	geoInfo, err := l.parseGeoNode(geoNode, skeleton)
+	if err != nil {
+		return Geometry{}, err
+	}
 
 	//TODO: unroll buffers into its consituent slices and do away with the buffer construct
 	buffers := l.genBuffers(geoInfo)
@@ -194,13 +198,13 @@ func (l *Loader) genGeometry (geoNode Node, skeleton *Skeleton, morphTarget *Mor
 
 	if skeleton != nil {
 		geo.skinIndex = make([][4]uint16, len(buffers.weightsIndices)/4)
-		geo.skinWeight = make([][4]float32, len(buffers.vertexWeights)/4)
+		geo.skinWeight = make([][4]float64, len(buffers.vertexWeights)/4)
 
 		for i:= 0 ; i < len(buffers.weightsIndices); i+=4{
 			geo.skinIndex[i/4] = [4]uint16{buffers.weightsIndices[i], buffers.weightsIndices[i+1], buffers.weightsIndices[i+2], buffers.weightsIndices[i+3]}	
 		}
 		for i:= 0 ; i < len(buffers.vertexWeights); i+=4{
-			geo.skinWeight[i/4] = [4]float32{buffers.vertexWeights[i], buffers.vertexWeights[i+1], buffers.vertexWeights[i+2], buffers.vertexWeights[i+3]}	
+			geo.skinWeight[i/4] = [4]float64{buffers.vertexWeights[i], buffers.vertexWeights[i+1], buffers.vertexWeights[i+2], buffers.vertexWeights[i+3]}	
 		}
 		geo.FBX_Deformer = skeleton;
 	}
@@ -215,9 +219,8 @@ func (l *Loader) genGeometry (geoNode Node, skeleton *Skeleton, morphTarget *Mor
 
 	geo.uvs = buffers.uvs //NOTE: pulled back from variadic array of uvs where they progress down uv -> uv1 -> uv2 and so on
 
-	if matProperty, ok := geoInfo["material"]; ok{
-		if mat, ok := matProperty.Payload().( threeDataObject); ok{
-			
+	if geoInfo.material != nil {
+		mat := *geoInfo.material
 		if mat.mappingType != "AllSame"{
 		// Convert the material indices of each vertex into rendering groups on the geometry.
 		prevMaterialIndex := buffers.materialIndex[0]
@@ -241,88 +244,222 @@ func (l *Loader) genGeometry (geoNode Node, skeleton *Skeleton, morphTarget *Mor
 		}
 	}
 		}
-	}
 
 	addMorphTargets( l, &geo , geoNode, morphTarget, preTransform )
-	return geo
+	return geo, nil
 }
 
+type GeoInfo struct {
+	vertexPositions []float64 //Todo: parse this immediately as floatgeom.Point3
+	vertexIndices []int
+	color *floatBuffer
+	material *intBuffer
+	normal *floatBuffer
+	skeleton *Skeleton
+	weightTable map[int][]WeightEntry
+	uv []floatBuffer
+}
 
-
-func (l *Loader) parseGeoNode(geoNode Node, skeleton *Skeleton) map[string]Property {
-	geoInfo := make(map[string]Property)
+func (l *Loader) parseGeoNode(geoNode Node, skeleton *Skeleton) (*GeoInfo, error) {
+	geoInfo := &GeoInfo{}
  
 	if v, ok := geoNode.props["Vertices"]; ok{
-		geoInfo["vertexPositions"] = v
+		// Todo: we need to parse out float64s?
+		geoInfo.vertexPositions = v.Payload().([]float64)
 	}
 	
 	if v, ok := geoNode.props["PolygonVertexIndex"]; ok{
-		geoInfo["vertexIndices"] = v
+		// Todo: parse out ints?
+		geoInfo.vertexIndices = v.Payload().([]int) 
 	}
 
 	if v, ok :=  geoNode.props["LayerElementColor"]; ok{
-		
-		geoInfo["color"] = &SimpleProperty{parseVertexColors(v.Payload().([]Node)[0])}
+		v2 := parseVertexColors(v.Payload().([]Node)[0])
+		geoInfo.color = &v2
 	}
 	if v, ok :=  geoNode.props["LayerElementMaterial"]; ok{
-		geoInfo["material"] = &SimpleProperty{l.parseMaterialIndices(v.Payload().([]MaterialNode)[0])}
+		v2 := l.parseMaterialIndices(v.Payload().([]MaterialNode)[0])
+		geoInfo.material = &v2
 	}
 	if v, ok :=  geoNode.props["LayerElementNormal"]; ok{
-		geoInfo["normal"] = &SimpleProperty{parseNormals(v.Payload().([]Node)[0])}
+		v2 := parseNormals(v.Payload().([]Node)[0])
+		geoInfo.normal = &v2
 	}
 
 	if uvList, ok :=  geoNode.props["LayerElementUV"]; ok{
-		uvPropery := make([]threeDataObject, len(uvList.Payload().([]Node)))
-		for i, v := range uvList.Payload().([]Node) {
-			uvPropery[i] = l.parseUVs(v)
+		uvBuffs := make([]floatBuffer, len(uvList.Payload().([]Node)))
+		for i, v := range uvList.Payload().([]Node) { 
+			uvBuffs[i] = l.parseUVs(v)
 		}
+		geoInfo.uv = uvBuffs
 	}
-
-	geoInfo["weightTable"] = [][]WeightEntry{}
-
+	
 	if skeleton != nil {
-		geoInfo["skeleton"] = skeleton
+		geoInfo.skeleton = skeleton
+		wt := map[int][]WeightEntry{}
 		// loop over the bone's vertex indices and weights
 		for i, rawb := range skeleton.rawBones{
 			for j,rIndex := range rawb.Indices{
-				if _, ok := geoInfo["weightTable"][rIndex]; !ok {
-					geoInfo["weightTable"][rIndex] = []WeightEntry{}
+				if _, ok := wt[rIndex]; !ok {
+					wt[rIndex] = []WeightEntry{}
 				}
-				geoInfo["weightTable"][rIndex] = append(geoInfo["weightTable"][rIndex],WeightEntry{i,rawb.weights[j]})
+				wt[rIndex] = append(wt[rIndex],WeightEntry{uint16(i),rawb.Weights[j]})
 			}
 		}
+		geoInfo.weightTable = wt
 	}
 
-	return geoInfo
+	return geoInfo, nil
 }
+
+func (l *Loader) genBuffers(geoInfo *GeoInfo) gBuffers{
+	buffers := gBuffers{}
+	polygonIndex := 0
+	faceLength := 0
+	displayedWeightsWarning := false	
+
+	// tracking faces
+	facePositionIndexes := []int{}
+	faceNormals := []float64{}
+	faceColors := []float64{}
+	faceUVs := [][]float64{}
+	faceWeights := []float64{}
+	faceWeightIndices := []uint16{}
+	materialIndex := -1
+
+	for polygonVertexIndex, vertexIndex := range geoInfo.vertexIndices {
+		// Face index and vertex index arrays are combined in a single array
+		// A cube with quad faces looks like this:
+		// PolygonVertexIndex: *24 {
+		//  a: 0, 1, 3, -3, 2, 3, 5, -5, 4, 5, 7, -7, 6, 7, 1, -1, 1, 7, 5, -4, 6, 0, 2, -5
+		//  }
+		// Negative numbers mark the end of a face - first face here is 0, 1, 3, -3
+		// to find index of last vertex bit shift the index: ^ - 1
+		endOfFace := false
+		if vertexIndex < 0{
+			vertexIndex = vertexIndex ^ -1
+			endOfFace = true
+		}
+		weightIndices := []uint16{}
+		weights := []float64{}
+		facePositionIndexes = append(facePositionIndexes,  vertexIndex * 3, vertexIndex * 3 + 1, vertexIndex * 3 + 2 )
+		if geoInfo.color!= nil{ 
+			data := geoInfo.color.getData(polygonVertexIndex, polygonIndex, vertexIndex)
+			faceColors = append(faceColors, data[ 0 ], data[ 1 ], data[ 2 ] )  
+		}
+		if geoInfo.skeleton!= nil{
+			if ws, ok := geoInfo.weightTable[vertexIndex]; ok{
+				for _, w := range ws{
+					weights = append(weights, w.Weight)
+					weightIndices = append(weightIndices, w.ID)
+				}
+			}
+			if len(weights) > 4{
+				if !displayedWeightsWarning{
+					fmt.Println("Vertex has more than 4 skinning weights assigned to vertex. Deleting additional weights.")
+					displayedWeightsWarning = true
+				}
+				
+				//--------------------------------------------------------------------------------------------------------------
+				//--------------------------------------------------------------------------------------------------------------
+				// TODO: we should talk about this because I am confused about the for each on the Weight as we instantiate it as a [4]int
+				// Given that we know js can foreach on an object and interact with its props that makes sense but not incontext of the weight being [4]int
+				wIndex := []uint16{0,0,0,0}
+				Weight := []float64{0,0,0,0}
+				for currentIndex, currentWeight := range weights {
+					for comparedWeightIndex, comparedWeight := range Weight {
+						if currentWeight > comparedWeight {
+							Weight[comparedWeightIndex] = currentWeight
+							currentWeight = comparedWeight
+							tmp := wIndex[comparedWeightIndex]
+							wIndex[comparedWeightIndex] = uint16(currentIndex)
+							currentIndex = int(tmp)
+						}
+					}
+				}
+				weightIndices = wIndex
+				weights = Weight
+				//--------------------------------------------------------------------------------------------------------------
+				//--------------------------------------------------------------------------------------------------------------
+			}
+			// if the weight array is shorter than 4 pad with 0s
+			for len(weights) <4  {
+				weights = append(weights, 0)
+				weightIndices = append(weightIndices, 0)
+			}
+
+			for i := 1 ; i <= 4; i++ {
+				faceWeights = append(faceWeights, weights[i])
+				faceWeightIndices = append(faceWeightIndices, weightIndices[i])
+			}
+		}
+
+		if geoInfo.normal != nil{
+			data := geoInfo.normal.getData( polygonVertexIndex, polygonIndex, vertexIndex )
+			faceNormals = append(faceNormals,  data[ 0 ], data[ 1 ], data[ 2 ] )
+		}
+		if  geoInfo.material != nil && geoInfo.material.mappingType != "AllSame"{
+			materialIndex = geoInfo.material.getData( polygonVertexIndex, polygonIndex, vertexIndex, )[ 0 ]
+		}
+		if geoInfo.uv !=nil{
+			for i, uv := range geoInfo.uv{
+				data := uv.getData( polygonVertexIndex, polygonIndex, vertexIndex,  )
+				uvs := faceUVs[i]
+				faceUVs[i] = append(faceUVs[i], data[0], data[1])
+			}
+		}
+		faceLength++
+		if endOfFace{
+			l.genFace( buffers, geoInfo, facePositionIndexes, materialIndex, faceNormals, faceColors, faceUVs, faceWeights, faceWeightIndices, faceLength )
+			polygonIndex++ 
+			faceLength = 0;
+			// reset arrays for the next face
+			facePositionIndexes = []int{}
+			faceNormals = []float64{}
+			faceColors = []float64{}
+			faceUVs = [][]float64{}
+			faceWeights = []float64{}
+			faceWeightIndices = []uint16{}
+		}
+	}
+	return buffers
+}
+
+type gBuffers struct{
+	vertex []float64
+	normal []float64
+	colors []float64 
+	uvs [][]float64
+	materialIndex []int
+	vertexWeights []float64
+	weightsIndices []uint16
+}
+
 // genFace generates data for a single face in a geometry. If the face is a quad then split it into 2 tris
-func (l *Loader) genFace(buffers []FaceBuffer, geoInfo map[string]Property, facePositionIndexes []int, materialIndex int, 
-		faceNormals []float64, faceColors []Color, faceUVs []int, faceWeights []int, faceWeightIndices []int, faceLength int) {
+func (l *Loader) genFace(buffers gBuffers, geoInfo *GeoInfo, facePositionIndexes []int, materialIndex int, 
+		faceNormals []float64, faceColors []float64, faceUVs [][]float64, faceWeights []float64, faceWeightIndices []uint16, faceLength int) {
 	for i := 2 ; i < faceLength; i++{
-		geoInfo.vertexPositions[fce]
 		buffers.vertex = append(buffers.vertex, genFaceVertex(geoInfo.vertexPositions, facePositionIndexes, i)...)
-		if geoInfo.skeleton{
-			buffers.vertexWeights = append(buffers.vertexWeights, genIntFaceArray(4,faceWeights,i))
-			buffers.weightsIndices = append(buffers.weightsIndices, genIntFaceArray(4,faceWeightIndices, i))
+		if geoInfo.skeleton != nil {
+			buffers.vertexWeights = append(buffers.vertexWeights, genFloatFaceArray(4,faceWeights,i)...)
+			buffers.weightsIndices = append(buffers.weightsIndices, genUint16FaceArray(4,faceWeightIndices, i)...)
 		}
-		if geoInfo.color {
-			buffers.color = append(buffers.color, genIntFaceArray(3,faceColors,i))
+		if geoInfo.color != nil{
+			buffers.colors = append(buffers.colors, genFloatFaceArray(3,faceColors,i)...)
 		}
-		if geoInfo.material && geoInfo.material.mappingType != "AllSame" {
+		if geoInfo.material != nil && geoInfo.material.mappingType != "AllSame" {
 			buffers.materialIndex = append(buffers.materialIndex, materialIndex)//TODO: This seems wrong as it checks that materials are NOT all the same...
 			buffers.materialIndex = append(buffers.materialIndex, materialIndex)
 			buffers.materialIndex = append(buffers.materialIndex, materialIndex)
 		}
-		if geoInfo.normal{
-			buffers.normal  = append(buffers.normal, genIntFaceArray(3,faceNormals, i))
+		if geoInfo.normal != nil {
+			buffers.normal  = append(buffers.normal, genFloatFaceArray(3,faceNormals, i)...)
 		}
 
-		if geoInfo.uv {
+		if geoInfo.uv != nil {
+			buffers.uvs = make([][]float64, len(geoInfo.uv))
 			for j, u := range geoInfo.uv{
-				if _, ok := buffers.uvs[j]; !ok{
-					buffers.uvs[j] = []int{} //todo replace with whatever type uv is
-				}
-				buffers.uvs[j] = append(buffers.uvs[j], genIntFaceArray(2,faceUVs[ j ], i))
+				buffers.uvs[j] = append(buffers.uvs[j], genFloatFaceArray(2,faceUVs[ j ], i)...)
 			}
 		}
 	}
@@ -337,8 +474,8 @@ func genFaceVertex(vPos []float64, posIdxs []int, idx int) []float64 {
 	}
 }
 
-func genIntFaceArray(size int, sourceArr []int, idx int) []int{
-	out := make([]int{}, size * 3)
+func genUint16FaceArray(size int, sourceArr []uint16, idx int) []uint16{
+	out := make([]uint16, size * 3)
 	for j := 0 ; j < size; j++{
 		out[ j] = sourceArr[j ]
 	}
@@ -347,6 +484,33 @@ func genIntFaceArray(size int, sourceArr []int, idx int) []int{
 			out[(i+1)*size + j] = sourceArr[j + ((idx-1+i) *size)]
 		}
 	}
+	return out
+}
+
+func genIntFaceArray(size int, sourceArr []int, idx int) []int{
+	out := make([]int, size * 3)
+	for j := 0 ; j < size; j++{
+		out[ j] = sourceArr[j ]
+	}
+	for i := 0 ; i < 2; i++{
+		for j := 0 ; j < size; j++{
+			out[(i+1)*size + j] = sourceArr[j + ((idx-1+i) *size)]
+		}
+	}
+	return out
+}
+
+func genFloatFaceArray(size int, sourceArr []float64, idx int) []float64{
+	out := make([]float64, size * 3)
+	for j := 0 ; j < size; j++{
+		out[ j] = sourceArr[j ]
+	}
+	for i := 0 ; i < 2; i++{
+		for j := 0 ; j < size; j++{
+			out[(i+1)*size + j] = sourceArr[j + ((idx-1+i) *size)]
+		}
+	}
+	return out
 }
 
 type FaceBuffer struct{
@@ -415,19 +579,8 @@ func (g *Geometry) genMorphGeometry(parentGeo *Geometry, parentGeoNode, morphGeo
 	parentGeo.morphAttirbutes.position = append(parentGeo.morphAttirbutes.position, positionAttribute)
 }
 
-
-//TODO remove this once we can by breaking out each data object into its own type
-type threeDataObject struct {
-	dataSize int
-	buffer []int
-	indices []int
-	mappingType string
-	referenceType string
-}
-
-
 // Parse normal from FBXTree.Objects.Geometry.LayerElementNormal if it exists
-func parseNormals(NormalNode Node) threeDataObject{
+func parseNormals(NormalNode Node) floatBuffer{
 	indexBuffer := []int
 	if  referenceType == "IndexToDirect"  {
 		if _, ok := NormalNode.props["NormalIndex"] ; ok{
@@ -436,7 +589,7 @@ func parseNormals(NormalNode Node) threeDataObject{
 			indexBuffer = NormalNode.NormalsIndex.a;
 		}
 	}
-	return threeDataObject{
+	return floatBuffer{
 		dataSize:3,
 		buffer: NormalNode.props["Normals"],
 		indices: indexBuffer,
@@ -445,7 +598,7 @@ func parseNormals(NormalNode Node) threeDataObject{
 	}
 }
 // Parse UVs from FBXTree.Objects.Geometry.LayerElementUV if it exists
-func parseUVs(UVNode Node) threeDataObject{
+func (l *Loader) parseUVs(UVNode Node) floatBuffer{
 	mappingType := UVNode.MappingInformationType
 	referenceType := UVNode.ReferenceInformationType
 	buffer := UVNode.UV
@@ -453,7 +606,7 @@ func parseUVs(UVNode Node) threeDataObject{
 	if referenceType =="IndexToDirect"  {
 		indexBuffer = UVNode.UVIndex
 	}
-	return threeDataObject{
+	return floatBuffer{
 		dataSize: 2,
 		buffer: buffer,
 		indices: indexBuffer,
@@ -462,12 +615,12 @@ func parseUVs(UVNode Node) threeDataObject{
 	}
 }
 // Parse Vertex Colors from FBXTree.Objects.Geometry.LayerElementColor if it exists
-func parseVertexColors(ColorNode Node) threeDataObject{
+func parseVertexColors(ColorNode Node) floatBuffer{
 	 indexBuffer := []int
 	if referenceType == "IndexToDirect" {
 		indexBuffer = ColorNode.ColorIndex
 	}
-	return threeDataObject{
+	return floatBuffer{
 		dataSize: 4,
 		buffer: ColorNode.Colors,
 		indices: indexBuffer,
@@ -476,31 +629,31 @@ func parseVertexColors(ColorNode Node) threeDataObject{
 	}
 }
 // Parse mapping and material data in FBXTree.Objects.Geometry.LayerElementMaterial if it exists
-func (l *Loader) parseMaterialIndices(MaterialNode) threeDataObject{
-	 mappingType := MaterialNode.MappingInformationType
-	 referenceType := MaterialNode.ReferenceInformationType
+func (l *Loader) parseMaterialIndices(MaterialNode) intBuffer{
+	mappingType := MaterialNode.MappingInformationType
+	referenceType := MaterialNode.ReferenceInformationType
 
-	 if mappingType == "NoMappingInformation"{
-		 return threeDataObject{
+	if mappingType == "NoMappingInformation"{
+		return intBuffer{
 			dataSize: 1,
 			buffer: []int{0},
 			indices: []int{0},
 			mappingType: "AllSame",
 			referenceType: referenceType,
-		 }
-	 }
+		}
+	}
 
 	materialIndexBuffer = MaterialNode.Materials
 	for i:=0; i < len(materialIndexBuffer) ; i++{
 		materialIndices = append(materialIndices, i)
 	}
-	 return threeDataObject{
+	return intBuffer{
 		dataSize: 1,
 		buffer: materialIndexBuffer,
 		indices: materialIndices,
 		mappingType: mappingType,
 		referenceType: referenceType,
-	 }
+	}
 }
 
 func (l *Loader) parseNurbsGeometry(geoNode Node) Geometry{
@@ -538,143 +691,4 @@ func (l *Loader) parseNurbsGeometry(geoNode Node) Geometry{
 	g := NewGeometry()
 	g.position =  THREE.BufferAttribute( positions, 3 )
 	return g
-
 }
-
-// this may be a map<string>int[] for now to not messup prop activities making it a type
-type gBuffers struct{
-	vertex []float64
-	normal []float64
-	colors []float64
-	uvs []float64
-	materialIndex []int
-	vertexWeights []float32
-	weightsIndices []uint16
-}
-
-
-
-
-
-func (l *Loader) genBuffers(geomInfo map[string]Property) gBuffers{
-	buffers := gBuffers{}
-	polygonIndex = 0
-	faceLength = 0
-	displayedWeightsWarning = false	
-
-	// tracking faces
-	facePositionIndexes := []int
-	faceNormals := []int
-	faceColors := []int
-	faceUVs := []int
-	faceWeights := []int
-	faceWeightIndices := []int
-	materialIndex := -1
-
-	for polygonVertexIndex, vertexIndex := range geoInfo.vertexIndices{
-		// Face index and vertex index arrays are combined in a single array
-		// A cube with quad faces looks like this:
-		// PolygonVertexIndex: *24 {
-		//  a: 0, 1, 3, -3, 2, 3, 5, -5, 4, 5, 7, -7, 6, 7, 1, -1, 1, 7, 5, -4, 6, 0, 2, -5
-		//  }
-		// Negative numbers mark the end of a face - first face here is 0, 1, 3, -3
-		// to find index of last vertex bit shift the index: ^ - 1
-		
-		endFace := false
-		if vertexIndex < 0{
-			vertexIndex = (vertex * -1) -1
-			endOfFace = true
-		}
-		weightIndices := []int
-		weights := []int
-		facePositionIndexes = append(facePositionIndexes,  vertexIndex * 3, vertexIndex * 3 + 1, vertexIndex * 3 + 2 )
-		if geoInfo.color!= nil{
-			data := getData( polygonVertexIndex, polygonIndex, vertexIndex, geoInfo.color ) //getData returns []int ?
-			faceColors = append(faceColors, data[ 0 ], data[ 1 ], data[ 2 ] )
-		}
-		if geoInfo.skeleton!= nil{
-			if ws, ok := geoInfo.weighTable[vertexIndex]; ok{
-				for _, w := range ws{
-					weights = append(weights, w.Weight)
-					weightIndices = append(w.ID)
-				}
-			}
-			if len(weights) > 4{
-				if !displayedWeightsWarning{
-					fmt.Println("Vertex has more than 4 skinning weights assigned to vertex. Deleting additional weights.")
-					displayedWeightsWarning = true
-				}
-				
-				//--------------------------------------------------------------------------------------------------------------
-				//--------------------------------------------------------------------------------------------------------------
-				// TODO: we should talk about this because I am confused about the for each on the Weight as we instantiate it as a [4]int
-				// Given that we know js can foreach on an object and interact with its props that makes sense but not incontext of the weight being [4]int
-				wIndex := [4]int{}
-				Weight := [4]float64{}
-				for currentIndex, currentWeight := range weights {
-					for comparedWeightIndex, comparedWeight := range Weight {
-						if currentWeight > comparedWeight {
-							Weight[comparedWeightIndex] = currentWeight
-							currentWeight = comparedWeight
-							tmp := wIndex[comparedWeightIndex]
-							wIndex[comparedWeightIndex] = currentIndex
-							currentIndex = tmp
-						}
-					}
-				}
-				weightIndices = wIndex
-				weights = Weight
-				
-				//--------------------------------------------------------------------------------------------------------------
-				//--------------------------------------------------------------------------------------------------------------
-			}
-			// if the weight array is shorter than 4 pad with 0s
-			for len(weights) <4  {
-				weights = append(weights, 0)
-				weightsIndices = append(weightIndices, 0)
-			}
-
-			for i := 1 ; i <= 4; i++ {
-				faceWeights = append(faceWeights, weights[i])
-				faceWeightIndices = append(faceWeightIndices, weightsIndices[i])
-			}
-
-
-		}
-
-		if geoInfo.normal != nil{
-			data := getData( polygonVertexIndex, polygonIndex, vertexIndex, geoInfo.normal )
-			faceNormals = append(faceNormals,  data[ 0 ], data[ 1 ], data[ 2 ] )
-		}
-		if  geoInfo.material != nil && geoInfo.material.mappingType != "AllSame"{
-			materialIndex = getData( polygonVertexIndex, polygonIndex, vertexIndex, geoInfo.material )[ 0 ]
-		}
-		if geoInfo.uv !=nil{
-			for i, uv := range geoInfo.uv{
-				data = getData( polygonVertexIndex, polygonIndex, vertexIndex, uv )
-				uvs, ok := faceUVs[i]
-				if !ok{
-					faceUVs[i] = []int{}
-				}
-				faceUvs = append(faceUVs, data[0], data[1])
-			}
-		}
-		faceLength++
-		if endOfFace{
-			genFace( buffers, geoInfo, facePositionIndexes, materialIndex, faceNormals, faceColors, faceUVs, faceWeights, faceWeightIndices, faceLength )
-			polgonIndex++
-			faceLength = 0;
-			// reset arrays for the next face
-			facePositionIndexes = []int{}
-			faceNormals = []int{}
-			faceColors = []int{}
-			faceUVs = []int{}
-			faceWeights = []int{}
-			faceWeightIndices = []int{}
-		}
-	}
-	return buffers
-}
-
-
-
