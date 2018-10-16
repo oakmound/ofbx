@@ -16,13 +16,13 @@ func scaleMat4(m mgl64.Mat4, s floatgeom.Point3) mgl64.Mat4 {
 	m[0] *= s.X()
 	m[4] *= s.Y()
 	m[8] *= s.Z()
-	m[1] *= s.X
+	m[1] *= s.X()
 	m[5] *= s.Y()
 	m[9] *= s.Z()
-	m[2] *= s.X
+	m[2] *= s.X()
 	m[6] *= s.Y()
 	m[10] *= s.Z()
-	m[3] *= s.X
+	m[3] *= s.X()
 	m[7] *= s.Y()
 	m[11] *= s.Z()
 	return m
@@ -48,9 +48,9 @@ func applyMat3(m mgl64.Mat3, p floatgeom.Point3) floatgeom.Point3 {
 	x := p.X()
 	y := p.Y()
 	z := p.Z()
-	p[0] = e[0]*x + e[3]*y + e[6]*z
-	p[1] = e[1]*x + e[4]*y + e[7]*z
-	p[2] = e[2]*x + e[5]*y + e[8]*z
+	p[0] = m[0]*x + m[3]*y + m[6]*z
+	p[1] = m[1]*x + m[4]*y + m[7]*z
+	p[2] = m[2]*x + m[5]*y + m[8]*z
 	return p
 }
 
@@ -88,7 +88,7 @@ func decomposeMat(mat mgl64.Mat4) (floatgeom.Point3, Euler, floatgeom.Point3) {
 		qx = (rot[9] - rot[6]) / S
 		qy = (rot[2] - rot[8]) / S
 		qz = (rot[4] - rot[1]) / S
-	} else if (rot[0] > rot[5]) & (rot[0] > rot[10]) {
+	} else if (rot[0] > rot[5]) && (rot[0] > rot[10]) {
 		S = math.Sqrt(1.0+rot[0]-rot[5]-rot[10]) * 2 // S=4*qx
 		qw = (rot[9] - rot[6]) / S
 		qx = 0.25 * S

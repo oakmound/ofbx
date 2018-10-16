@@ -6,10 +6,10 @@ type Object3d struct {
 	name     string
 }
 
-func (o *Object3d) getObjectByName(name string) Object3d {
+func (o *Object3d) getObjectByName(name string) *Object3d {
 	for _, c := range o.children {
 		if c.name == name {
-			return c
+			return &c
 		}
 	}
 	return nil

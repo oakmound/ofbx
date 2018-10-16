@@ -15,7 +15,7 @@ import (
 )
 
 type Loader struct {
-	tree        Tree
+	tree        *Tree
 	connections ParsedConnections
 	sceneGraph  Group
 }
@@ -25,13 +25,6 @@ func NewLoader() *Loader {
 }
 
 type Scene struct{} // ???
-type Track struct{} // ???
-type KeyframeTrack struct {
-	name          string
-	times         []float64
-	values        []float64 // as long as the times
-	interpolation string
-} // ???
 type Camera struct{}
 type Light struct{}
 type Model struct{}
@@ -48,14 +41,18 @@ func (l *Loader) Load(r io.Reader, textureDir string) (*Scene, error) {
 	if err != nil {
 		return nil, err
 	}
-	if l.tree.Objects.LayeredTexture != nil {
+	if _, ok := l.tree.Objects["LayeredTexture"]; ok {
 		fmt.Println("layered textures are not supported. Discarding all but first layer.")
 	}
 	return l.parseTree(textureDir)
 }
 
 func (l *Loader) parseTree(textureDir string) (*Scene, error) {
-	l.connections = l.parseConnections()
+	var err error
+	l.connections, err = l.parseConnections()
+	if err != nil {
+		return nil, err
+	}
 	images, err := l.parseImages()
 	if err != nil {
 		return nil, err
@@ -64,16 +61,10 @@ func (l *Loader) parseTree(textureDir string) (*Scene, error) {
 	if err != nil {
 		return nil, err
 	}
-	materials, err := l.parseMaterials(textures)
-	if err != nil {
-		return nil, err
-	}
-	skeletons, morphTargets, err := l.parseDeformers()
-	if err != nil {
-		return nil, err
-	}
+	materials := l.parseMaterials(textures)
+	skeletons, morphTargets := l.parseDeformers()
 	geometry, err := l.parseGeometry(skeletons, morphTargets)
-	return l.parseScene(skeletons, morphTargets, geometry, materials)
+	return l.parseScene(skeletons, morphTargets, geometry, materials), nil
 }
 
 type ParsedConnections map[int64]ConnectionSet
@@ -93,13 +84,43 @@ type Connection struct {
 	Relationship string
 }
 
-func (l *Loader) parseConnections() ParsedConnections {
-	cns := NewParsedConnections()
-	for _, cn := range l.tree.connections {
-		cns[cn.From].parents = append(cns[cn.From].parents, cn)
-		cns[cn.To].children = append(cns[cn.To].children, cn)
+func NewConnection(n *Node) (Connection, error) {
+	cn := Connection{}
+	var ok bool 
+	cn.ID, ok = n.props["ID"].Payload().(int64)
+	if !ok {
+		return cn, errors.New("Node lacking Connection properties")
 	}
-	return cns
+	cn.To, ok = n.props["To"].Payload().(int64)
+	if !ok {
+		return cn, errors.New("Node lacking Connection properties")
+	}
+	cn.From, ok = n.props["From"].Payload().(int64)
+	if !ok {
+		return cn, errors.New("Node lacking Connection properties")
+	}
+	cn.Relationship, ok = n.props["Relationship"].Payload().(string)
+	if !ok {
+		return cn, errors.New("Node lacking Connection properties")
+	}
+	return cn, nil
+}
+
+func (l *Loader) parseConnections() (ParsedConnections, error) {
+	cns := NewParsedConnections()
+	for _, n := range l.tree.Objects["Connections"] {
+		cn, err := NewConnection(n)
+		if err != nil {
+			return nil, err
+		}
+		cf := cns[cn.From]
+		ct := cns[cn.To]
+		cf.parents = append(cf.parents, cn)
+		ct.children = append(ct.children, cn)
+		cns[cn.From] = cf
+		cns[cn.To] = ct
+	}
+	return cns, nil
 }
 
 type VideoNode struct {
@@ -108,15 +129,35 @@ type VideoNode struct {
 	Content     io.Reader
 }
 
-func (l *Loader) parseImages() (map[int64]io.Reader, error) {
-	fnms := make(map[int64]string)
+func NewVideoNode(n *Node) (VideoNode, error) {
+	vn := VideoNode{}
+	var ok bool
+	vn.Filename, ok = n.props["Filename"].Payload().(string)
+	if !ok {
+		return vn, errors.New("Node lacking VideoNode properties")
+	}
+	vn.ContentType, ok = n.props["ContentType"].Payload().(string)
+	if !ok {
+		return vn, errors.New("Node lacking VideoNode properties")
+	}
+	vn.Content, _ = n.props["Content"].Payload().(io.Reader)
+	return vn, nil
+}
+
+func (l *Loader) parseImages() (map[int]io.Reader, error) {
+	fnms := make(map[int]string)
 	inBlobs := make(map[string]io.Reader)
-	outBlobs := make(map[int64]io.Reader)
+	outBlobs := make(map[int]io.Reader)
 	var err error
-	for id, v := range l.tree.Videos {
-		fnms[id] = v.Filename
-		if v.Content != nil {
-			inBlobs[v.Filename], err = l.parseImage(l.tree.Videos[nodeID])
+	vids := l.tree.Objects["Videos"]
+	for id, v := range vids {
+		vn, err := NewVideoNode(v)
+		if err != nil {
+			return nil, err
+		}
+		fnms[id] = vn.Filename
+		if vn.Content != nil {
+			inBlobs[fnms[id]], err = l.parseImage(vn)
 			if err != nil {
 				return nil, err
 			}
@@ -135,10 +176,10 @@ func (l *Loader) parseImage(vn VideoNode) (io.Reader, error) {
 	return vn.Content, nil
 }
 
-func (l *Loader) parseTextures() (map[int64]Texture, error) {
+func (l *Loader) parseTextures(images map[int]io.Reader) (map[int64]Texture, error) {
 	txm := make(map[int64]Texture)
-	for id, txn := range l.tree.Objects.Texture {
-		t, err := l.parseTexture(txn, images)
+	for id, txn := range l.tree.Objects["Texture"] {
+		t, err := l.parseTexture(*txn, images)
 		if err != nil {
 			return nil, err
 		}
@@ -163,7 +204,7 @@ type Texture struct {
 	content io.Reader
 }
 
-func (l *Loader) parseTexture(tx Node, images map[int64]io.Reader) (Texture, error) {
+func (l *Loader) parseTexture(tx Node, images map[int]io.Reader) (Texture, error) {
 	r, err := l.loadTexture(tx, images)
 	return Texture{
 		ID:      tx.ID,
@@ -414,6 +455,11 @@ type MorphTarget struct {
 	Name          string
 	InitialWeight float64
 	FullWeights   []float64
+	RawTargets []RawTarget
+}
+
+type RawTarget struct {
+	geoID int64
 }
 
 // The top level morph deformer node has type "BlendShape" and sub nodes have type "BlendShapeChannel"
@@ -449,8 +495,8 @@ func (l *Loader) parseMorphTargets(relationships ConnectionSet, deformerNodes ma
 func (l *Loader) parseScene(
 	skeletons map[int64]Skeleton,
 	morphTargets map[int64]MorphTarget,
-	geometryMap Geometry,
-	materialMap map[int64]Material) {
+	geometryMap map[int64]Geometry,
+	materialMap map[int64]Material) *Scene {
 
 	sceneGraph := THREE.Group()
 	modelMap := l.parseModels(deformers.skeletons, geometryMap, materialMap)
@@ -479,6 +525,7 @@ func (l *Loader) parseScene(
 		sceneGraph = sceneGraph.children[0]
 	}
 	sceneGraph.animations = animations
+	return sceneGraph
 }
 
 // parse nodes in FBXTree.Objects.Model

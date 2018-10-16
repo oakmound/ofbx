@@ -21,7 +21,6 @@ type TextParser struct{
 //CurrentIndent iswhere the next thing is
 
 func NewTextParser() TextParser{
-	
 	tp := TextParser{nodeStack:[]Node{},currentProp}
     
     firstQuote := regexp.MustCompile("^\"")
@@ -29,8 +28,6 @@ func NewTextParser() TextParser{
     quotes := regexp.MustCompile("\"")
     lastComma := regexp.MustCompile(",$")
     whiteSpace := regexp.MustCompile("/s")
-    
-
 }
 
 // parse takes in ascii formatted text and parses it into a node structure for the FBX tree
