@@ -42,7 +42,7 @@ func (mp *MapProperty) Payload() interface{} {
 }
 
 type IDMapProperty struct {
-	m map[int64]Property
+	m map[int]Property
 }
 
 func (mp *IDMapProperty) IsArray() bool {

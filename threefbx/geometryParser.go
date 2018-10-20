@@ -90,8 +90,8 @@ func (g *Geometry) AddGroup(rangeStart, count, groupValue int) {
 // parseGeometry converted from parse in the geometry section of the original code
 // parse Geometry data from FBXTree and return map of BufferGeometries
 // Parse nodes in FBXTree.Objects.Geometry
-func (l *Loader) parseGeometry(skeletons map[int64]Skeleton, morphTargets map[int64]MorphTarget) (map[int64]Geometry, error) {
-	geometryMap := make(map[int64]Geometry)
+func (l *Loader) parseGeometry(skeletons map[int]Skeleton, morphTargets map[int]MorphTarget) (map[int]Geometry, error) {
+	geometryMap := make(map[int]Geometry)
 	if geoNodes, ok := l.tree.Objects["Geometry"]; ok {
 		for _, node := range geoNodes {
 			nodeID := node.ID
@@ -100,14 +100,14 @@ func (l *Loader) parseGeometry(skeletons map[int64]Skeleton, morphTargets map[in
 			if err != nil {
 				return nil, err
 			}
-			geometryMap[nodeID] = geo
+			geometryMap[int(nodeID)] = geo
 		}
 	}
 	return geometryMap, nil
 }
 
 // parseGeometrySingle parses a single node in FBXTree.Objects.Geometry //updated name due to collisions
-func (l *Loader) parseGeometrySingle(relationships ConnectionSet, geoNode *Node, skeletons map[int64]Skeleton, morphTargets map[int64]MorphTarget) (Geometry, error) {
+func (l *Loader) parseGeometrySingle(relationships ConnectionSet, geoNode *Node, skeletons map[int]Skeleton, morphTargets map[int]MorphTarget) (Geometry, error) {
 	switch geoNode.attrType {
 	case "Mesh":
 		return l.parseMeshGeometry(relationships, *geoNode, skeletons, morphTargets)
@@ -119,7 +119,7 @@ func (l *Loader) parseGeometrySingle(relationships ConnectionSet, geoNode *Node,
 }
 
 // parseMeshGeometry parses a single node mesh geometry in FBXTree.Objects.Geometry
-func (l *Loader) parseMeshGeometry(relationships ConnectionSet, geoNode Node, skeletons map[int64]Skeleton, morphTargets map[int64]MorphTarget) (Geometry, error) {
+func (l *Loader) parseMeshGeometry(relationships ConnectionSet, geoNode Node, skeletons map[int]Skeleton, morphTargets map[int]MorphTarget) (Geometry, error) {
 
 	modelNodes := make([]*Node, len(relationships.parents))
 	for i, parent := range relationships.parents {
@@ -133,7 +133,7 @@ func (l *Loader) parseMeshGeometry(relationships ConnectionSet, geoNode Node, sk
 
 	var skeleton *Skeleton //TODO: whats this type
 	for i := len(relationships.children) - 1; i >= 0; i-- {
-		chID := relationships.children[i].ID
+		chID := int(relationships.children[i].ID)
 		if skel, ok := skeletons[chID]; ok {
 			skeleton = &skel
 			break
@@ -141,7 +141,7 @@ func (l *Loader) parseMeshGeometry(relationships ConnectionSet, geoNode Node, sk
 	}
 	var morphTarget *MorphTarget //TODO: whats this type
 	for i := len(relationships.children) - 1; i >= 0; i-- {
-		chID := relationships.children[i].ID
+		chID := int(relationships.children[i].ID)
 		if morp, ok := morphTargets[chID]; ok {
 			morphTarget = &morp
 			break
@@ -274,7 +274,7 @@ func (l *Loader) parseGeoNode(geoNode Node, skeleton *Skeleton) (*GeoInfo, error
 	}
 
 	if v, ok := geoNode.props["PolygonVertexIndex"]; ok {
-		// Todo: parse out ints?
+		// Todo: parse out ints??
 		geoInfo.vertexIndices = v.Payload().([]int)
 	}
 

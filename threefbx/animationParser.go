@@ -30,7 +30,7 @@ func (l *Loader) parseAnimations() []Animation {
 	return animationClips
 }
 
-func (l *Loader) parseClips() map[int64]Clip {
+func (l *Loader) parseClips() map[int]Clip {
 	curveNodesMap := l.parseAnimationCurveNodes()
 	l.parseAnimationCurves(curveNodesMap)
 	layersMap := l.parseAnimationLayers(curveNodesMap)
@@ -41,9 +41,9 @@ func (l *Loader) parseClips() map[int64]Clip {
 // parse nodes in FBXTree.Objects.AnimationCurveNode
 // each AnimationCurveNode holds data for an animation transform for a model (e.g. left arm rotation )
 // and is referenced by an AnimationLayer
-func (l *Loader) parseAnimationCurveNodes() map[int64]CurveNode {
+func (l *Loader) parseAnimationCurveNodes() map[int]CurveNode {
 	rawCurveNodes := l.tree.Objects["AnimationCurveNode"]
-	curveNodesMap := make(map[int64]CurveNode)
+	curveNodesMap := make(map[int]CurveNode)
 	for _, node := range rawCurveNodes {
 		if match, _ := regexp.Match("S|R|T|DeformPercent", []byte(node.attrName)); match {
 			curveNode := CurveNode{
@@ -60,7 +60,7 @@ func (l *Loader) parseAnimationCurveNodes() map[int64]CurveNode {
 // parse nodes in FBXTree.Objects.AnimationCurve and connect them up to
 // previously parsed AnimationCurveNodes. Each AnimationCurve holds data for a single animated
 // axis ( e.g. times and values of x rotation)
-func (l *Loader) parseAnimationCurves(curveNodesMap map[int64]CurveNode) {
+func (l *Loader) parseAnimationCurves(curveNodesMap map[int]CurveNode) {
 	rawCurves := l.tree.Objects["AnimationCurve"]
 	// TODO: Many values are identical up to roundoff error, but won't be optimised
 	// e.g. position times: [0, 0.4, 0. 8]
@@ -99,7 +99,7 @@ func (l *Loader) parseAnimationCurves(curveNodesMap map[int64]CurveNode) {
 }
 
 type CurveNode struct {
-	ID       int64
+	ID       int
 	AttrName string
 	props    map[string]Property
 
@@ -134,9 +134,9 @@ func sanitizeNodeName(nodeName string) string {
 // parse nodes in FBXTree.Objects.AnimationLayer. Each layers holds references
 // to various AnimationCurveNodes and is referenced by an AnimationStack node
 // note: theoretically a stack can have multiple layers, however in practice there always seems to be one per stack
-func (l *Loader) parseAnimationLayers(curveNodesMap map[int64]CurveNode) map[int64][]CurveNode {
+func (l *Loader) parseAnimationLayers(curveNodesMap map[int]CurveNode) map[int][]CurveNode {
 	rawLayers := l.tree.Objects["AnimationLayer"]
-	layersMap := make(map[int64][]CurveNode)
+	layersMap := make(map[int][]CurveNode)
 	for _, node := range rawLayers {
 		if connSet, ok := l.connections[node.ID]; ok {
 			layerCurveNodes := make([]CurveNode, len(connSet.children))
@@ -148,7 +148,7 @@ func (l *Loader) parseAnimationLayers(curveNodesMap map[int64]CurveNode) map[int
 					_, ok2 := curveNode.curves["y"]
 					_, ok3 := curveNode.curves["z"]
 					if ok || ok2 || ok3 {
-						var modelID int64
+						var modelID int
 						for i := len(connSet.parents) - 1; i >= 0; i-- {
 							parent := connSet.parents[i]
 							if parent.Relationship != "" {
@@ -178,7 +178,7 @@ func (l *Loader) parseAnimationLayers(curveNodesMap map[int64]CurveNode) map[int
 						layerCurveNodes[i] = node
 						layerCurveNodes[i].props[curveNode.AttrName] = &SimpleProperty{curveNode}
 					} else if _, ok := curveNode.curves["morph"]; ok {
-						var deformerID int64
+						var deformerID int
 						for i := len(connSet.parents) - 1; i >= 0; i-- {
 							parent := connSet.parents[i]
 							if parent.Relationship != "" {
@@ -262,10 +262,10 @@ type Clip struct {
 
 // parse nodes in FBXTree.Objects.AnimationStack. These are the top level node in the animation
 // hierarchy. Each Stack node will be used to create a THREE.AnimationClip
-func (l *Loader) parseAnimStacks(layersMap map[int64][]CurveNode) map[int64]Clip {
+func (l *Loader) parseAnimStacks(layersMap map[int][]CurveNode) map[int]Clip {
 	rawStacks := l.tree.Objects["AnimationStack"]
 	// connect the stacks (clips) up to the layers
-	rawClips := make(map[int64]Clip, len(rawStacks))
+	rawClips := make(map[int]Clip, len(rawStacks))
 	for _, node := range rawStacks {
 		children := l.connections[node.ID].children
 		if len(children) > 1 {

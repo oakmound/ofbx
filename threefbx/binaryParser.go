@@ -26,7 +26,7 @@ func (l *Loader) parseBinary(r io.Reader) (*Tree, error) {
 			return nil, err
 		}
 		if node != nil {
-			allNodes.Objects[node.name] = append(allNodes.Objects[node.name], node)
+			allNodes.Objects[node.name][node.ID] = node
 		}
 	}
 	return allNodes, nil
@@ -82,7 +82,7 @@ func (l *Loader) parseBinaryNode(r *BinaryReader, version int) (*Node, error) {
 	if len(propertyList) == 0 {
 		return n, nil
 	}
-	if i, ok := propertyList[0].Payload().(int64); ok {
+	if i, ok := propertyList[0].Payload().(int); ok {
 		n.ID = i
 	} else {
 		return nil, errors.New("Expected int64 type for ID")
@@ -165,7 +165,7 @@ func (l *Loader) parseBinarySubNode(name string, root, child *Node) error {
 			"value": innerPropValue,
 		}}
 	} else if _, ok := root.props[child.name]; !ok {
-		root.props[child.name] = &IDMapProperty{map[int64]Property{child.ID: child}}
+		root.props[child.name] = &IDMapProperty{map[int]Property{child.ID: child}}
 	} else {
 		if child.name == "PoseNode" {
 			if !root.props[child.name].IsArray() {
@@ -182,7 +182,7 @@ func (l *Loader) parseBinarySubNode(name string, root, child *Node) error {
 			if !ok {
 				return nil
 			}
-			m, ok := prop.Payload().(map[int64]Property)
+			m, ok := prop.Payload().(map[int]Property)
 			if !ok {
 				return nil
 			}

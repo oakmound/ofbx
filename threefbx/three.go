@@ -28,7 +28,6 @@ type Scene struct{} // ???
 type Camera struct{}
 type Light struct{}
 type Model struct{}
-type Material struct{}
 type Curve struct{}
 
 func (l *Loader) Load(r io.Reader, textureDir string) (*Scene, error) {
@@ -67,7 +66,7 @@ func (l *Loader) parseTree(textureDir string) (*Scene, error) {
 	return l.parseScene(skeletons, morphTargets, geometry, materials), nil
 }
 
-type ParsedConnections map[int64]ConnectionSet
+type ParsedConnections map[int]ConnectionSet
 
 type ConnectionSet struct {
 	parents  []Connection
@@ -75,27 +74,27 @@ type ConnectionSet struct {
 }
 
 func NewParsedConnections() ParsedConnections {
-	return ParsedConnections(make(map[int64]ConnectionSet))
+	return ParsedConnections(make(map[int]ConnectionSet))
 }
 
 type Connection struct {
-	ID           int64
-	To, From     int64
+	ID           int
+	To, From     int
 	Relationship string
 }
 
 func NewConnection(n *Node) (Connection, error) {
 	cn := Connection{}
-	var ok bool 
-	cn.ID, ok = n.props["ID"].Payload().(int64)
+	var ok bool
+	cn.ID, ok = n.props["ID"].Payload().(int)
 	if !ok {
 		return cn, errors.New("Node lacking Connection properties")
 	}
-	cn.To, ok = n.props["To"].Payload().(int64)
+	cn.To, ok = n.props["To"].Payload().(int)
 	if !ok {
 		return cn, errors.New("Node lacking Connection properties")
 	}
-	cn.From, ok = n.props["From"].Payload().(int64)
+	cn.From, ok = n.props["From"].Payload().(int)
 	if !ok {
 		return cn, errors.New("Node lacking Connection properties")
 	}
@@ -176,8 +175,8 @@ func (l *Loader) parseImage(vn VideoNode) (io.Reader, error) {
 	return vn.Content, nil
 }
 
-func (l *Loader) parseTextures(images map[int]io.Reader) (map[int64]Texture, error) {
-	txm := make(map[int64]Texture)
+func (l *Loader) parseTextures(images map[int]io.Reader) (map[int]Texture, error) {
+	txm := make(map[int]Texture)
 	for id, txn := range l.tree.Objects["Texture"] {
 		t, err := l.parseTexture(*txn, images)
 		if err != nil {
@@ -196,7 +195,7 @@ const (
 )
 
 type Texture struct {
-	ID      int64
+	ID      int
 	name    string
 	wrapS   Wrapping
 	wrapT   Wrapping
@@ -209,33 +208,30 @@ func (l *Loader) parseTexture(tx Node, images map[int]io.Reader) (Texture, error
 	return Texture{
 		ID:      tx.ID,
 		name:    tx.attrName,
-		wrapS:   tx.WrapModeU,
-		wrapT:   tx.WrapModeV,
-		repeat:  tx.Scaling,
+		wrapS:   tx.props["WrapModeU"].Payload().(Wrapping),
+		wrapT:   tx.props["WrapModeV"].Payload().(Wrapping),
+		repeat:  tx.props["Scaling"].Payload().(floatgeom.Point2),
 		content: r,
 	}, err
 }
 
-func (l *Loader) parseMaterials(txs map[int64]Texture) map[int64]Material {
-	mm := make(map[int64]Material)
-	for id, mn := range l.tree.Objects.Material {
-		mat := l.parseMaterial(mn, txs)
-		if mat != nil {
-			mm[id] = mat
-		}
+func (l *Loader) parseMaterials(txs map[int]Texture) map[int]Material {
+	mm := make(map[int]Material)
+	for id, mnt := range l.tree.Objects["Material"] {
+		mn := NewMaterialNode(mnt)
+		mm[id] = l.parseMaterial(mn, txs)
 	}
 	return mm
 }
 
-func (l *Loader) parseMaterial(mn MaterialNode, txs map[int64]Texture) Material {
-	params := l.parseParameters(mn, txs, mn.ID)
+func (l *Loader) parseMaterial(mn MaterialNode, txs map[int]Texture) Material {
 	mat := mn.ShadingModel.Material()
-	mat.setValues(params)
-	mat.name = mn.attrName
+	mat.Name = mn.attrName
+	mat = l.parseParameters(mn, txs, mn.ID, mat)
 	return mat
 }
 
-func (l *Loader) loadTexture(tx Node, images map[int64]io.Reader) (io.Reader, error) {
+func (l *Loader) loadTexture(tx Node, images map[int]io.Reader) (io.Reader, error) {
 	// Todo: filetype parsing
 	cns := l.connections[tx.ID].children
 	if len(cns) < 1 {
@@ -249,6 +245,7 @@ type Color struct {
 }
 
 type MaterialNode struct {
+	*Node
 	BumpFactor         *float64
 	Diffuse            *[3]float32
 	DiffuseColor       *[3]float32
@@ -261,108 +258,145 @@ type MaterialNode struct {
 	Shininess          *float64
 	Specular           *[3]float32
 	SpecularColor      *[3]float32
+	ShadingModel       *ShadingModel
 }
 
-type MaterialParameters struct {
-	BumpFactor         float64
-	Diffuse            Color
-	DisplacementFactor float64
-	Emissive           Color
-	EmissiveFactor     float64
-	Opacity            float64
-	ReflectionFactor   float64
-	Shininess          float64
-	Specular           Color
-	Transparent        bool
+// NewMaterialNode creates a material node from a Node!
+func NewMaterialNode(n *Node) MaterialNode {
+	mn := MaterialNode{Node: n}
+	v, ok := mn.props["BumpFactor"].Payload().(float64)
+	if ok {
+		mn.BumpFactor = &v
+	}
+	v2, ok := mn.props["Diffuse"].Payload().([3]float32)
+	if ok {
+		mn.Diffuse = &v2
+	}
+	v3, ok := mn.props["DiffuseColor"].Payload().([3]float32)
+	if ok {
+		mn.DiffuseColor = &v3
+	}
+	v4, ok := mn.props["DisplacementFactor"].Payload().(float64)
+	if ok {
+		mn.DisplacementFactor = &v4
+	}
+	v5, ok := mn.props["Emissive"].Payload().([3]float32)
+	if ok {
+		mn.Emissive = &v5
+	}
+	v6, ok := mn.props["EmissiveColor"].Payload().([3]float32)
+	if ok {
+		mn.EmissiveColor = &v6
+	}
+	v7, ok := mn.props["EmissiveFactor"].Payload().(float64)
+	if ok {
+		mn.EmissiveFactor = &v7
+	}
+	v8, ok := mn.props["Opacity"].Payload().(float64)
+	if ok {
+		mn.Opacity = &v8
+	}
+	v9, ok := mn.props["ReflectionFactor"].Payload().(float64)
+	if ok {
+		mn.ReflectionFactor = &v9
+	}
+	v10, ok := mn.props["Shininess"].Payload().(float64)
+	if ok {
+		mn.Shininess = &v10
+	}
+	v11, ok := mn.props["Specular"].Payload().([3]float32)
+	if ok {
+		mn.Specular = &v11
+	}
+	v12, ok := mn.props["SpecularColor"].Payload().([3]float32)
+	if ok {
+		mn.SpecularColor = &v12
+	}
+	v13, ok := mn.props["ShadingModel"].Payload().(ShadingModel)
+	if ok {
+		mn.ShadingModel = &v13
+	}
 
-	bumpMap         Texture
-	normalMap       Texture
-	specularMap     Texture
-	emissiveMap     Texture
-	diffuseMap      Texture
-	alphaMap        Texture
-	displacementMap Texture
-	envMap          Texture
+	return mn
 }
 
-func (l *Loader) parseParameters(mn MaterialNode, txs map[int64]Texture, id int64) MaterialParameters {
-	parameters := MaterialParameters{}
+func (l *Loader) parseParameters(materialNode MaterialNode, txs map[int]Texture, id int, mat Material) Material {
 
 	if materialNode.BumpFactor != nil {
-		parameters.BumpFactor = *materialNode.BumpFactor
+		mat.BumpFactor = *materialNode.BumpFactor
 	}
 	if materialNode.Diffuse != nil {
-		parameters.Diffuse.R = (*MaterialNode.Diffuse)[0]
-		parameters.Diffuse.G = (*MaterialNode.Diffuse)[1]
-		parameters.Diffuse.B = (*MaterialNode.Diffuse)[2]
+		mat.Diffuse.R = (*materialNode.Diffuse)[0]
+		mat.Diffuse.G = (*materialNode.Diffuse)[1]
+		mat.Diffuse.B = (*materialNode.Diffuse)[2]
 	} else if materialNode.DiffuseColor != nil {
 		// The blender exporter exports diffuse here instead of in materialNode.Diffuse
-		parameters.Diffuse.R = (*MaterialNode.DiffuseColor)[0]
-		parameters.Diffuse.G = (*MaterialNode.DiffuseColor)[1]
-		parameters.Diffuse.B = (*MaterialNode.DiffuseColor)[2]
+		mat.Diffuse.R = (*materialNode.DiffuseColor)[0]
+		mat.Diffuse.G = (*materialNode.DiffuseColor)[1]
+		mat.Diffuse.B = (*materialNode.DiffuseColor)[2]
 	}
 	if materialNode.DisplacementFactor != nil {
-		parameters.displacementScale = *materialNode.DisplacementFactor
+		mat.DisplacementFactor = *materialNode.DisplacementFactor
 	}
 	if materialNode.Emissive != nil {
-		parameters.Emissive.R = (*MaterialNode.Emissive)[0]
-		parameters.Emissive.G = (*MaterialNode.Emissive)[1]
-		parameters.Emissive.B = (*MaterialNode.Emissive)[2]
+		mat.Emissive.R = (*materialNode.Emissive)[0]
+		mat.Emissive.G = (*materialNode.Emissive)[1]
+		mat.Emissive.B = (*materialNode.Emissive)[2]
 	} else if materialNode.EmissiveColor != nil {
 		// The blender exporter exports emissive color here instead of in materialNode.Emissive
-		parameters.Emissive.R = (*MaterialNode.EmissiveColor)[0]
-		parameters.Emissive.G = (*MaterialNode.EmissiveColor)[1]
-		parameters.Emissive.B = (*MaterialNode.EmissiveColor)[2]
+		mat.Emissive.R = (*materialNode.EmissiveColor)[0]
+		mat.Emissive.G = (*materialNode.EmissiveColor)[1]
+		mat.Emissive.B = (*materialNode.EmissiveColor)[2]
 	}
 	if materialNode.EmissiveFactor != nil {
-		parameters.EmissiveFactor = *materialNode.EmissiveFactor
+		mat.EmissiveFactor = *materialNode.EmissiveFactor
 	}
 	if materialNode.Opacity != nil {
-		parameters.Opacity = *materialNode.Opacity
+		mat.Opacity = *materialNode.Opacity
 	}
-	if parameters.opacity < 1.0 != nil {
-		parameters.Transparent = true
+	if mat.Opacity < 1.0 {
+		mat.Transparent = true
 	}
 	if materialNode.ReflectionFactor != nil {
-		parameters.ReflectionFactor = *materialNode.ReflectionFactor
+		mat.ReflectionFactor = *materialNode.ReflectionFactor
 	}
 	if materialNode.Shininess != nil {
-		parameters.Shininess = *materialNode.Shininess
+		mat.Shininess = *materialNode.Shininess
 	}
 	if materialNode.Specular != nil {
-		parameters.Specular.R = (*MaterialNode.Specular)[0]
-		parameters.Specular.G = (*MaterialNode.Specular)[1]
-		parameters.Specular.B = (*MaterialNode.Specular)[2]
+		mat.Specular.R = (*materialNode.Specular)[0]
+		mat.Specular.G = (*materialNode.Specular)[1]
+		mat.Specular.B = (*materialNode.Specular)[2]
 	} else if materialNode.SpecularColor != nil {
 		// The blender exporter exports specular color here instead of in materialNode.Specular
-		parameters.Specular.R = (*MaterialNode.SpecularColor)[0]
-		parameters.Specular.G = (*MaterialNode.SpecularColor)[1]
-		parameters.Specular.B = (*MaterialNode.SpecularColor)[2]
+		mat.Specular.R = (*materialNode.SpecularColor)[0]
+		mat.Specular.G = (*materialNode.SpecularColor)[1]
+		mat.Specular.B = (*materialNode.SpecularColor)[2]
 	}
 
 	for _, child := range l.connections[id].children {
 		// TODO: Remember to throw away layered things and use the first layer's
 		// ID for layered textures
-		txt := txs[child.id]
+		txt := txs[int(child.ID)]
 		switch child.Relationship {
 		case "Bump":
-			parameters.bumpMap = txt
+			mat.bumpMap = txt
 		case "DiffuseColor":
-			parameters.diffuseMap = txt
+			mat.diffuseMap = txt
 		case "DisplacementColor":
-			parameters.displacementMap = txt
+			mat.displacementMap = txt
 		case "EmissiveColor":
-			parameters.emissiveMap = txt
+			mat.emissiveMap = txt
 		case "NormalMap":
-			parameters.normalMap = txt
+			mat.normalMap = txt
 		case "ReflectionColor":
-			parameters.envMap = txt
-			parameters.envMap.mapping = EquirectangularReflectionMapping
+			mat.envMap = txt
+			mat.envMap.mapping = EquirectangularReflectionMapping
 		case "SpecularColor":
-			parameters.specularMap = txt
+			mat.specularMap = txt
 		case "TransparentColor":
-			parameters.alphaMap = txt
-			parameters.transparent = true
+			mat.alphaMap = txt
+			mat.Transparent = true
 		//case "AmbientColor":
 		//case "ShininessExponent": // AKA glossiness map
 		//case "SpecularFactor": // AKA specularLevel
@@ -371,11 +405,11 @@ func (l *Loader) parseParameters(mn MaterialNode, txs map[int64]Texture, id int6
 			fmt.Printf("%s map is not supported in three.js, skipping texture.\n", child.Relationship)
 		}
 	}
-	return parameters
+	return mat
 }
 
 type Skeleton struct {
-	ID int64
+	ID int
 	// Todo: instead of rawBones and Bones,
 	// if rawBones isn't used after it is 'refined'
 	// into bones, have a 'processed' bool?
@@ -383,13 +417,14 @@ type Skeleton struct {
 	bones    []Bone
 }
 
-func (l *Loader) parseDeformers() (map[int64]Skeleton, map[int64]MorphTarget) {
-	skeletons := make(map[int64]Skeleton)
-	morphTargets := make(map[int64]MorphTarget)
-	for id, dn := range l.tree.Objects.Deformer {
+func (l *Loader) parseDeformers() (map[int]Skeleton, map[int]MorphTarget) {
+	skeletons := make(map[int]Skeleton)
+	morphTargets := make(map[int]MorphTarget)
+	deformer := l.tree.Objects["Deformer"]
+	for id, dn := range deformer {
 		relationships := l.connections[id]
 		if dn.attrType == "Skin" {
-			skel := l.parseSkeleton(relationships, dn)
+			skel := l.parseSkeleton(relationships, deformer)
 			skel.ID = id
 			if len(relationships.parents) > 1 {
 				fmt.Println("skeleton attached to more than one geometry is not supported.")
@@ -399,7 +434,7 @@ func (l *Loader) parseDeformers() (map[int64]Skeleton, map[int64]MorphTarget) {
 		} else if dn.attrType == "BlendShape" {
 			mt := MorphTarget{}
 			mt.ID = id
-			mt.rawTargets = l.parseMorphTargets(relationships, l.tree.Objects.Deformer)
+			mt.RawTargets = l.parseMorphTargets(relationships, l.tree.Objects.Deformer)
 			if len(relationships.parents) > 1 {
 				fmt.Println("morph target attached to more than one geometry is not supported.")
 			}
@@ -410,7 +445,7 @@ func (l *Loader) parseDeformers() (map[int64]Skeleton, map[int64]MorphTarget) {
 }
 
 type Bone struct {
-	ID            int64
+	ID            int
 	Indices       []int
 	Weights       []float64
 	Transform     mgl64.Mat4
@@ -421,20 +456,20 @@ type Bone struct {
 // Parse single nodes in tree.Objects.Deformer
 // The top level skeleton node has type 'Skin' and sub nodes have type 'Cluster'
 // Each skin node represents a skeleton and each cluster node represents a bone
-func (l *Loader) parseSkeleton(relationships ConnectionSet, deformerNodes map[int64]Node) Skeleton {
-	rawBones := make([]Bone)
+func (l *Loader) parseSkeleton(relationships ConnectionSet, deformerNodes map[int]*Node) Skeleton {
+	rawBones := make([]Bone, 0)
 	for _, child := range relationships.children {
 		boneNode := deformerNodes[child.ID]
 		if boneNode.attrType != "Cluster" {
-			return
+			continue
 		}
 		rawBone := Bone{
 			ID:      child.ID,
 			Indices: []int{},
 			Weights: []float64{},
 			// Todo: matrices
-			Transform:     mgl64.Mat4FromSlice(boneNode.Transform.a),
-			TransformLink: mgl64.Mat4FromSlice(boneNode.TransformLink.a),
+			Transform:     Mat4FromSlice(boneNode.Transform.a),
+			TransformLink: Mat4FromSlice(boneNode.TransformLink.a),
 			LinkMode:      boneNode.props["Mode"],
 		}
 		// Todo types, what has 'a' as a field?
@@ -455,11 +490,11 @@ type MorphTarget struct {
 	Name          string
 	InitialWeight float64
 	FullWeights   []float64
-	RawTargets []RawTarget
+	RawTargets    []RawTarget
 }
 
 type RawTarget struct {
-	geoID int64
+	geoID int
 }
 
 // The top level morph deformer node has type "BlendShape" and sub nodes have type "BlendShapeChannel"
@@ -493,10 +528,10 @@ func (l *Loader) parseMorphTargets(relationships ConnectionSet, deformerNodes ma
 
 // create the main THREE.Group() to be returned by the loader
 func (l *Loader) parseScene(
-	skeletons map[int64]Skeleton,
-	morphTargets map[int64]MorphTarget,
-	geometryMap map[int64]Geometry,
-	materialMap map[int64]Material) *Scene {
+	skeletons map[int]Skeleton,
+	morphTargets map[int]MorphTarget,
+	geometryMap map[int]Geometry,
+	materialMap map[int]Material) *Scene {
 
 	sceneGraph := THREE.Group()
 	modelMap := l.parseModels(deformers.skeletons, geometryMap, materialMap)
@@ -910,7 +945,7 @@ func (l *Loader) setupMorphMaterials() {
 // FBXTree holds a representation of the FBX data, returned by the TextParser ( FBX ASCII format)
 // and BinaryParser( FBX Binary format)
 type Tree struct {
-	Objects map[string][]*Node
+	Objects map[string]map[int]*Node
 }
 
 func isBinary(r io.Reader) bool {

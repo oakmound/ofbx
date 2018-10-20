@@ -2,7 +2,7 @@ package threefbx
 
 // Node is a typed object
 type Node struct {
-	ID       int64
+	ID       int
 	attrName string
 	attrType string
 	name     string

@@ -4,7 +4,7 @@ type Animation struct {
 }
 
 type AnimationCurve struct {
-	ID     int64
+	ID     int
 	Times  []float64
 	Values []float64
 }
