@@ -6,6 +6,24 @@ import (
 	"github.com/oakmound/oak/alg/floatgeom"
 )
 
+type TextureMapping int
+
+const (
+	NoToneMapping                    TextureMapping = 0
+	LinearToneMapping                TextureMapping = 1
+	ReinhardToneMapping              TextureMapping = 2
+	Uncharted2ToneMapping            TextureMapping = 3
+	CineonToneMapping                TextureMapping = 4
+	UVMapping                        TextureMapping = 300
+	CubeReflectionMapping            TextureMapping = 301
+	CubeRefractionMapping            TextureMapping = 302
+	EquirectangularReflectionMapping TextureMapping = 303
+	EquirectangularRefractionMapping TextureMapping = 304
+	SphericalReflectionMapping       TextureMapping = 305
+	CubeUVReflectionMapping          TextureMapping = 306
+	CubeUVRefractionMapping          TextureMapping = 307
+)
+
 type NormalMap int
 
 const (

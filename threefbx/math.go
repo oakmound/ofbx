@@ -7,6 +7,13 @@ import (
 	"github.com/oakmound/oak/alg/floatgeom"
 )
 
+func Mat4FromSlice(fs []float64) mgl64.Mat4 {
+	// This might be wrong - column major vs row major
+	f16 := [16]float64{}
+	copy(f16[:], fs)
+	return mgl64.Mat4(f16)
+}
+
 func IsZeroMat(mat mgl64.Mat4) bool {
 	return mat == mgl64.Mat4{}
 }

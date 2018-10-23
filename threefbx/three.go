@@ -24,13 +24,7 @@ func NewLoader() *Loader {
 	return &Loader{}
 }
 
-type Scene struct{} // ???
-type Camera struct{}
-type Light struct{}
-type Model struct{}
-type Curve struct{}
-
-func (l *Loader) Load(r io.Reader, textureDir string) (*Scene, error) {
+func (l *Loader) Load(r io.Reader, textureDir string) (Model, error) {
 	var err error
 	if isBinary(r) {
 		l.tree, err = l.parseBinary(r)
@@ -46,7 +40,7 @@ func (l *Loader) Load(r io.Reader, textureDir string) (*Scene, error) {
 	return l.parseTree(textureDir)
 }
 
-func (l *Loader) parseTree(textureDir string) (*Scene, error) {
+func (l *Loader) parseTree(textureDir string) (Model, error) {
 	var err error
 	l.connections, err = l.parseConnections()
 	if err != nil {
@@ -200,6 +194,7 @@ type Texture struct {
 	wrapS   Wrapping
 	wrapT   Wrapping
 	repeat  floatgeom.Point2
+	mapping TextureMapping
 	content io.Reader
 }
 
@@ -409,12 +404,13 @@ func (l *Loader) parseParameters(materialNode MaterialNode, txs map[int]Texture,
 }
 
 type Skeleton struct {
-	ID int
+	ID         int
+	geometryID int
 	// Todo: instead of rawBones and Bones,
 	// if rawBones isn't used after it is 'refined'
 	// into bones, have a 'processed' bool?
 	rawBones []Bone
-	bones    []Bone
+	bones    []Model
 }
 
 func (l *Loader) parseDeformers() (map[int]Skeleton, map[int]MorphTarget) {
@@ -434,7 +430,7 @@ func (l *Loader) parseDeformers() (map[int]Skeleton, map[int]MorphTarget) {
 		} else if dn.attrType == "BlendShape" {
 			mt := MorphTarget{}
 			mt.ID = id
-			mt.RawTargets = l.parseMorphTargets(relationships, l.tree.Objects.Deformer)
+			mt.RawTargets = l.parseMorphTargets(relationships, l.tree.Objects["Deformer"])
 			if len(relationships.parents) > 1 {
 				fmt.Println("morph target attached to more than one geometry is not supported.")
 			}
@@ -468,8 +464,8 @@ func (l *Loader) parseSkeleton(relationships ConnectionSet, deformerNodes map[in
 			Indices: []int{},
 			Weights: []float64{},
 			// Todo: matrices
-			Transform:     Mat4FromSlice(boneNode.Transform.a),
-			TransformLink: Mat4FromSlice(boneNode.TransformLink.a),
+			Transform:     Mat4FromSlice(boneNode.props["Transform"].Payload().([]float64)),
+			TransformLink: Mat4FromSlice(boneNode.props["TransformLink"].Payload().([]float64)),
 			LinkMode:      boneNode.props["Mode"],
 		}
 		// Todo types, what has 'a' as a field?
@@ -481,47 +477,48 @@ func (l *Loader) parseSkeleton(relationships ConnectionSet, deformerNodes map[in
 	}
 	return Skeleton{
 		rawBones: rawBones,
-		bones:    []Bone{},
+		bones:    []Model{},
 	}
 }
 
 type MorphTarget struct {
-	ID            int64
-	Name          string
-	InitialWeight float64
-	FullWeights   []float64
-	RawTargets    []RawTarget
+	ID         int
+	RawTargets []RawTarget
 }
 
 type RawTarget struct {
-	geoID int
+	id            int
+	geoID         int
+	name          string
+	initialWeight float64
+	fullWeights   []float64
 }
 
 // The top level morph deformer node has type "BlendShape" and sub nodes have type "BlendShapeChannel"
-func (l *Loader) parseMorphTargets(relationships ConnectionSet, deformerNodes map[int64]Node) []MorphTarget {
-	rawMorphTargets := make([]MorphTarget, 0)
-	for i := 0; i < relationships.children.length; i++ {
-		if i == 8 {
-			fmt.Println("FBXLoader: maximum of 8 morph targets supported. Ignoring additional targets.")
-			break
-		}
+func (l *Loader) parseMorphTargets(relationships ConnectionSet, deformerNodes map[int]*Node) []RawTarget {
+	rawMorphTargets := make([]RawTarget, 0)
+	for i := 0; i < len(relationships.children); i++ {
 		child := relationships.children[i]
 		morphTargetNode := deformerNodes[child.ID]
 		if morphTargetNode.attrType != "BlendShapeChannel" {
-			return
+			continue
 		}
-		target := MorphTarget{
+		target := RawTarget{
 			name:          morphTargetNode.attrName,
-			initialWeight: morphTargetNode.props["DeformPercent"],
+			initialWeight: morphTargetNode.props["DeformPercent"].Payload().(float64),
 			id:            morphTargetNode.ID,
-			fullWeights:   morphTargetNode.FullWeights.Payload().([]float64),
+			fullWeights:   morphTargetNode.props["FullWeights"].Payload().([]float64),
 		}
-		for _, child := range connections.get(child.ID).children {
-			if child.relationship == "" {
-				rawMorphTarget.geoID = child.ID
+		for _, child := range l.connections[child.ID].children {
+			if child.Relationship == "" {
+				target.geoID = child.ID
 			}
 		}
 		rawMorphTargets = append(rawMorphTargets, target)
+		if len(rawMorphTargets) == 8 {
+			fmt.Println("FBXLoader: maximum of 8 morph targets supported. Ignoring additional targets.")
+			break
+		}
 	}
 	return rawMorphTargets
 }
@@ -531,45 +528,43 @@ func (l *Loader) parseScene(
 	skeletons map[int]Skeleton,
 	morphTargets map[int]MorphTarget,
 	geometryMap map[int]Geometry,
-	materialMap map[int]Material) *Scene {
+	materialMap map[int]Material) Model {
 
-	sceneGraph := THREE.Group()
-	modelMap := l.parseModels(deformers.skeletons, geometryMap, materialMap)
-	modelNodes := tree.Objects.Model
-	for _, model := range modelMap {
-		modelNode := modelNodes[model.ID]
+	var sceneGraph Model = &ModelGroup{}
+	modelMap := l.parseModels(skeletons, geometryMap, materialMap)
+	modelNodes := l.tree.Objects["Model"]
+	for id, model := range modelMap {
+		modelNode := modelNodes[id]
 		l.setLookAtProperties(model, modelNode)
-		parentConnections := l.connections.get(model.ID).parents
+		parentConnections := l.connections[id].parents
 		for _, connection := range parentConnections {
-			var parent = modelMap.get(connection.ID)
-			if parent != nil {
-				parent.add(model)
+			var parent, ok = modelMap[connection.ID]
+			if ok {
+				parent.AddChild(model)
 			}
 		}
-		if model.parent == nil {
-			sceneGraph.add(model)
+		if model.Parent() == nil {
+			sceneGraph.AddChild(model)
 		}
 	}
-	l.bindSkeleton(deformers.skeletons, geometryMap, modelMap)
+	l.bindSkeleton(skeletons, geometryMap, modelMap)
 	l.createAmbientLight()
 	l.setupMorphMaterials()
-	animations := l.parseAnimations()
 	// if all the models where already combined in a single group, just return that
-	if sceneGraph.children.length == 1 && sceneGraph.children[0].isGroup {
-		sceneGraph.children[0].animations = animations
-		sceneGraph = sceneGraph.children[0]
+	if len(sceneGraph.Children()) == 1 && sceneGraph.Children()[0].IsGroup() {
+		sceneGraph = sceneGraph.Children()[0]
 	}
-	sceneGraph.animations = animations
+	sceneGraph.SetAnimations(l.parseAnimations())
 	return sceneGraph
 }
 
 // parse nodes in FBXTree.Objects.Model
-func (l *Loader) parseModels(skeletons map[int64]Skeleton, geometryMap map[int64]Geometry, materialMap map[int64]Material) map[int64]Model {
-	modelMap := map[int64]Model{}
-	modelNodes := tree.Objects.Model
+func (l *Loader) parseModels(skeletons map[int]Skeleton, geometryMap map[int]Geometry, materialMap map[int]Material) map[int]Model {
+	modelMap := map[int]Model{}
+	modelNodes := l.tree.Objects["Model"]
 	for id, node := range modelNodes {
-		relationships := connections.get(id)
-		model := l.buildSkeleton(relationships, skeletons, id, node.attrName)
+		relationships := l.connections[id]
+		var model Model = l.buildSkeleton(relationships, skeletons, id, node.attrName)
 		if model == nil {
 			switch node.attrType {
 			case "Camera":
@@ -587,35 +582,35 @@ func (l *Loader) parseModels(skeletons map[int64]Skeleton, geometryMap map[int64
 			case "LimbNode": // usually associated with a Bone, however if a Bone was not created we"ll make a Group instead
 			case "Null":
 			default:
-				model = THREE.Group()
+				model = &ModelGroup{}
 				break
 			}
-			model.name = sanitizeNodeName(node.attrName)
-			model.ID = id
+			model.SetName(sanitizeNodeName(node.attrName))
+			model.SetID(id)
 		}
 		l.setModelTransforms(model, node)
-		modelMap.set(id, model)
+		modelMap[id] = model
 	}
 	return modelMap
 }
 
-func (l *Loader) buildSkeleton(relationships ConnectionSet, skeletons map[int64]Skeleton, id int64, name string) Model {
-	var bone Model
+func (l *Loader) buildSkeleton(relationships ConnectionSet, skeletons map[int]Skeleton, id int, name string) *BoneModel {
+	var bone *BoneModel
 	for _, parent := range relationships.parents {
 		for id, skeleton := range skeletons {
 			for i, rawBone := range skeleton.rawBones {
 				if rawBone.ID == parent.ID {
 					subBone := bone
-					bone = THREE.Bone()
-					bone.matrixWorld.copy(rawBone.transformLink)
+					bone = &BoneModel{}
+					bone.matrixWorld = rawBone.TransformLink
 					// set name and id here - otherwise in cases where "subBone" is created it will not have a name / id
-					bone.name = sanitizeNodeName(name)
-					bone.ID = id
+					bone.SetName(sanitizeNodeName(name))
+					bone.SetID(id)
 					skeleton.bones[i] = bone
 					// In cases where a bone is shared between multiple meshes
 					// duplicate the bone here and and it as a child of the first bone
 					if subBone != nil {
-						bone.add(subBone)
+						bone.AddChild(subBone)
 					}
 				}
 			}
@@ -626,62 +621,63 @@ func (l *Loader) buildSkeleton(relationships ConnectionSet, skeletons map[int64]
 
 // create a THREE.PerspectiveCamera or THREE.OrthographicCamera
 
-func createCamera(relationships ConnectionSet) Camera {
+func (l *Loader) createCamera(relationships ConnectionSet) Model {
 	var model Camera
 	var cameraAttribute map[string]interface{}
 	for i := len(relationships.children) - 1; i > 0; i-- {
 		child := relationships.children[i]
-		attr := tree.Objects.NodeAttribute[child.ID]
+		attr := l.tree.Objects["NodeAttribute"][child.ID]
 		if attr != nil {
-			cameraAttribute = attr.(map[string]interface{})
+			for k, prop := range attr.props {
+				cameraAttribute[k] = prop.Payload()
+			}
 			break
 		}
 	}
-	if cameraAttribute == "" {
-		model = THREE.Object3D()
-	} else {
-		typ := 0
-		v, ok := cameraAttribute["CameraProjectionType"]
-		if ok && v.(int64) == 1 {
-			typ := 1
-		}
-		nearClippingPlane := 1
-		if v, ok := cameraAttribute["NearPlane"]; ok {
-			nearClippingPlane = v / 1000
-		}
-		farClippingPlane := 1000
-		if v, ok := cameraAttribute["FarPlane"]; ok {
-			farClippingPlane = v / 1000
-		}
-		width := 240
-		height := 240
-		if v, ok := cameraAttribute["AspectWidth"]; ok {
-			width = v
-		}
-		if v, ok := cameraAttribute["AspectHeight"]; ok {
-			height = v
-		}
-		aspect := width / height
-		fov := 45
-		if v, ok := cameraAttribute["FieldOfView"]; ok {
-			fov = v
-		}
-		focalLength := 0
-		if v, ok := cameraAttribute["FocalLength"]; ok {
-			focalLength = v
-		}
-		switch typ {
-		case 0: // Perspective
-			model = THREE.PerspectiveCamera(fov, aspect, nearClippingPlane, farClippingPlane)
-			if focalLength != 0 {
-				model.setFocalLength(focalLength)
-			}
-		case 1: // Orthographic
-			model = THREE.OrthographicCamera(-width/2, width/2, height/2, -height/2, nearClippingPlane, farClippingPlane)
-		default:
-			fmt.Println("Unknown camera type", typ)
-			model = THREE.Object3D()
-		}
+	if cameraAttribute == nil {
+		return nil
+	}
+	typ := 0
+	v, ok := cameraAttribute["CameraProjectionType"]
+	if ok && v.(int64) == 1 {
+		typ := 1
+	}
+	nearClippingPlane := 1
+	if v, ok := cameraAttribute["NearPlane"]; ok {
+		nearClippingPlane = v.(int) / 1000
+	}
+	farClippingPlane := 1000
+	if v, ok := cameraAttribute["FarPlane"]; ok {
+		farClippingPlane = v.(int) / 1000
+	}
+	width := 240
+	height := 240
+	if v, ok := cameraAttribute["AspectWidth"]; ok {
+		width = v.(int)
+	}
+	if v, ok := cameraAttribute["AspectHeight"]; ok {
+		height = v.(int)
+	}
+	aspect := width / height
+	fov := 45
+	if v, ok := cameraAttribute["FieldOfView"]; ok {
+		fov = v.(int)
+	}
+	focalLength := 0
+	if v, ok := cameraAttribute["FocalLength"]; ok {
+		focalLength = v.(int)
+	}
+	switch typ {
+	case 0: // Perspective
+		model = NewPerspectiveCamera(fov, aspect, nearClippingPlane, farClippingPlane)
+		if focalLength != 0 {
+			model.SetFocalLength(focalLength)
+		} 
+	case 1: // Orthographic
+		model = NewOrthographicCamera(-width/2, width/2, height/2, -height/2, nearClippingPlane, farClippingPlane)
+	default:
+		fmt.Println("Unknown camera type", typ)
+		return nil
 	}
 	return model
 }
@@ -695,7 +691,7 @@ const (
 )
 
 // Todo: less pointers, more reasonable zero values
-type LightAttribute struct {
+type LightNode struct {
 	LightType         *LightType
 	Color             Color
 	Intensity         *float64
@@ -708,77 +704,126 @@ type LightAttribute struct {
 	CastShadows          bool
 }
 
+func NewLightNode(n *Node) (*LightNode, error) {
+	ln := &LightNode{}
+	lt, ok := n.props["LightType"].Payload().(int)
+	if ok {
+		v := LightType(lt)
+		ln.LightType = &v
+	}
+	ln.Color, ok = n.props["Color"].Payload().(Color)
+	if !ok {
+		return nil, errors.New("Invalid LightNode")
+	}
+	var f float64
+	f, ok = n.props["Intensity"].Payload().(float64)
+	if ok {
+		ln.Intensity = &f
+	}
+	f, ok = n.props["FarAttenuationEnd"].Payload().(float64)
+	if ok {
+		ln.FarAttenuationEnd = &f
+	}
+	f, ok = n.props["InnerAngle"].Payload().(float64)
+	if ok {
+		ln.InnerAngle = &f
+	}
+	f, ok = n.props["OuterAngle"].Payload().(float64)
+	if ok {
+		ln.OuterAngle = &f
+	}
+
+	var b bool 
+	ln.CastLightOnObject, ok = n.props["CastLightOnObject"].Payload().(bool)
+	if !ok {
+		return nil, errors.New("Invalid LightNode")
+	}
+	ln.EnableFarAttenuation, ok = n.props["EnableFarAttenuation"].Payload().(bool)
+	if !ok {
+		return nil, errors.New("Invalid LightNode")
+	}
+	ln.CastShadows, ok = n.props["CastShadows"].Payload().(bool)
+	if !ok {
+		return nil, errors.New("Invalid LightNode")
+	}
+	return ln, nil
+}
+
 // Create a THREE.DirectionalLight, THREE.PointLight or THREE.SpotLight
 func (l *Loader) createLight(relationships ConnectionSet) Light {
 	var model Light
-	var la LightAttribute
+	var err error
+	var la *LightNode
 
 	for i := len(relationships.children) - 1; i >= 0; i-- {
-		var attr = tree.Objects.NodeAttribute[relationships.children[i].ID]
-		if attr != "" {
-			la = attr.(LightAttribute)
+		node := l.tree.Objects["NodeAttribute"][relationships.children[i].ID]
+		if node != nil {
+			la, err = NewLightNode(node)
+			if err != nil {
+				fmt.Println("Error creating light node", err)
+				continue
+			}
 			break
 		}
 	}
-	if la == "" {
-		model = THREE.Object3D()
-	} else {
-		var typ int
-		// LightType can be undefined for Point lights
-		if la.LightType != nil {
-			typ = *la.LightType
+	if la == nil {
+		return nil
+	} 
+	var typ int
+	// LightType can be undefined for Point lights
+	if la.LightType != nil {
+		typ = *la.LightType
+	}
+	var color = color.RBGA{255, 255, 255, 255}
+	if la.Color != nil {
+		color = *la.Color
+	}
+	intensity := 1.0
+	if *la.Intensity != nil {
+		intensity = *la.Intensity / 100
+	}
+	// light disabled
+	if !la.CastLightOnObject {
+		intensity = 0
+	}
+	distance := 0.0
+	if la.FarAttenuationEnd != nil {
+		if la.EnableFarAttenuation {
+			distance = *la.FarAttenuationEnd
 		}
-		var color = color.RBGA{255, 255, 255, 255}
-		if la.Color != nil {
-			color = *la.Color
+	}
+	// TODO: could this be calculated linearly from FarAttenuationStart to FarAttenuationEnd?
+	var decay = 1
+	switch typ {
+	case 0: // Point
+		model = NewPointLight(color, intensity, distance, decay)
+	case 1: // Directional
+		model = NewDirectionalLight(color, intensity)
+	case 2: // Spot
+		angle := math.Pi / 3
+		if la.InnerAngle != nil {
+			angle = alg.DegToRad * *la.InnerAngle.value
 		}
-		intensity := 1.0
-		if *la.Intensity != nil {
-			intensity = *la.Intensity / 100
+		penumbra := 0.0
+		if la.OuterAngle != nil {
+			// TODO: this is not correct - FBX calculates outer and inner angle in degrees
+			// with OuterAngle > InnerAngle && OuterAngle <= Math.PI
+			// while three.js uses a penumbra between (0, 1) to attenuate the inner angle
+			penumbra = alg.DegToRad * *la.OuterAngle
+			penumbra = math.Max(penumbra, 1)
 		}
-		// light disabled
-		if !la.CastLightOnObject {
-			intensity = 0
-		}
-		distance := 0.0
-		if la.FarAttenuationEnd != nil {
-			if la.EnableFarAttenuation {
-				distance = *la.FarAttenuationEnd
-			}
-		}
-		// TODO: could this be calculated linearly from FarAttenuationStart to FarAttenuationEnd?
-		var decay = 1
-		switch typ {
-		case 0: // Point
-			model = THREE.PointLight(color, intensity, distance, decay)
-		case 1: // Directional
-			model = THREE.DirectionalLight(color, intensity)
-		case 2: // Spot
-			angle := math.Pi / 3
-			if la.InnerAngle != nil {
-				angle = alg.DegToRad * *la.InnerAngle.value
-			}
-			penumbra := 0.0
-			if la.OuterAngle != nil {
-				// TODO: this is not correct - FBX calculates outer and inner angle in degrees
-				// with OuterAngle > InnerAngle && OuterAngle <= Math.PI
-				// while three.js uses a penumbra between (0, 1) to attenuate the inner angle
-				penumbra = alg.DegToRad * *la.OuterAngle
-				penumbra = math.Max(penumbra, 1)
-			}
-			model = THREE.SpotLight(color, intensity, distance, angle, penumbra, decay)
-		default:
-			fmt.Println("THREE.FBXLoader: Unknown light type " + la.LightType.value + ", defaulting to a THREE.PointLight.")
-			model = THREE.PointLight(color, intensity)
-		}
-		if la.CastShadows {
-			model.castShadow = true
-		}
+		model = NewSpotLight(color, intensity, distance, angle, penumbra, decay)
+	default:
+		fmt.Println("THREE.FBXLoader: Unknown light type " + la.LightType.value + ", defaulting to a THREE.PointLight.")
+		model = NewPointLight(color, intensity)
+	}
+	if la.CastShadows {
+		model.castShadow = true
 	}
 	return model
 }
 
-func (l *Loader) createMesh(relationships ConnectionSet, geometryMap map[int64]Geometry, materialMap map[int64]Material) {
+func (l *Loader) createMesh(relationships ConnectionSet, geometryMap map[int]Geometry, materialMap map[int]Material) Model {
 	var model Model
 	var geometry *Geometry
 	var materials = []*Material{}
@@ -811,7 +856,7 @@ func (l *Loader) createMesh(relationships ConnectionSet, geometryMap map[int64]G
 }
 
 // parse the model node for transform details and apply them to the model
-func (l *Loader) setModelTransforms(model Model, modelNode Node) {
+func (l *Loader) setModelTransforms(model Model, modelNode *Node) {
 	var td = TransformData{}
 	if v, ok := modelNode.props["RotationOrder"]; ok {
 		td.eulerOrder = &EulerOrder(v.Payload().(int))
@@ -837,7 +882,7 @@ func (l *Loader) setModelTransforms(model Model, modelNode Node) {
 	model.applyMatrix(generateTransform(td))
 }
 
-func (l *Loader) createCurve(relationships ConnectionSet, geometryMap map[int64]Geometry) Curve {
+func (l *Loader) createCurve(relationships ConnectionSet, geometryMap map[int]Geometry) Curve {
 	var geometry Geometry
 	for i := len(relationships.children) - 1; i >= 0; i-- {
 		child := relationships.children[i]
@@ -851,7 +896,7 @@ func (l *Loader) createCurve(relationships ConnectionSet, geometryMap map[int64]
 	return THREE.Line(geometry, material)
 }
 
-func (l *Loader) setLookAtProperties(model Model, modelNode Node) {
+func (l *Loader) setLookAtProperties(model Model, modelNode *Node) {
 	if _, ok := modelNode.props["LookAtProperty"]; ok {
 		children := l.connections[model.ID].children
 		for _, child := range children {
@@ -872,7 +917,7 @@ func (l *Loader) setLookAtProperties(model Model, modelNode Node) {
 	}
 }
 
-func bindSkeleton(skeletons map[int64]Skeleton, geometryMap map[int64]Geometry, modelMap map[int64]*Model) {
+func (l *Loader) bindSkeleton(skeletons map[int]Skeleton, geometryMap map[int]Geometry, modelMap map[int]Model) {
 	bindMatrices := l.parsePoseNodes()
 	for id, skeleton := range skeletons {
 		for _, parent := range connections.get(skeleton.ID).parents {
@@ -907,7 +952,7 @@ func parsePoseNodes() {
 }
 
 // Parse ambient color in tree.GlobalSettings - if it's not set to black (default), create an ambient light
-func createAmbientLight() {
+func (l *Loader) createAmbientLight() {
 	_, ok := tree["GlobalSetttings"]
 	ambientColor, ok2 := tree["AmbientColor"].(color.RGBA)
 	if ok && ok2 {
