@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"image/color"
 	"io"
 	"math"
 	"regexp"
@@ -672,7 +673,7 @@ func (l *Loader) createCamera(relationships ConnectionSet) Model {
 		model = NewPerspectiveCamera(fov, aspect, nearClippingPlane, farClippingPlane)
 		if focalLength != 0 {
 			model.SetFocalLength(focalLength)
-		} 
+		}
 	case 1: // Orthographic
 		model = NewOrthographicCamera(-width/2, width/2, height/2, -height/2, nearClippingPlane, farClippingPlane)
 	default:
@@ -733,7 +734,7 @@ func NewLightNode(n *Node) (*LightNode, error) {
 		ln.OuterAngle = &f
 	}
 
-	var b bool 
+	var b bool
 	ln.CastLightOnObject, ok = n.props["CastLightOnObject"].Payload().(bool)
 	if !ok {
 		return nil, errors.New("Invalid LightNode")
@@ -768,18 +769,16 @@ func (l *Loader) createLight(relationships ConnectionSet) Light {
 	}
 	if la == nil {
 		return nil
-	} 
-	var typ int
+	}
+	var typ LightType
 	// LightType can be undefined for Point lights
 	if la.LightType != nil {
 		typ = *la.LightType
 	}
-	var color = color.RBGA{255, 255, 255, 255}
-	if la.Color != nil {
-		color = *la.Color
-	}
+	var color = la.Color
+
 	intensity := 1.0
-	if *la.Intensity != nil {
+	if la.Intensity != nil {
 		intensity = *la.Intensity / 100
 	}
 	// light disabled
@@ -793,7 +792,7 @@ func (l *Loader) createLight(relationships ConnectionSet) Light {
 		}
 	}
 	// TODO: could this be calculated linearly from FarAttenuationStart to FarAttenuationEnd?
-	var decay = 1
+	var decay = 1.0
 	switch typ {
 	case 0: // Point
 		model = NewPointLight(color, intensity, distance, decay)
@@ -802,7 +801,7 @@ func (l *Loader) createLight(relationships ConnectionSet) Light {
 	case 2: // Spot
 		angle := math.Pi / 3
 		if la.InnerAngle != nil {
-			angle = alg.DegToRad * *la.InnerAngle.value
+			angle = alg.DegToRad * *la.InnerAngle
 		}
 		penumbra := 0.0
 		if la.OuterAngle != nil {
@@ -812,21 +811,22 @@ func (l *Loader) createLight(relationships ConnectionSet) Light {
 			penumbra = alg.DegToRad * *la.OuterAngle
 			penumbra = math.Max(penumbra, 1)
 		}
+
 		model = NewSpotLight(color, intensity, distance, angle, penumbra, decay)
 	default:
-		fmt.Println("THREE.FBXLoader: Unknown light type " + la.LightType.value + ", defaulting to a THREE.PointLight.")
-		model = NewPointLight(color, intensity)
+		fmt.Println("THREE.FBXLoader: Unknown light type ", la.LightType, ", defaulting to a THREE.PointLight.")
+		model = NewPointLight(color, intensity, 0, 1)
 	}
 	if la.CastShadows {
-		model.castShadow = true
+		model.SetCastShadow(true)
 	}
 	return model
 }
 
 func (l *Loader) createMesh(relationships ConnectionSet, geometryMap map[int]Geometry, materialMap map[int]Material) Model {
 	var model Model
-	var geometry *Geometry
-	var materials = []*Material{}
+	var geometry Geometry
+	var materials = []Material{}
 	// get geometry and materials(s) from connections
 	for _, child := range relationships.children {
 		if g, ok := geometryMap[child.ID]; ok {
@@ -837,17 +837,20 @@ func (l *Loader) createMesh(relationships ConnectionSet, geometryMap map[int]Geo
 		}
 	}
 	if len(materials) == 0 {
-		materials = []*Material{THREE.MeshPhongMaterial(map[string]Color{"color": 0xcccccc})}
+		mp := NewMeshPhong()
+		mp.color = Color{0.8, 0.8, 0.8}
+		materials = []Material{mp}
 	}
 	if len(geometry.color) > 0 {
 		for _, m := range materials {
-			m.vertexColors = THREE.VertexColors
+			m.vertexColors = VertexColors
 		}
 	}
 	if geometry.FBX_Deformer != nil {
 		for _, m := range materials {
 			m.skinning = true
 		}
+
 		model = THREE.SkinnedMesh(geometry, materials)
 	} else {
 		model = THREE.Mesh(geometry, materials)

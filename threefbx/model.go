@@ -24,11 +24,10 @@ type Camera interface {
 	SetFocalLength(int)
 }
 
-type Light interface {
-	Model
-	SetFocalLength(int)
-	SetCastShadow(bool)
+type ModelCopyable interface{
+	Copy() Model
 }
+
 
 type baseModel struct {
 	name string
@@ -38,6 +37,30 @@ type baseModel struct {
 	children []Model
 
 	animations []Animation
+}
+
+func (bm *baseModel) copy() *baseModel{
+	bm2 := baseModel{
+		name: bm.name,
+		id : bm.id,
+		parent: bm.parent,
+		children: make([]Model, len(bm.children)),
+		animations: make([]Animation, len(bm.animations))
+	}
+	for i , c := range bm.children{
+		if c2, ok :=  c.(ModelCopyable); ok{
+			c3 := c2.Copy()
+			c3.parent = bm2
+			bm2.children[i] = c3
+		}
+		else{
+			fmt.Println(" Tried to copy an uncopiable model, this would normally be an error. #TODO")
+		}
+	}
+	for i , a := range bm.animations{
+		bm2.animations[i] = a.Copy()
+	}
+	return bm2
 }
 
 func (bm *baseModel) Parent() Model {
@@ -120,27 +143,10 @@ func (bm *BoneModel) IsGroup() bool {
 	return false
 }
 
-type baseLight struct {
-	*baseModel
-	castShadow bool
-}
-
-func (bl *baseLight) IsGroup() bool {
-	return false
-}
-
-func (bl *baseLight) SetCastShadow(b bool) {
-	bl.castShadow = b
-}
-
-type PointLight struct {
-	*baseLight
-}
-
-type DirectionalLight struct {
-	*baseLight
-}
-
-type SpotLight struct {
-	*baseModel
+func (bm *BoneModel) Copy() *BoneModel {
+	out := BoneModel{
+		baseModel: bm.baseModel.copy()
+		matrixWorld: bm.matrixWorld
+	}
+	return out
 }

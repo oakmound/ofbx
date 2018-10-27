@@ -6,14 +6,6 @@ import (
 	"github.com/oakmound/oak/alg/floatgeom"
 )
 
-type DrawMode int
-
-const (
-	TrianglesDrawMode     DrawMode = iota
-	TriangleStripDrawMode DrawMode = iota
-	TriangleFanDrawMode   DrawMode = iota
-)
-
 type TextureMapping int
 
 const (
