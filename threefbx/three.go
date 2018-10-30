@@ -404,15 +404,28 @@ func (l *Loader) parseParameters(materialNode MaterialNode, txs map[int]Texture,
 	return mat
 }
 
-type Skeleton struct {
-	ID         int
-	geometryID int
-	// Todo: instead of rawBones and Bones,
-	// if rawBones isn't used after it is 'refined'
-	// into bones, have a 'processed' bool?
-	rawBones []Bone
-	bones    []Model
-}
+
+
+calculateInverses: function () {
+
+	this.boneInverses = [];
+
+	for ( var i = 0, il = this.bones.length; i < il; i ++ ) {
+
+		var inverse = new Matrix4();
+
+		if ( this.bones[ i ] ) {
+
+			inverse.getInverse( this.bones[ i ].matrixWorld );
+
+		}
+
+		this.boneInverses.push( inverse );
+
+	}
+
+},
+
 
 func (l *Loader) parseDeformers() (map[int]Skeleton, map[int]MorphTarget) {
 	skeletons := make(map[int]Skeleton)
@@ -851,7 +864,7 @@ func (l *Loader) createMesh(relationships ConnectionSet, geometryMap map[int]Geo
 			m.skinning = true
 		}
 
-		model = THREE.SkinnedMesh(geometry, materials)
+		model = THREE.SkinnfedMesh(geometry, materials)
 	} else {
 		model = THREE.Mesh(geometry, materials)
 	}

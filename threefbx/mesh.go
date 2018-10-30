@@ -50,95 +50,47 @@ func NewSkinnedMesh(geometery *Geometry, materials []*Material) *SkinnedMesh {
 
 	// sm.skeleton =
 	// sm.skeleton = geometery.FBX_Deformer
-// var skeleton = new Skeleton( bones );
-
+	// var skeleton = new Skeleton( bones );
 
 	updateMatrixWorld(true)
-
-	
-	// this.bind( skeleton, this.matrixWorld );
-	// this.normalizeSkinWeights();
-
+	sm.bind(skeleton, sm.matrixWorld) //TODO: originally this.matrixWorld from js base
+	sm.normalizeSkinWeights()
 	return &sm
 }
 
-bind: function ( skeleton, bindMatrix ) {
-
-	this.skeleton = skeleton;
-
-	if ( bindMatrix === undefined ) {
-
-		this.updateMatrixWorld( true );
-
-		this.skeleton.calculateInverses();
-
-		bindMatrix = this.matrixWorld;
-
+func (sm *SkinnedMesh) bind(skeleton SKeleton, bindMatrix mgl64.Mat4) {
+	sm.skeleton = skeleton
+	if bindMatrix == null {
+		sm.skeleton.calculateInverses()
+		sm.bindMatrix = sm.matrixWorld
+		sm.bindMatrixInverse = sm.bindMatrix.Inv()
+		return
 	}
+	sm.bindMatrix = bindMatrix
+	sm.bindMatrixInverse = bindMatrix.Inv()
+}
 
-	this.bindMatrix.copy( bindMatrix );
-	this.bindMatrixInverse.getInverse( bindMatrix );
+func (sm *SkinnedMesh) normalizeSkinWeights() {
+	//we think that geometry in fbx is only buffergeometries
 
-},
+	// if ( this.geometry && this.geometry.isGeometry ) {
+	// 	for ( i = 0; i < this.geometry.skinWeights.length; i ++ ) {
+	// 		var sw = this.geometry.skinWeights[ i ];
+	// 		scale = 1.0 / sw.manhattanLength();
+	// 		if ( scale !== Infinity ) {
+	// 			sw.multiplyScalar( scale );
+	// 		} else {
+	// 			sw.set( 1, 0, 0, 0 ); // do something reasonable
+	// 		}
+	// 	}
+	// } else if ( this.geometry && this.geometry.isBufferGeometry ) {
 
-
-
-// normalizeSkinWeights: function () {
-
-// 	var scale, i;
-
-// 	if ( this.geometry && this.geometry.isGeometry ) {
-
-// 		for ( i = 0; i < this.geometry.skinWeights.length; i ++ ) {
-
-// 			var sw = this.geometry.skinWeights[ i ];
-
-// 			scale = 1.0 / sw.manhattanLength();
-
-// 			if ( scale !== Infinity ) {
-
-// 				sw.multiplyScalar( scale );
-
-// 			} else {
-
-// 				sw.set( 1, 0, 0, 0 ); // do something reasonable
-
-// 			}
-
-// 		}
-
-// 	} else if ( this.geometry && this.geometry.isBufferGeometry ) {
-
-// 		var vec = new Vector4();
-
-// 		var skinWeight = this.geometry.attributes.skinWeight;
-
-// 		for ( i = 0; i < skinWeight.count; i ++ ) {
-
-// 			vec.x = skinWeight.getX( i );
-// 			vec.y = skinWeight.getY( i );
-// 			vec.z = skinWeight.getZ( i );
-// 			vec.w = skinWeight.getW( i );
-
-// 			scale = 1.0 / vec.manhattanLength();
-
-// 			if ( scale !== Infinity ) {
-
-// 				vec.multiplyScalar( scale );
-
-// 			} else {
-
-// 				vec.set( 1, 0, 0, 0 ); // do something reasonable
-
-// 			}
-
-// 			skinWeight.setXYZW( i, vec.x, vec.y, vec.z, vec.w );
-
-// 		}
-
-// 	}
-
-// },
+	skinWeight = sm.geometery.skinWeight
+	for i, sw := range skinWeight {
+		sum := sw[0] + sw[1] + sw[2] + sw[3]
+		sm.geometery.skinWeight[i] = [][4]float64{sw[0] / sum, sw[1] / sum, sw[2] / sum, sw[3] / sum}
+	}
+}
 
 // updateMatrixWorld: function ( force ) {
 
