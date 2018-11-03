@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"image/color"
 	"io"
 	"math"
 	"regexp"
@@ -404,29 +403,6 @@ func (l *Loader) parseParameters(materialNode MaterialNode, txs map[int]Texture,
 	return mat
 }
 
-
-
-calculateInverses: function () {
-
-	this.boneInverses = [];
-
-	for ( var i = 0, il = this.bones.length; i < il; i ++ ) {
-
-		var inverse = new Matrix4();
-
-		if ( this.bones[ i ] ) {
-
-			inverse.getInverse( this.bones[ i ].matrixWorld );
-
-		}
-
-		this.boneInverses.push( inverse );
-
-	}
-
-},
-
-
 func (l *Loader) parseDeformers() (map[int]Skeleton, map[int]MorphTarget) {
 	skeletons := make(map[int]Skeleton)
 	morphTargets := make(map[int]MorphTarget)
@@ -491,7 +467,7 @@ func (l *Loader) parseSkeleton(relationships ConnectionSet, deformerNodes map[in
 	}
 	return Skeleton{
 		rawBones: rawBones,
-		bones:    []Model{},
+		bones:    []BoneModel{},
 	}
 }
 
@@ -562,8 +538,6 @@ func (l *Loader) parseScene(
 		}
 	}
 	l.bindSkeleton(skeletons, geometryMap, modelMap)
-	l.createAmbientLight()
-	l.setupMorphMaterials()
 	// if all the models where already combined in a single group, just return that
 	if len(sceneGraph.Children()) == 1 && sceneGraph.Children()[0].IsGroup() {
 		sceneGraph = sceneGraph.Children()[0]
@@ -620,7 +594,7 @@ func (l *Loader) buildSkeleton(relationships ConnectionSet, skeletons map[int]Sk
 					// set name and id here - otherwise in cases where "subBone" is created it will not have a name / id
 					bone.SetName(sanitizeNodeName(name))
 					bone.SetID(id)
-					skeleton.bones[i] = bone
+					skeleton.bones[i] = *bone
 					// In cases where a bone is shared between multiple meshes
 					// duplicate the bone here and and it as a child of the first bone
 					if subBone != nil {
@@ -839,20 +813,20 @@ func (l *Loader) createLight(relationships ConnectionSet) Light {
 func (l *Loader) createMesh(relationships ConnectionSet, geometryMap map[int]Geometry, materialMap map[int]Material) Model {
 	var model Model
 	var geometry Geometry
-	var materials = []Material{}
+	var materials = []*Material{}
 	// get geometry and materials(s) from connections
 	for _, child := range relationships.children {
 		if g, ok := geometryMap[child.ID]; ok {
 			geometry = g
 		}
 		if m, ok := materialMap[child.ID]; ok {
-			materials = append(materials, m)
+			materials = append(materials, &m)
 		}
 	}
 	if len(materials) == 0 {
 		mp := NewMeshPhong()
 		mp.color = Color{0.8, 0.8, 0.8}
-		materials = []Material{mp}
+		materials = []*Material{&mp}
 	}
 	if len(geometry.color) > 0 {
 		for _, m := range materials {
@@ -864,9 +838,9 @@ func (l *Loader) createMesh(relationships ConnectionSet, geometryMap map[int]Geo
 			m.skinning = true
 		}
 
-		model = THREE.SkinnfedMesh(geometry, materials)
+		model = NewSkinnedMesh(&geometry, materials)
 	} else {
-		model = THREE.Mesh(geometry, materials)
+		model = NewMesh(&geometry, materials)
 	}
 	return model
 }
@@ -875,25 +849,32 @@ func (l *Loader) createMesh(relationships ConnectionSet, geometryMap map[int]Geo
 func (l *Loader) setModelTransforms(model Model, modelNode *Node) {
 	var td = TransformData{}
 	if v, ok := modelNode.props["RotationOrder"]; ok {
-		td.eulerOrder = &EulerOrder(v.Payload().(int))
+		v2 := EulerOrder(v.Payload().(int))
+		td.eulerOrder = &v2
 	}
 	if v, ok := modelNode.props["Lcl_Translation"]; ok {
-		td.translation = &v.Payload().(floatgeom.Point3)
+		v2 := v.Payload().(floatgeom.Point3)
+		td.translation = &v2
 	}
 	if v, ok := modelNode.props["RotationOffset"]; ok {
-		td.rotationOffset = &v.Payload().(floatgeom.Point3)
+		v2 := v.Payload().(floatgeom.Point3)
+		td.rotationOffset = &v2
 	}
 	if v, ok := modelNode.props["Lcl_Rotation"]; ok {
-		td.rotation = &v.Payload().(mgl64.Mat4)
+		v2 := v.Payload().(floatgeom.Point3)
+		td.rotation = &v2
 	}
 	if v, ok := modelNode.props["PreRotation"]; ok {
-		td.preRotation = &v.Payload().(mgl64.Mat4)
+		v2 := v.Payload().(floatgeom.Point3)
+		td.preRotation = &v2
 	}
 	if v, ok := modelNode.props["PostRotation"]; ok {
-		td.postRotation = &v.Payload().(mgl64.Mat4)
+		v2 := v.Payload().(floatgeom.Point3)
+		td.postRotation = &v2
 	}
 	if v, ok := modelNode.props["Lcl_Scaling"]; ok {
-		td.scale = &v.Payload().(floatgeom.Point3)
+		v2 := v.Payload().(floatgeom.Point3)
+		td.scale = &v2
 	}
 	model.applyMatrix(generateTransform(td))
 }
@@ -908,25 +889,25 @@ func (l *Loader) createCurve(relationships ConnectionSet, geometryMap map[int]Ge
 		}
 	}
 	// FBX does not list materials for Nurbs lines, so we'll just put our own in here.
-	material := THREE.LineBasicMaterial(0x3300ff, 1)
-	return THREE.Line(geometry, material)
+	material := NewLineBasicMaterial(Color{0.2, 0, 1}, 1, 1)
+	return NewLine(&geometry, material)
 }
 
 func (l *Loader) setLookAtProperties(model Model, modelNode *Node) {
 	if _, ok := modelNode.props["LookAtProperty"]; ok {
-		children := l.connections[model.ID].children
+		children := l.connections[model.ID()].children
 		for _, child := range children {
 			if child.Relationship == "LookAtProperty" {
-				lookAtTarget := tree.Objects.Model[child.ID]
-				if _, ok := lookAtTarget["Lcl_Translation"]; ok {
-					pos := lookAtTarget["Lcl_Translation"].Payload().([]float64)
+				lookAtTarget := l.tree.Objects["Model"][child.ID]
+				if prop, ok := lookAtTarget.props["Lcl_Translation"]; ok {
+					pos := prop.Payload().([]float64)
 					// DirectionalLight, SpotLight
-					if model.target != nil {
-						model.target.position.fromArray(pos)
-						sceneGraph.add(model.target)
-					} else { // Cameras and other Object3Ds
-						model.lookAt(floatgeom.Point3{pos[0], pos[1], pos[2]})
-					}
+					if tger, ok := model.(Light); ok {
+						tger.SetTarget(floatgeom.Point3{pos[0], pos[1], pos[2]})
+						//sceneGraph.add(model.target)
+					} // else { // Cameras and other Object3Ds
+					//	model.lookAt(floatgeom.Point3{pos[0], pos[1], pos[2]})
+					//}
 				}
 			}
 		}
@@ -936,11 +917,11 @@ func (l *Loader) setLookAtProperties(model Model, modelNode *Node) {
 func (l *Loader) bindSkeleton(skeletons map[int]Skeleton, geometryMap map[int]Geometry, modelMap map[int]Model) {
 	bindMatrices := l.parsePoseNodes()
 	for id, skeleton := range skeletons {
-		for _, parent := range connections.get(skeleton.ID).parents {
+		for _, parent := range l.connections[skeleton.ID].parents {
 			if _, ok := geometryMap[parent.ID]; ok {
-				for _, geoConnParent := range connections.get(parent.ID).parents {
+				for _, geoConnParent := range l.connections[parent.ID].parents {
 					if model, ok := modelMap[geoConnParent.ID]; ok {
-						model.bind(THREE.Skeleton(skeleton.bones), bindMatrices[geoConnParent.ID])
+						model.BindSkeleton(NewSkeleton(skeleton.bones), bindMatrices[geoConnParent.ID])
 					}
 				}
 			}
@@ -948,18 +929,19 @@ func (l *Loader) bindSkeleton(skeletons map[int]Skeleton, geometryMap map[int]Ge
 	}
 }
 
-func parsePoseNodes() {
-	var bindMatrices = map[Node]Matrix4{}
-	if BindPoseNode, ok := tree.Objects["Pose"]; ok {
+func (l *Loader) parsePoseNodes() map[int]mgl64.Mat4 {
+	var bindMatrices = map[int]mgl64.Mat4{}
+	if BindPoseNode, ok := l.tree.Objects["Pose"]; ok {
 		for nodeID, v := range BindPoseNode {
 			if v.attrType == "BindPose" {
 				poseNodes := v.props["PoseNode"]
 				if poseNodes.IsArray() {
-					for _, n := range poseNodes {
-						bindMatrices[n.Node] = n.Payload().(Matrix4)
+					for _, n := range poseNodes.Payload().([]Node) {
+						bindMatrices[n.ID] = n.props["Matrix"].Payload().(mgl64.Mat4)
 					}
 				} else {
-					bindMatrices[poseNodes.Node] = poseNodes.Payload().(Matrix4)
+					n := poseNodes.Payload().(Node)
+					bindMatrices[n.ID] = n.props["Matrix"].Payload().(mgl64.Mat4)
 				}
 			}
 		}
@@ -967,46 +949,16 @@ func parsePoseNodes() {
 	return bindMatrices
 }
 
-// Parse ambient color in tree.GlobalSettings - if it's not set to black (default), create an ambient light
-func (l *Loader) createAmbientLight() {
-	_, ok := tree["GlobalSetttings"]
-	ambientColor, ok2 := tree["AmbientColor"].(color.RGBA)
-	if ok && ok2 {
-		if ambientColor.R != 0 || ambientColor.G != 0 || ambientColor.B != 0 {
-			sceneGraph.add(THREE.AmbientLight(ambientColor, 1))
-		}
-	}
-}
-
-func (l *Loader) setupMorphMaterials() {
-	sceneGraph.traverse(func(c SceneNode) {
-		if c.isMesh {
-			_, ok := c.geometry.morphAttributes["position"]
-			_, ok2 := c.geometry.morphAttributes["normal"]
-			if ok || ok2 {
-				// if a geometry has morph targets, it cannot share the material with other geometries
-				sharedMat := false
-				sceneGraph.traverse(func(c2 SceneNode) {
-					if c2.isMesh {
-						if c2.material.uuid == c.material.uuid && c2.uuid != c.uuid {
-							sharedMat = true
-							return
-						}
-					}
-				})
-				if sharedMat {
-					c.material = child.material.clone()
-				}
-				c.material.morphTargets = true
-			}
-		}
-	})
-}
-
 // FBXTree holds a representation of the FBX data, returned by the TextParser ( FBX ASCII format)
 // and BinaryParser( FBX Binary format)
 type Tree struct {
 	Objects map[string]map[int]*Node
+}
+
+func NewTree() *Tree {
+	return &Tree{
+		Objects: make(map[string]map[int]*Node),
+	}
 }
 
 func isBinary(r io.Reader) bool {

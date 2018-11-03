@@ -17,6 +17,12 @@ type Skeleton struct {
 func (s *Skeleton) calculateInverses() {
 	s.boneInverses = make([]mgl64.Mat4, len(s.bones))
 	for i, b := range s.bones {
-		s.bonesInverse[i] = b.Inv()
+		s.boneInverses[i] = b.matrixWorld.Inv()
 	}
+}
+
+func NewSkeleton(bones []BoneModel) *Skeleton {	
+	sk := &Skeleton{}
+	sk.bones = bones
+	return sk
 }

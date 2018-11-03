@@ -11,7 +11,6 @@ type Node struct {
 
 	a            Property
 	props        map[string]Property
-	poseNode     []Property
 	propertyList []Property
 	connections  []Property
 }

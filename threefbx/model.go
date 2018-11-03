@@ -1,6 +1,11 @@
 package threefbx
 
-import "github.com/go-gl/mathgl/mgl64"
+import (
+	"fmt"
+
+	"github.com/go-gl/mathgl/mgl64"
+	"github.com/oakmound/oak/alg/floatgeom"
+)
 
 type Model interface {
 	setParent(Model)
@@ -17,6 +22,14 @@ type Model interface {
 	ID() int
 
 	IsGroup() bool
+
+	MatrixWorld() mgl64.Mat4
+
+	updateMatrixWorld(bool)
+	updateMatrix()
+	applyMatrix(mgl64.Mat4)
+
+	BindSkeleton(s *Skeleton, mat mgl64.Mat4)
 }
 
 type Camera interface {
@@ -24,10 +37,9 @@ type Camera interface {
 	SetFocalLength(int)
 }
 
-type ModelCopyable interface{
+type ModelCopyable interface {
 	Copy() Model
 }
-
 
 type baseModel struct {
 	name string
@@ -37,30 +49,82 @@ type baseModel struct {
 	children []Model
 
 	animations []Animation
+
+	position   floatgeom.Point3
+	quaternion floatgeom.Point4
+	scale      floatgeom.Point3
+
+	matrixWorld            mgl64.Mat4
+	matrix                 mgl64.Mat4
+	matrixWorldNeedsUpdate bool
+	matrixAutoUpdate       bool
+
+	skeleton       *Skeleton
+	skeletonMatrix mgl64.Mat4
 }
 
-func (bm *baseModel) copy() *baseModel{
-	bm2 := baseModel{
-		name: bm.name,
-		id : bm.id,
-		parent: bm.parent,
-		children: make([]Model, len(bm.children)),
-		animations: make([]Animation, len(bm.animations))
+// copy expects the real, non base model that this new base model will be
+// put into as it's 'wrapping' argument
+func (bm *baseModel) copy(wrapping Model) *baseModel {
+	bm2 := &baseModel{
+		name:       bm.name,
+		id:         bm.id,
+		parent:     bm.parent,
+		children:   make([]Model, len(bm.children)),
+		animations: make([]Animation, len(bm.animations)),
 	}
-	for i , c := range bm.children{
-		if c2, ok :=  c.(ModelCopyable); ok{
+	for i, c := range bm.children {
+		if c2, ok := c.(ModelCopyable); ok {
 			c3 := c2.Copy()
-			c3.parent = bm2
+			c3.setParent(wrapping)
 			bm2.children[i] = c3
-		}
-		else{
+		} else {
 			fmt.Println(" Tried to copy an uncopiable model, this would normally be an error. #TODO")
 		}
 	}
-	for i , a := range bm.animations{
-		bm2.animations[i] = a.Copy()
+	for i, a := range bm.animations {
+		bm2.animations[i] = *a.Copy()
 	}
 	return bm2
+}
+
+func (bm *baseModel) MatrixWorld() mgl64.Mat4 {
+	return bm.matrixWorld
+}
+
+func (bm *baseModel) updateMatrixWorld(force bool) {
+	if bm.matrixAutoUpdate {
+		bm.updateMatrix()
+	}
+
+	if bm.matrixWorldNeedsUpdate || force {
+		if bm.parent == nil {
+			bm.matrixWorld = bm.matrix
+		} else {
+			bm.matrixWorld = bm.parent.MatrixWorld().Mul4(bm.matrixWorld)
+		}
+		bm.matrixWorldNeedsUpdate = false
+	}
+
+	for _, c := range bm.children {
+		c.updateMatrixWorld(force)
+	}
+}
+
+func (bm *baseModel) updateMatrix() {
+	bm.matrix = composeMat(bm.position, bm.quaternion, bm.scale)
+}
+
+func (bm *baseModel) applyMatrix(m2 mgl64.Mat4) {
+	bm.matrix = m2.Mul4(bm.matrix)
+	var eul Euler
+	bm.position, eul, bm.scale = decomposeMat(bm.matrix)
+	bm.quaternion = eul.ToQuaternion()
+}
+
+func (bm *baseModel) BindSkeleton(s *Skeleton, mat mgl64.Mat4) {
+	bm.skeleton = s
+	bm.skeletonMatrix = mat
 }
 
 func (bm *baseModel) Parent() Model {
@@ -144,9 +208,8 @@ func (bm *BoneModel) IsGroup() bool {
 }
 
 func (bm *BoneModel) Copy() *BoneModel {
-	out := BoneModel{
-		baseModel: bm.baseModel.copy()
-		matrixWorld: bm.matrixWorld
-	}
+	out := &BoneModel{}
+	out.baseModel = bm.baseModel.copy(out)
+	out.matrixWorld = bm.matrixWorld
 	return out
 }

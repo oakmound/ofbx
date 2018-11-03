@@ -3,7 +3,6 @@ package threefbx
 import (
 	"math"
 
-	"github.com/go-gl/mathgl/mgl64"
 	"github.com/oakmound/oak/alg/floatgeom"
 )
 
@@ -16,16 +15,14 @@ type baseLight struct {
 	castShadow bool
 	color      Color
 	intensity  float64
-	position   floatgeom.Point3
-	scale      floatgeom.Point3
-	quaternion floatgeom.Point4
-	matrix     mgl64.Mat4
+	target     floatgeom.Point3
 }
 
 type Light interface {
 	Model
 
 	SetCastShadow(bool)
+	SetTarget(floatgeom.Point3)
 }
 
 func (bl *baseLight) IsGroup() bool {
@@ -35,6 +32,10 @@ func (bl *baseLight) IsGroup() bool {
 //
 func (bl *baseLight) SetCastShadow(b bool) {
 	bl.castShadow = b
+}
+
+func (bl *baseLight) SetTarget(target floatgeom.Point3) {
+	bl.target = target
 }
 
 // PointLight is a light  emenating from a single point
@@ -85,9 +86,11 @@ func NewDirectionalLight(color Color, intensity float64) *DirectionalLight {
 			color:     color,
 			intensity: intensity,
 
-			position:   DefaultUp,
-			scale:      floatgeom.Point3{1, 1, 1},
-			quaternion: floatgeom.Point4{0, 0, 0, 1},
+			baseModel: &baseModel{
+				position:   DefaultUp,
+				scale:      floatgeom.Point3{1, 1, 1},
+				quaternion: floatgeom.Point4{0, 0, 0, 1},
+			},
 		},
 	}
 	dl.matrix = composeMat(dl.position, dl.quaternion, dl.scale)

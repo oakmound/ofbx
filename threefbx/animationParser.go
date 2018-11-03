@@ -392,7 +392,7 @@ func (l *Loader) generateRotationTrack(modelName string, curves map[string]Anima
 
 func (l *Loader) generateMorphTrack(rawTracks CurveNode) KeyframeTrack {
 	curves := rawTracks.DeformPercent.curves["morph"]
-	values := make([]float64, len(curves.values))
+	values := make([]float64, len(curves.values)) 
 	for i, val := range curves.values {
 		values[i] = val / 100
 	}

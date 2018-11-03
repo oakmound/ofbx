@@ -176,6 +176,8 @@ type Material struct {
 
 	displacementScale int
 
+	lineWidth float64
+
 	needsUpdate bool
 }
 
@@ -296,6 +298,15 @@ func NewMeshPhong() Material { //https://github.com/mrdoob/three.js/blob/34dc247
 	// setValues(parameters),
 
 	return mp
+}
+
+func NewLineBasicMaterial(c Color, opacity, lineWidth float64) Material {
+	mat := NewMaterial()
+	mat.lights = false
+	mat.lineWidth = lineWidth
+	mat.color = c
+	mat.Opacity = opacity
+	return mat
 }
 
 // func (m *Material) setValues(params) {

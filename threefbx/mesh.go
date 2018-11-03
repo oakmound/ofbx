@@ -1,6 +1,8 @@
 package threefbx
 
-import "github.com/go-gl/mathgl/mgl64"
+import (
+	"github.com/go-gl/mathgl/mgl64"
+)
 
 type DrawMode int
 
@@ -11,15 +13,17 @@ const (
 )
 
 type Mesh struct {
-	geometery *Geometry
+	*baseModel
+	geometry  *Geometry
 	materials []*Material
 	drawMode  DrawMode
 }
 
-func NewMesh(geometery *Geometry, materials []*Material) *Mesh {
+func NewMesh(geometry *Geometry, materials []*Material) *Mesh {
 
 	m := Mesh{
-		geometery: geometery,
+		baseModel: &baseModel{},
+		geometry:  geometry,
 		materials: materials,
 		drawMode:  TrianglesDrawMode,
 	}
@@ -31,36 +35,46 @@ func NewMesh(geometery *Geometry, materials []*Material) *Mesh {
 
 type SkinnedMesh struct {
 	*Mesh
+	bound             bool
 	bindMatrix        mgl64.Mat4
 	bindMatrixInverse mgl64.Mat4
 	bones             []Model
-	skeleton          Skeleton
+	skeleton          *Skeleton
 }
 
-func NewSkinnedMesh(geometery *Geometry, materials []*Material) *SkinnedMesh {
+func NewSkinnedMesh(geometry *Geometry, materials []*Material) *SkinnedMesh {
 
 	sm := SkinnedMesh{
-		Mesh:  NewMesh(geometery, materials),
-		bones: make([]Model, len(geometery.bones)),
+		Mesh:  NewMesh(geometry, materials),
+		bones: make([]Model, len(geometry.FBX_Deformer.bones)),
 	}
 
-	for i, b := range sm.geometery.bones {
-		sm.bones[i] = b.(*BoneModel).Copy()
+	for i, b := range sm.geometry.FBX_Deformer.bones {
+		sm.bones[i] = b.Copy()
 	}
 
 	// sm.skeleton =
 	// sm.skeleton = geometery.FBX_Deformer
 	// var skeleton = new Skeleton( bones );
 
-	updateMatrixWorld(true)
-	sm.bind(skeleton, sm.matrixWorld) //TODO: originally this.matrixWorld from js base
+	sm.updateMatrixWorld(true)
+	sm.bind(geometry.FBX_Deformer, sm.matrixWorld) //TODO: originally this.matrixWorld from js base
 	sm.normalizeSkinWeights()
 	return &sm
 }
 
-func (sm *SkinnedMesh) bind(skeleton SKeleton, bindMatrix mgl64.Mat4) {
+func (sm *SkinnedMesh) updateMatrixWorld(force bool) {
+	sm.Mesh.updateMatrixWorld(force)
+	if sm.bound {
+		sm.bindMatrixInverse = sm.matrixWorld.Inv()
+	} else {
+		sm.bindMatrixInverse = sm.bindMatrix.Inv()
+	}
+}
+
+func (sm *SkinnedMesh) bind(skeleton *Skeleton, bindMatrix mgl64.Mat4) {
 	sm.skeleton = skeleton
-	if bindMatrix == null {
+	if bindMatrix == (mgl64.Mat4{}) {
 		sm.skeleton.calculateInverses()
 		sm.bindMatrix = sm.matrixWorld
 		sm.bindMatrixInverse = sm.bindMatrix.Inv()
@@ -85,29 +99,9 @@ func (sm *SkinnedMesh) normalizeSkinWeights() {
 	// 	}
 	// } else if ( this.geometry && this.geometry.isBufferGeometry ) {
 
-	skinWeight = sm.geometery.skinWeight
+	skinWeight := sm.geometry.skinWeight
 	for i, sw := range skinWeight {
 		sum := sw[0] + sw[1] + sw[2] + sw[3]
-		sm.geometery.skinWeight[i] = [][4]float64{sw[0] / sum, sw[1] / sum, sw[2] / sum, sw[3] / sum}
+		sm.geometry.skinWeight[i] = [4]float64{sw[0] / sum, sw[1] / sum, sw[2] / sum, sw[3] / sum}
 	}
 }
-
-// updateMatrixWorld: function ( force ) {
-
-// 	Mesh.prototype.updateMatrixWorld.call( this, force );
-
-// 	if ( this.bindMode === 'attached' ) {
-
-// 		this.bindMatrixInverse.getInverse( this.matrixWorld );
-
-// 	} else if ( this.bindMode === 'detached' ) {
-
-// 		this.bindMatrixInverse.getInverse( this.bindMatrix );
-
-// 	} else {
-
-// 		console.warn( 'THREE.SkinnedMesh: Unrecognized bindMode: ' + this.bindMode );
-
-// 	}
-
-// },
