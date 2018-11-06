@@ -126,7 +126,7 @@ func (tp *TextParser) parseNodeBegin(line string, property []string) error {
 		nodeAttrs[i] = unwrapProperty(nodeAttrs[i])
 	}
 
-	node := NewNode(nodeName)
+	node := NewNode(nodeName) 
 	//TODO: Remove need for these
 
 	//attrs can return without an integer id... when?
