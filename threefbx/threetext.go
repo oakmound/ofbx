@@ -59,9 +59,12 @@ func (tp *TextParser) parse(text string) Tree {
 		if vals := regexp.MustCompile("^\\t{"+strconv.Itoa(tp.currentIndent)+"}(\\w+):(.*){").FindAllString(line, -1); len(vals) > 0 {
 			tp.parseNodeBegin(line, vals)
 		} else if vals := regexp.MustCompile("^\\t{"+strconv.Itoa(tp.currentIndent)+"}(\\w+):[\\s\\t\\r\\n](.*)").FindAllString(line, -1); len(vals) > 0 {
-			tp.parseNodeProperty(line, vals[0], splitText[lineNum+1])
+			tp.parseNodeProperty(line, vals, splitText[lineNum+1])
 		} else if vals := regexp.MustCompile("^\\t{"+strconv.Itoa(tp.currentIndent-1)+"}}").FindAllString(line, -1); len(vals) > 0 {
-			tp.popStack()
+			//nodestack pop.
+			tp.nodeStack = tp.nodeStack[0 : len(tp.nodeStack)-1]
+			tp.currentIndent--
+			// tp.popStack()
 		} else if matched, _ := regexp.MatchString("^[^\\s\\t}]", line); matched {
 			tp.parseNodePropertyContinued(line)
 		}
@@ -103,6 +106,19 @@ func (tp *TextParser) parseNodeAttr(attrs []string) (nodeAttr, error) {
 	}, nil
 }
 
+// getCurrentNode returns the current node given the nodestack on tp
+func (tp *TextParser) getCurrentNode() Node {
+	return tp.nodeStack[tp.currentIndent-1]
+}
+
+func (tp *TextParser) addNode(nodeName string, attrID int, node *Node) {
+	if _, ok := tp.allNodes.Objects[nodeName]; !ok {
+		tp.allNodes.Objects[nodeName] = make(map[int]*Node)
+	}
+
+	tp.allNodes.Objects[nodeName][attrID] = node
+}
+
 func (tp *TextParser) parseNodeBegin(line string, property []string) error {
 	nodeName := unwrapProperty(property[1])
 	nodeAttrs := strings.Split(property[2], ",")
@@ -121,102 +137,141 @@ func (tp *TextParser) parseNodeBegin(line string, property []string) error {
 	currentNode := tp.getCurrentNode()
 
 	if tp.currentIndent == 0 {
-		tp.allNodes.Objects[nodeName][attrs.ID] = node
-		tp.allNodes.add(nodeName, node) //this adds to the overall nodes that dont exist yet
+		tp.addNode(nodeName, attrs.ID, node)
+		// tp.allNodes.Objects[nodeName][attrs.ID] = node
+		// tp.allNodes.append(nodeName, node) //this adds to the overall nodes that dont exist yet
 	} else {
 		//This is a subnode
 		eProp, ok := currentNode.props[nodeName]
 		if ok {
 			if nodeName == "PoseNode" {
-				currentNode.PoseNodes = append(currentNode.poseNodes, node)
-			} else if currentNode.props[nodeName] {
+				poseNodes := currentNode.props["PoseNode"].Payload().([]*Node)
+				poseNodes = append(poseNodes, node)
+				currentNode.props["PoseNode"] = &ArrayProperty{poseNodes}
+			} else if _, ok := currentNode.props[nodeName]; ok {
 				// currentNode.props[nodeName]
 				//TODO: Figure this out looks like it may be the mechanism they used to go from single prop to multi?
 				// currentNode[ nodeName ] = {};
 				//         currentNode[ nodeName ][ currentNode[ nodeName ].id ] = currentNode[ nodeName ];
+				currentNode.props[nodeName] = &IDMapProperty{
+					map[int]Property{attrs.ID: currentNode.props[nodeName]},
+				}
 			}
 			if attrs.ID != 0 {
-				currentNode.props[nodeName][attrs.ID] = node
+				prop, ok := currentNode.props[nodeName]
+				if !ok {
+					return nil
+				}
+				m, ok := prop.Payload().(map[int]Property)
+				if !ok {
+					return nil
+				}
+				_, ok = m[attrs.ID]
+				if ok {
+					return nil
+				}
+				m[attrs.ID] = node
+				currentNode.props[nodeName] = &IDMapProperty{m}
 			}
-
-		} else if !attrErr {
-			currentNode.props[nodeName] = []property{}
-			currentNode.props[nodeName][attrs.ID] = node
 		} else if nodeName != "Properties70" {
 			if nodeName == "PoseNode" {
-				currentNode.Props[nodeName] = ArrayProperty{[]Node{node}}
+				currentNode.props[nodeName] = &ArrayProperty{[]*Node{node}}
 			} else {
-				currentNode.Props[nodeName] = SimpleProperty{node}
+				currentNode.props[nodeName] = &IDMapProperty{map[int]Property{attrs.ID: node}}
+			}
+		} else {
+			currentNode.props[nodeName] = &IDMapProperty{
+				map[int]Property{attrs.ID: currentNode.props[nodeName]},
 			}
 		}
-		if !attrErr {
-			node.ID = atrId
-		}
+		node.ID = attrs.ID
+
 		if attrs.Name != "" {
-			node.attrName = attrs.name
+			node.attrName = attrs.Name
 		}
 		if attrs.Typ != "" {
 			node.attrType = attrs.Typ
 		}
-		tp.nodeStack = append(tp.nodeStack, node)
+		tp.nodeStack = append(tp.nodeStack, *node)
 	}
+	return nil
 }
 
 //parseNodeProperty takes the current line a prop and the next line
-func (tp *TextParser) parseNodeProperty(line, property, contentLine string) {
+func (tp *TextParser) parseNodeProperty(line string, property []string, contentLine string) {
+
+	var propValue interface{}
+
 	propName := unwrapProperty(property[1])
-	propValue := unwrapProperty(property[2])
+	propValue = unwrapProperty(property[2])
 	// for special case: base64 image data follows "Content: ," line
 	//	Content: ,
 	//	 "/9j/4RDaRXhpZgAA  TU0A..."
 	if propName == "Content" && propValue == "," {
 		propValue = lastComma.ReplaceAllString(quotes.ReplaceAllString(contentLine, ""), "")
-		propValue = strings.Trim(propValue)
+		propValue = strings.TrimSpace(propValue.(string))
 	}
 	currentNode := tp.getCurrentNode()
-	parentName := tp.currentNode.name
+	parentName := currentNode.name
 	if parentName == "Properties70" {
-		tp.parseNodeSpecialProperty(line, propName, propValue)
+		tp.parseNodeSpecialProperty(line, propName, propValue.(string))
 		return
 	}
 	_, nodeHasProp := currentNode.props[propName]
 	// Connections
 	if propName == "C" {
-		connProps := strings.Split(propValue, ",")[1:]
-		from := Atoi(connProps[0])
-		to := Atoi(connProps[1])
+		con := Connection{}
+		connProps := strings.Split(propValue.(string), ",")[1:]
+		from, err1 := strconv.Atoi(connProps[0])
+		to, err2 := strconv.Atoi(connProps[1])
+		if err1 != nil || err2 != nil {
+			return
+		}
+		con.From = from
+		con.To = to
 
-		rest := strings.Split(propValue, ",")[3:]
+		rest := strings.Split(propValue.(string), ",")[3:]
 		for i := 0; i < len(rest); i++ {
-			rest[i] = strings.Trim(firstQuote.ReplaceAllString(rest[i], ""))
+			rest[i] = strings.TrimSpace(firstQuote.ReplaceAllString(rest[i], ""))
 		}
+		con.Relationship = strings.Join(rest, ",")
 		propName = "connections"
-		propValue = []int{from, to}
-
-		propValue = append(propValue, rest)
-		if !nodeHasProp {
-			currentNode[propName] = []int{}
+	} else if propName == "Node" {
+		id, err := strconv.Atoi(propValue.(string))
+		if err != nil {
+			return
 		}
+		currentNode.ID = id
 	}
-
-	// Node
-	if propName == "Node" {
-		currentNode.ID = propValue
-	}
-	// connections
 	if nodeHasProp && currentNode.props[propName].IsArray() {
-		currentNode.props[propName] = append(currentNode.props[propName], propValue)
+		pl := currentNode.props[propName].Payload().([]*Node)
+		currentNode.props[propName] = &ArrayProperty{append(pl, propValue.(*Node))}
 	} else {
 		if propName != "a" {
-			currentNode[propName] = propValue
+			currentNode.props[propName] = &SimpleProperty{propValue}
 		} else {
-			currentNode.a = propValue
+			// currentNode.a = propValue
+			currentNode.props[propName] = &ArrayProperty{propValue}
 		}
 	}
-	tp.setCurrentProp(currentNode, propName)
+
+	ps := propValue.(string)
+
+	// tp.setCurrentProp(currentNode, propName)
 	// convert string to array, unless it ends in "," in which case more will be added to it
-	if propName == "a" && propValue[-1] != "," {
-		currentNode.a = parseNumberArray(propValue)
+	if propName == "a" && ps[len(ps)-1] != ',' {
+		ar := strings.Split(propValue.(string), ",")[3:]
+		floatArr := make([]float64, len(ar))
+		var err error
+		for i := 0; i < len(ar); i++ {
+			floatArr[i], err = strconv.ParseFloat(
+				strings.TrimSpace(firstQuote.ReplaceAllString(ar[i], "")),
+				64,
+			)
+
+		}
+
+		currentNode.props[propName] = &ArrayProperty{floatArr}
 	}
 }
 
@@ -224,7 +279,7 @@ func (tp *TextParser) parseNodeSpecialProperty(line string, propName string, pro
 
 	props := strings.Split(propValue, "\",")
 	for i := 0; i < len(props); i++ {
-		props[i] = whiteSpace.ReplaceAllString(firstQuote.ReplaceAllString(strings.Trim(props[i]), ""), "_")
+		props[i] = whiteSpace.ReplaceAllString(firstQuote.ReplaceAllString(strings.TrimSpace(props[i]), ""), "_")
 		innerPropName := props[0]
 		innerPropType1 := props[1]
 		innerPropType2 := props[2]
@@ -234,7 +289,7 @@ func (tp *TextParser) parseNodeSpecialProperty(line string, propName string, pro
 		switch innerPropType1 {
 		case "int" || "enum" || "bool" || "ULongLong" ||
 			"double" || "Number" || "FieldOfView":
-			innerPropValue = strings.ParseFloat(innerPropValue)
+			innerPropValue = strconv.ParseFloat(innerPropValue)
 		case "Color" || "ColorRGB" || "Vector3D" || "Lcl_Translation" ||
 			"Lcl_Rotation" || "Lcl_Scaling":
 			innerPropValue = parseNumberArray(innerPropValue)
