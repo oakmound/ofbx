@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-func (l *Loader) parseBinary(r io.Reader) (*Tree, error) {
+func (l *Loader) ParseBinary(r io.Reader) (*Tree, error) {
 	reader := NewBinaryReader(r, true)
 	// We already read first 21 bytes
 	reader.r.Discard(2) // skip reserved bytes

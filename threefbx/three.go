@@ -27,9 +27,10 @@ func NewLoader() *Loader {
 func (l *Loader) Load(r io.Reader, textureDir string) (Model, error) {
 	var err error
 	if isBinary(r) {
-		l.tree, err = l.parseBinary(r)
+		l.tree, err = l.ParseBinary(r)
 	} else {
-		l.tree, err = l.parseASCII(r)
+		tree, err := l.ParseASCII(r)
+		l.tree = &tree
 	}
 	if err != nil {
 		return nil, err
