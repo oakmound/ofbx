@@ -82,6 +82,7 @@ func (m1 Matrix) Transpose() Matrix {
 
 func (m1 Matrix) Inverse() Matrix {
 	//TODO: we gotta implement
+	return m1
 }
 
 func setTranslation(v floatgeom.Point3, m *Matrix) {

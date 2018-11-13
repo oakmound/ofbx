@@ -1,6 +1,7 @@
 package threefbx
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/go-gl/mathgl/mgl64"
@@ -86,6 +87,19 @@ func (bm *baseModel) copy(wrapping Model) *baseModel {
 		bm2.animations[i] = *a.Copy()
 	}
 	return bm2
+}
+
+func SearchModelsByName(root Model, name string) (Model, error) {
+	if root.Name() == name {
+		return root, nil
+	}
+	for _, c := range root.Children() {
+		m, err := SearchModelsByName(c, name)
+		if err != nil {
+			return m, nil
+		}
+	}
+	return nil, errors.New("Not found")
 }
 
 func (bm *baseModel) MatrixWorld() mgl64.Mat4 {

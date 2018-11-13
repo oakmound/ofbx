@@ -312,8 +312,9 @@ func (l *Loader) generateTracks(rawTracks CurveNode) []KeyframeTrack {
 		tracks = append(tracks, scaleTrack)
 	}
 	if rawTracks.DeformPercent != 0.0 {
-		morphTrack := l.generateMorphTrack(rawTracks)
-		tracks = append(tracks, morphTrack)
+		fmt.Println("Morph tracks not supported")
+		//morphTrack := l.generateMorphTrack(rawTracks)
+		//tracks = append(tracks, morphTrack)
 	}
 	return tracks
 }
@@ -370,8 +371,6 @@ func (l *Loader) generateRotationTrack(modelName string, curves map[string]Anima
 		postRot = &q
 	}
 
-	quaternion := floatgeom.Point4{}
-
 	keyFrameVals := []float64{}
 	for i := 0; i < len(values); i += 3 {
 		euler := Euler{
@@ -390,15 +389,22 @@ func (l *Loader) generateRotationTrack(modelName string, curves map[string]Anima
 	return QuaternionKeyframeTrack(modelName+".quaternion", times, keyFrameVals)
 }
 
+/*
 func (l *Loader) generateMorphTrack(rawTracks CurveNode) KeyframeTrack {
 	curves := rawTracks.DeformPercent.curves["morph"]
-	values := make([]float64, len(curves.values)) 
+	values := make([]float64, len(curves.values))
 	for i, val := range curves.values {
 		values[i] = val / 100
 	}
-	morphNum := l.sceneGraph.ByName(rawTracks.modelName).morphTargetDictionary[rawTracks.morphName]
+	found, err := SearchModelsByName(l.sceneGraph, rawTracks.modelName)
+	if err != nil {
+		fmt.Println("Unable to find model with name", rawTracks.modelName)
+		return KeyframeTrack{}
+	}
+	morphNum := found.morphTargetDictionary[rawTracks.morphName]
 	return NumberKeyframeTrack(rawTracks.modelName+".morphTargetInfluences["+morphNum+"]", curves.Times, values)
 }
+*/
 
 // For all animated objects, times are defined separately for each axis
 // Here we'll combine the times into one sorted array without duplicates

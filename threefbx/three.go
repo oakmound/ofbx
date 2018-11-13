@@ -17,11 +17,16 @@ import (
 type Loader struct {
 	tree        *Tree
 	connections ParsedConnections
-	sceneGraph  Group
+	sceneGraph  Model
 }
 
 func NewLoader() *Loader {
 	return &Loader{}
+}
+
+func Load(r io.Reader, textureDir string) (Model, error) {
+	l := NewLoader()
+	return l.Load(r, textureDir)
 }
 
 func (l *Loader) Load(r io.Reader, textureDir string) (Model, error) {
@@ -30,6 +35,9 @@ func (l *Loader) Load(r io.Reader, textureDir string) (Model, error) {
 		l.tree, err = l.ParseBinary(r)
 	} else {
 		tree, err := l.ParseASCII(r)
+		if err != nil {
+			return nil, err
+		}
 		l.tree = &tree
 	}
 	if err != nil {
@@ -58,7 +66,8 @@ func (l *Loader) parseTree(textureDir string) (Model, error) {
 	materials := l.parseMaterials(textures)
 	skeletons, morphTargets := l.parseDeformers()
 	geometry, err := l.parseGeometry(skeletons, morphTargets)
-	return l.parseScene(skeletons, morphTargets, geometry, materials), nil
+	l.sceneGraph = l.parseScene(skeletons, morphTargets, geometry, materials)
+	return l.sceneGraph, nil
 }
 
 type VideoNode struct {
@@ -86,7 +95,6 @@ func (l *Loader) parseImages() (map[int]io.Reader, error) {
 	fnms := make(map[int]string)
 	inBlobs := make(map[string]io.Reader)
 	outBlobs := make(map[int]io.Reader)
-	var err error
 	vids := l.tree.Objects["Videos"]
 	for id, v := range vids {
 		vn, err := NewVideoNode(v)
@@ -573,7 +581,7 @@ func (l *Loader) createCamera(relationships ConnectionSet) Model {
 	typ := 0
 	v, ok := cameraAttribute["CameraProjectionType"]
 	if ok && v.(int64) == 1 {
-		typ := 1
+		typ = 1
 	}
 	nearClippingPlane := 1
 	if v, ok := cameraAttribute["NearPlane"]; ok {
@@ -666,7 +674,6 @@ func NewLightNode(n *Node) (*LightNode, error) {
 		ln.OuterAngle = &f
 	}
 
-	var b bool
 	ln.CastLightOnObject, ok = n.props["CastLightOnObject"].Payload().(bool)
 	if !ok {
 		return nil, errors.New("Invalid LightNode")
@@ -861,7 +868,7 @@ func (l *Loader) setLookAtProperties(model Model, modelNode *Node) {
 
 func (l *Loader) bindSkeleton(skeletons map[int]Skeleton, geometryMap map[int]Geometry, modelMap map[int]Model) {
 	bindMatrices := l.parsePoseNodes()
-	for id, skeleton := range skeletons {
+	for _, skeleton := range skeletons {
 		for _, parent := range l.connections[skeleton.ID].parents {
 			if _, ok := geometryMap[parent.ID]; ok {
 				for _, geoConnParent := range l.connections[parent.ID].parents {
@@ -877,7 +884,7 @@ func (l *Loader) bindSkeleton(skeletons map[int]Skeleton, geometryMap map[int]Ge
 func (l *Loader) parsePoseNodes() map[int]mgl64.Mat4 {
 	var bindMatrices = map[int]mgl64.Mat4{}
 	if BindPoseNode, ok := l.tree.Objects["Pose"]; ok {
-		for nodeID, v := range BindPoseNode {
+		for _, v := range BindPoseNode {
 			if v.attrType == "BindPose" {
 				poseNodes := v.props["PoseNode"]
 				if poseNodes.IsArray() {

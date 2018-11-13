@@ -47,9 +47,8 @@ func (c *Cursor) readBytes(length int) []byte {
 }
 
 type BinaryReader struct {
-	r            *Cursor
-	order        binary.ByteOrder
-	littleEndian bool
+	r     *Cursor
+	order binary.ByteOrder
 }
 
 func NewBinaryReader(r io.Reader, littleEndian bool) *BinaryReader {
@@ -57,7 +56,11 @@ func NewBinaryReader(r io.Reader, littleEndian bool) *BinaryReader {
 	reader := &Cursor{bufio.NewReader(countReader), countReader}
 	br := &BinaryReader{}
 	br.r = reader
-	br.littleEndian = littleEndian
+	if littleEndian {
+		br.order = binary.LittleEndian
+	} else {
+		br.order = binary.BigEndian
+	}
 	return br
 }
 

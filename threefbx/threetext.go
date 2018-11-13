@@ -126,7 +126,7 @@ func (tp *TextParser) parseNodeBegin(line string, property []string) error {
 		nodeAttrs[i] = unwrapProperty(nodeAttrs[i])
 	}
 
-	node := NewNode(nodeName) 
+	node := NewNode(nodeName)
 	//TODO: Remove need for these
 
 	//attrs can return without an integer id... when?
@@ -154,15 +154,11 @@ func (tp *TextParser) parseNodeBegin(line string, property []string) error {
 				// currentNode[ nodeName ] = {};
 				//         currentNode[ nodeName ][ currentNode[ nodeName ].id ] = currentNode[ nodeName ];
 				currentNode.props[nodeName] = &IDMapProperty{
-					map[int]Property{attrs.ID: currentNode.props[nodeName]},
+					map[int]Property{attrs.ID: eProp},
 				}
 			}
 			if attrs.ID != 0 {
-				prop, ok := currentNode.props[nodeName]
-				if !ok {
-					return nil
-				}
-				m, ok := prop.Payload().(map[int]Property)
+				m, ok := eProp.Payload().(map[int]Property)
 				if !ok {
 					return nil
 				}
@@ -260,18 +256,7 @@ func (tp *TextParser) parseNodeProperty(line string, property []string, contentL
 	// tp.setCurrentProp(currentNode, propName)
 	// convert string to array, unless it ends in "," in which case more will be added to it
 	if propName == "a" && ps[len(ps)-1] != ',' {
-		ar := strings.Split(propValue.(string), ",")[3:]
-		floatArr := make([]float64, len(ar))
-		var err error
-		for i := 0; i < len(ar); i++ {
-			floatArr[i], err = strconv.ParseFloat(
-				strings.TrimSpace(firstQuote.ReplaceAllString(ar[i], "")),
-				64,
-			)
-
-		}
-
-		currentNode.props[propName] = &ArrayProperty{floatArr}
+		currentNode.props[propName] = tp.parseNumberArray(propValue.(string))
 	}
 }
 
@@ -280,35 +265,67 @@ func (tp *TextParser) parseNodeSpecialProperty(line string, propName string, pro
 	props := strings.Split(propValue, "\",")
 	for i := 0; i < len(props); i++ {
 		props[i] = whiteSpace.ReplaceAllString(firstQuote.ReplaceAllString(strings.TrimSpace(props[i]), ""), "_")
-		innerPropName := props[0]
-		innerPropType1 := props[1]
-		innerPropType2 := props[2]
-		innerPropFlag := props[3]
-		innerPropValue := props[4]
+	}
+	innerPropName := props[0]
+	innerPropType1 := props[1]
+	innerPropType2 := props[2]
+	innerPropFlag := props[3]
+	innerPropValue := props[4]
 
-		switch innerPropType1 {
-		case "int" || "enum" || "bool" || "ULongLong" ||
-			"double" || "Number" || "FieldOfView":
-			innerPropValue = strconv.ParseFloat(innerPropValue)
-		case "Color" || "ColorRGB" || "Vector3D" || "Lcl_Translation" ||
-			"Lcl_Rotation" || "Lcl_Scaling":
-			innerPropValue = parseNumberArray(innerPropValue)
+	var parsedValue interface{}
+
+	switch innerPropType1 {
+	case "int", "enum", "bool", "ULongLong",
+		"double", "Number", "FieldOfView":
+		var err error
+		parsedValue, err = strconv.ParseFloat(innerPropValue, 64)
+		if err != nil {
+			fmt.Println("Error parsing property as float", err)
+		}
+	case "Color", "ColorRGB", "Vector3D", "Lcl_Translation",
+		"Lcl_Rotation", "Lcl_Scaling":
+		parsedValue = tp.parseNumberArray(innerPropValue)
+	default:
+		parsedValue = innerPropValue
+	}
+	tp.nodeStack[tp.currentIndent-2].props[innerPropName] = &MapProperty{map[string]Property{
+		"type":  &SimpleProperty{innerPropType1},
+		"type2": &SimpleProperty{innerPropType2},
+		"flag":  &SimpleProperty{innerPropFlag},
+		"value": &SimpleProperty{parsedValue},
+	}}
+}
+
+func (tp *TextParser) parseNumberArray(s string) Property {
+	ar := strings.Split(s, ",")[3:]
+	floatArr := make([]float64, len(ar))
+	var err error
+	for i := 0; i < len(ar); i++ {
+		floatArr[i], err = strconv.ParseFloat(
+			strings.TrimSpace(firstQuote.ReplaceAllString(ar[i], "")),
+			64,
+		)
+		if err != nil {
+			fmt.Println("Error parsing float", ar[i])
+			return nil
 		}
 	}
-	tp.getPrevNode()[innerPropName] = map[string]string{
-		"type":  innerPropType1,
-		"type2": innerPropType2,
-		"flag":  innerPropFlag,
-		"value": innerPropValue,
-	}
-	tp.setCurrentProp(tp.getPrevNode(), innerPropName)
+	return &ArrayProperty{floatArr}
 }
 
 // parseNodePropertyContinued appends lines to the property on .a until it is finished and then parses itas a number array
 func (tp *TextParser) parseNodePropertyContinued(line string) {
 	currentNode := tp.getCurrentNode()
-	currentNode.a = append(currentNode.a, line)
-	if line[-1] != "," {
-		currentNode.a = parseNubmerArray(currentNode.a)
+	if line[len(line)-1] != ',' {
+		new := tp.parseNumberArray(line)
+		old := currentNode.a.Payload().([]float64)
+		currentNode.a = &ArrayProperty{append(old, new.Payload().([]float64)...)}
+	} else {
+		old := currentNode.a.Payload().([]string)
+		currentNode.a = &ArrayProperty{append(old, line)}
 	}
 }
+
+// Numbers:
+// 1,2,3,4
+// 5,6,7,8

@@ -195,6 +195,9 @@ func (l *Loader) genGeometry(geoNode Node, skeleton *Skeleton, morphTarget *Morp
 	geo.position = positionAttribute
 	if len(buffers.colors) > 0 {
 		colors, err := floatsToVertex3s(buffers.colors)
+		if err != nil {
+			return Geometry{}, err
+		}
 		geo.color = make([]Color, len(colors))
 		for i, c := range colors {
 			geo.color[i] = Color{float32(c.X()), float32(c.Y()), float32(c.Z())}
@@ -216,6 +219,9 @@ func (l *Loader) genGeometry(geoNode Node, skeleton *Skeleton, morphTarget *Morp
 
 	if len(buffers.normal) > 0 {
 		normalAttribute, err := floatsToVertex3s(buffers.normal)
+		if err != nil {
+			return Geometry{}, err
+		}
 		normalMatrix := mgl64.Mat4Normal(preTransform)
 
 		normalAttribute = applyBufferAttributeMat3(normalMatrix, normalAttribute)
@@ -409,7 +415,6 @@ func (l *Loader) genBuffers(geoInfo *GeoInfo) gBuffers {
 		if geoInfo.uv != nil {
 			for i, uv := range geoInfo.uv {
 				data := uv.getData(polygonVertexIndex, polygonIndex, vertexIndex)
-				uvs := faceUVs[i]
 				faceUVs[i] = append(faceUVs[i], data[0], data[1])
 			}
 		}
@@ -463,7 +468,7 @@ func (l *Loader) genFace(buffers gBuffers, geoInfo *GeoInfo, facePositionIndexes
 
 		if geoInfo.uv != nil {
 			buffers.uvs = make([][]float64, len(geoInfo.uv))
-			for j, u := range geoInfo.uv {
+			for j := range geoInfo.uv {
 				buffers.uvs[j] = append(buffers.uvs[j], genFloatFaceArray(2, faceUVs[j], i)...)
 			}
 		}
@@ -533,7 +538,7 @@ func (l *Loader) addMorphTargets(parentGeo *Geometry, parentGeoNode Node, morphT
 	}
 	parentGeo.morphAttributes.position = []floatgeom.Point3{}
 	parentGeo.morphAttributes.normal = []floatgeom.Point3{}
-	for idx, t := range morphTarget.RawTargets {
+	for _, t := range morphTarget.RawTargets {
 		morphGeoNode := l.tree.Objects["Geometry"][t.geoID]
 		if morphGeoNode != nil {
 			err := l.genMorphGeometry(parentGeo, parentGeoNode, *morphGeoNode, preTransform)

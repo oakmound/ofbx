@@ -39,15 +39,16 @@ func (l *Loader) parseBinaryNode(r *BinaryReader, version int) (*Node, error) {
 	var err error
 	var nodeEnd uint64
 	var numProperties uint64
-	var propertiesListLen uint64
 	if version >= 7500 {
 		nodeEnd = r.getUint64()
 		numProperties = r.getUint64()
-		propertiesListLen = r.getUint64()
+		// propertiesListLen
+		r.getUint64()
 	} else {
 		nodeEnd = uint64(r.getUint32())
 		numProperties = uint64(r.getUint32())
-		propertiesListLen = uint64(r.getUint32())
+		// propertiesListLen
+		r.getUint32()
 	}
 	name := r.getShortString()
 	// Regards this node as NULL-record if nodeEnd is zero
@@ -55,13 +56,16 @@ func (l *Loader) parseBinaryNode(r *BinaryReader, version int) (*Node, error) {
 		return nil, nil
 	}
 
+	fmt.Println("Properties:")
 	propertyList := make([]Property, numProperties)
 	for i := uint64(0); i < numProperties; i++ {
 		propertyList[i], err = l.parseBinaryProperty(r)
 		if err != nil {
 			return nil, err
 		}
+		fmt.Println("	", propertyList[i])
 	}
+
 	// check if this node represents just a single property
 	// like (name, 0) set or (name2, [0, 1, 2]) set of {name: 0, name2: [0, 1, 2]}
 	if numProperties == 1 && uint64(r.r.ReadSoFar()) == nodeEnd {
@@ -85,7 +89,7 @@ func (l *Loader) parseBinaryNode(r *BinaryReader, version int) (*Node, error) {
 	if i, ok := propertyList[0].Payload().(int); ok {
 		n.ID = i
 	} else {
-		return nil, errors.New("Expected int64 type for ID")
+		return nil, errors.New(fmt.Sprint("Expected int64 type for ID", propertyList[0].Payload()))
 	}
 	if len(propertyList) == 1 {
 		return n, nil
