@@ -19,8 +19,9 @@ func (l *Loader) ParseBinary(r io.Reader) (*Tree, error) {
 
 	var version = reader.getUint32()
 	fmt.Println("FBX binary version: ", version)
-	var allNodes = &Tree{}
+	var allNodes = NewTree()
 	for {
+
 		node, err := l.parseBinaryNode(reader, int(version))
 		if err != nil {
 			if err == io.EOF {
@@ -28,38 +29,61 @@ func (l *Loader) ParseBinary(r io.Reader) (*Tree, error) {
 			}
 			return nil, err
 		}
-		if node != nil {
-			allNodes.Objects[node.name][node.ID] = node
+		if node == nil {
+			break
 		}
+		if _, ok := allNodes.Objects[node.name]; !ok {
+			allNodes.Objects[node.name] = make(map[IDType]*Node)
+		}
+		allNodes.Objects[node.name][node.ID] = node
+
 	}
 	return allNodes, nil
 }
 
 // recursively parse nodes until the end of the file is reached
 func (l *Loader) parseBinaryNode(r *BinaryReader, version int) (*Node, error) {
+	v, _ := r.r.Peek(12)
+	footer := true
+	for _, b := range v {
+		if b != 0 {
+			footer = false
+			break
+		}
+	}
+	if footer {
+		// Note we don't actually read the footer contents yet,
+		// as far as we know the footer holds no useful information
+		//fmt.Println("Returning footer")
+		return nil, nil
+	}
 	n := NewNode("")
 	// The first three data sizes depends on version.
 	var err error
 	var nodeEnd uint64
 	var numProperties uint64
+	blockSentinelLength := 13
+
 	if version >= 7500 {
 		nodeEnd = r.getUint64()
 		numProperties = r.getUint64()
 		// propertiesListLen
 		r.getUint64()
+		blockSentinelLength = 25
 	} else {
 		nodeEnd = uint64(r.getUint32())
 		numProperties = uint64(r.getUint32())
 		// propertiesListLen
 		r.getUint32()
 	}
-	name := r.getShortString()
+	n.name = r.getShortString()
+
 	// Regards this node as NULL-record if nodeEnd is zero
 	if nodeEnd == 0 {
 		return nil, nil
 	}
 
-	fmt.Println("Properties:")
+	fmt.Println("Properties(", n.name, " ", numProperties, nodeEnd, "):")
 	propertyList := make([]Property, numProperties)
 	for i := uint64(0); i < numProperties; i++ {
 		propertyList[i], err = l.parseBinaryProperty(r)
@@ -68,50 +92,52 @@ func (l *Loader) parseBinaryNode(r *BinaryReader, version int) (*Node, error) {
 		}
 		fmt.Println("	", propertyList[i])
 	}
+	n.propertyList = propertyList // raw property list used by parent
 
 	// check if this node represents just a single property
 	// like (name, 0) set or (name2, [0, 1, 2]) set of {name: 0, name2: [0, 1, 2]}
-	if numProperties == 1 && uint64(r.r.ReadSoFar()) == nodeEnd {
+	if numProperties == 1 && uint64(r.r.ReadSoFar()) == nodeEnd-uint64(blockSentinelLength) {
 		n.singleProperty = true
 	}
-	for nodeEnd > uint64(r.r.ReadSoFar()) {
-		subNode, err := l.parseBinaryNode(r, version)
-		if err != nil {
-			return nil, err
+
+	if uint64(r.r.ReadSoFar()) < nodeEnd {
+		for uint64(r.r.ReadSoFar()) < nodeEnd-uint64(blockSentinelLength) {
+			subNode, err := l.parseBinaryNode(r, version)
+			if err != nil {
+				return nil, err
+			}
+			if subNode == nil {
+				break
+			}
+			l.parseBinarySubNode(n.name, n, subNode)
 		}
-		if subNode != nil {
-			l.parseBinarySubNode(name, n, subNode)
-		}
+		r.r.Discard(blockSentinelLength)
 	}
-	n.propertyList = propertyList // raw property list used by parent
-	n.name = name
+
 	// Regards the first three elements in propertyList as id, attrName, and attrType
 	if len(propertyList) == 0 {
 		return n, nil
 	}
 	if s, ok := propertyList[0].Payload.(string); ok {
 		n.ID = s
-	} else if i, ok := propertyList[0].Payload.(int); ok {
-		n.ID = strconv.Itoa(i)
-	} else {
-		return nil, fmt.Errorf("Expected IDType for ID %T:%v", propertyList[0].Payload, propertyList[0].Payload)
+	} else if i, ok := propertyList[0].Payload.(int32); ok {
+		n.ID = strconv.Itoa(int(i))
+	} else if i, ok := propertyList[0].Payload.(int64); ok {
+		n.ID = strconv.Itoa(int(i))
 	}
 	if len(propertyList) == 1 {
 		return n, nil
 	}
 	if s, ok := propertyList[1].Payload.(string); ok {
 		n.attrName = s
-	} else {
-		return nil, errors.New("Expected string type for attrName")
 	}
 	if len(propertyList) == 2 {
 		return n, nil
 	}
 	if s, ok := propertyList[2].Payload.(string); ok {
 		n.attrType = s
-	} else {
-		return nil, errors.New("Expected string type for attrType")
 	}
+
 	return n, nil
 }
 
@@ -188,7 +214,8 @@ func (l *Loader) parseBinarySubNode(name string, root, child *Node) error {
 					child.propertyList[6].Payload,
 				},
 			}
-		} else {
+		} else if len(child.propertyList) > 4 {
+
 			innerPropValue = child.propertyList[4]
 		}
 		// this will be copied to parent, see above
@@ -248,19 +275,13 @@ func (l *Loader) parseBinaryProperty(r *BinaryReader) (Property, error) {
 		return Property{ofbx.PropertyType(ty[0]), r.getString(r.getUint32())}, nil
 	case "Y":
 		return Property{ofbx.PropertyType(ty[0]), r.getInt16()}, nil
-	case "b":
-	case "c":
-	case "d":
-	case "f":
-	case "i":
-	case "l":
+	case "b", "c", "d", "f", "i", "l":
 		arrayLength := r.getUint32()
 		encoding := r.getUint32() // 0: non-compressed, 1: compressed
 		compressedLength := r.getUint32()
 		if encoding == 0 {
 			switch ty {
-			case "b":
-			case "c":
+			case "b", "c":
 				return Property{ofbx.PropertyType(ty[0]), r.getBooleanArray(arrayLength)}, nil
 			case "d":
 				return Property{ofbx.PropertyType(ty[0]), r.getFloat64Array(arrayLength)}, nil
@@ -280,8 +301,7 @@ func (l *Loader) parseBinaryProperty(r *BinaryReader) (Property, error) {
 		defer r2.Close()
 		r3 := NewBinaryReader(r2, false)
 		switch ty {
-		case "b":
-		case "c":
+		case "b", "c":
 			return Property{ofbx.PropertyType(ty[0]), r3.getBooleanArray(arrayLength)}, nil
 		case "d":
 			return Property{ofbx.PropertyType(ty[0]), r3.getFloat64Array(arrayLength)}, nil
