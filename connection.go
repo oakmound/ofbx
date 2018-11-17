@@ -4,9 +4,9 @@ import "fmt"
 
 // Connection is a connection from an Object to either another Object or a Property
 type Connection struct {
-	typ      ConnectionType
-	from, to uint64
-	property string
+	Typ      ConnectionType
+	From, To uint64
+	Property string
 }
 
 // ConnectionType dictates what the Object is connecting to
@@ -28,9 +28,9 @@ func (ct ConnectionType) String() string {
 }
 
 func (c *Connection) String() string {
-	s := "Connection: " + c.typ.String()
-	s += " from=" + fmt.Sprintf("%d", c.from)
-	s += " to=" + fmt.Sprintf("%d", c.to)
-	s += " property=" + c.property
+	s := "Connection: " + c.Typ.String()
+	s += " from=" + fmt.Sprintf("%d", c.From)
+	s += " to=" + fmt.Sprintf("%d", c.To)
+	s += " property=" + c.Property
 	return s
 }

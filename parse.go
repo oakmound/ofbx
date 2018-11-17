@@ -407,10 +407,11 @@ func parseMaterial(scene *Scene, element *Element) *Material {
 	elems = elems[0].Children
 	// Todo: reflection / struct tags for these types of values
 	for _, elem := range elems {
-		if elem.getProperty(0) == nil {
+		p := elem.getProperty(0)
+		if p == nil {
 			continue
 		}
-		v := elem.getProperty(0).value.String()
+		v := p.value.String()
 		// Commented out cases are things I (200sc) think might exist
 		// but haven't seen
 		switch v {
@@ -517,14 +518,14 @@ func parseConnection(root *Element, scene *Scene) (bool, error) {
 			return false, errors.New("Invalid connection")
 		}
 		var c Connection
-		c.from = prop1.value.touint64()
-		c.to = prop2.value.touint64()
+		c.From = prop1.value.touint64()
+		c.To = prop2.value.touint64()
 		if prop0.value.String() == "OO" {
-			c.typ = ObjectConn
+			c.Typ = ObjectConn
 		} else if prop0.value.String() == "OP" {
-			c.typ = PropConn
+			c.Typ = PropConn
 			if prop3 := connection.getProperty(3); prop3 != nil {
-				c.property = prop3.value.String()
+				c.Property = prop3.value.String()
 			} else {
 				return false, errors.New("Invalid connection")
 			}
@@ -739,8 +740,8 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 	//fmt.Println("Parsing connections")
 	for _, con := range scene.Connections {
 		con := con
-		parent := scene.ObjectMap[con.to]
-		child := scene.ObjectMap[con.from]
+		parent := scene.ObjectMap[con.To]
+		child := scene.ObjectMap[con.From]
 		if child == nil || parent == nil {
 			continue
 		}
@@ -757,7 +758,7 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 			if parent.IsNode() {
 				node := child.(*AnimationCurveNode)
 				node.Bone = parent
-				node.BoneLinkProp = con.property
+				node.BoneLinkProp = con.Property
 			}
 		}
 
@@ -787,9 +788,9 @@ func parseObjects(root *Element, scene *Scene) (bool, error) {
 			mat := parent.(*Material)
 			if ctyp == TEXTURE {
 				ttyp := TextureCOUNT
-				if con.property == "NormalMap" {
+				if con.Property == "NormalMap" {
 					ttyp = NORMAL
-				} else if con.property == "DiffuseColor" {
+				} else if con.Property == "DiffuseColor" {
 					ttyp = DIFFUSE
 				}
 				if ttyp == TextureCOUNT {

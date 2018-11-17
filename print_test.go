@@ -1,4 +1,4 @@
-package ofbx
+package ofbx_test
 
 import (
 	"fmt"
@@ -6,6 +6,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/oakmound/ofbx"
 	"github.com/oakmound/ofbx/threefbx"
 )
 
@@ -14,7 +15,7 @@ func TestPrintScene(t *testing.T) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	scene, err := Load(f)
+	scene, err := ofbx.Load(f)
 	if err != nil {
 		log.Fatal(err)
 	}

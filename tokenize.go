@@ -225,7 +225,7 @@ func tokenize(r io.Reader) (*Element, error) {
 	cursor := &Cursor{r2, countReader}
 	//fmt.Println("initial stats: ", r2.Buffered(), cursor.ReadSoFar())
 
-	ok := isBinary(cursor)
+	ok := IsBinary(cursor)
 	if !ok {
 		return nil, errors.New("Non-binary FBX")
 	}

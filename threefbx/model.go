@@ -19,8 +19,8 @@ type Model interface {
 	SetName(name string)
 	Name() string
 
-	SetID(id int)
-	ID() int
+	SetID(id IDType)
+	ID() IDType
 
 	IsGroup() bool
 
@@ -44,7 +44,7 @@ type ModelCopyable interface {
 
 type baseModel struct {
 	name string
-	id   int
+	id   IDType
 
 	parent   Model
 	children []Model
@@ -164,10 +164,10 @@ func (bm *baseModel) SetName(name string) {
 func (bm *baseModel) Name() string {
 	return bm.name
 }
-func (bm *baseModel) SetID(id int) {
+func (bm *baseModel) SetID(id IDType) {
 	bm.id = id
 }
-func (bm *baseModel) ID() int {
+func (bm *baseModel) ID() IDType {
 	return bm.id
 }
 func (bm *baseModel) IsGroup() bool {

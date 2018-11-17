@@ -1,54 +1,25 @@
 package threefbx
 
-type Property interface {
-	IsArray() bool
-	Payload() interface{}
+import (
+	"github.com/oakmound/ofbx"
+)
+
+type Property struct {
+	Typ     ofbx.PropertyType
+	Payload interface{}
 }
 
-type SimpleProperty struct {
-	payload interface{}
+func (p Property) IsArray() bool {
+	switch p.Typ {
+	case ofbx.ArrayBOOL, ofbx.ArrayBYTE, ofbx.ArrayDOUBLE,
+		ofbx.ArrayFLOAT, ofbx.ArrayINT, ofbx.ArrayLONG:
+		return true
+	default:
+		return false
+	}
 }
 
-func (sp *SimpleProperty) Payload() interface{} {
-	return sp.payload
-}
-
-func (sp *SimpleProperty) IsArray() bool {
-	return false
-}
-
-type ArrayProperty struct {
-	payload interface{}
-}
-
-func (ap *ArrayProperty) IsArray() bool {
-	return true
-}
-
-func (ap *ArrayProperty) Payload() interface{} {
-	return ap.payload
-}
-
-type MapProperty struct {
-	m map[string]Property
-}
-
-func (mp *MapProperty) IsArray() bool {
-	return false
-}
-
-func (mp *MapProperty) Payload() interface{} {
-	return mp.m
-}
-
-type IDMapProperty struct {
-	m map[int]Property
-}
-
-func (mp *IDMapProperty) IsArray() bool {
-	return false
-}
-
-func (mp *IDMapProperty) Payload() interface{} {
-	return mp.m
+func NodeProperty(n *Node) Property {
+	// Todo: node property type?
+	return Property{Payload:n}
 }

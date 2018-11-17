@@ -6,7 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
+
+	"github.com/oakmound/ofbx"
 )
 
 func (l *Loader) ParseBinary(r io.Reader) (*Tree, error) {
@@ -34,7 +37,7 @@ func (l *Loader) ParseBinary(r io.Reader) (*Tree, error) {
 
 // recursively parse nodes until the end of the file is reached
 func (l *Loader) parseBinaryNode(r *BinaryReader, version int) (*Node, error) {
-	n := &Node{}
+	n := NewNode("")
 	// The first three data sizes depends on version.
 	var err error
 	var nodeEnd uint64
@@ -86,15 +89,17 @@ func (l *Loader) parseBinaryNode(r *BinaryReader, version int) (*Node, error) {
 	if len(propertyList) == 0 {
 		return n, nil
 	}
-	if i, ok := propertyList[0].Payload().(int); ok {
-		n.ID = i
+	if s, ok := propertyList[0].Payload.(string); ok {
+		n.ID = s
+	} else if i, ok := propertyList[0].Payload.(int); ok {
+		n.ID = strconv.Itoa(i)
 	} else {
-		return nil, errors.New(fmt.Sprint("Expected int64 type for ID", propertyList[0].Payload()))
+		return nil, fmt.Errorf("Expected IDType for ID %T:%v", propertyList[0].Payload, propertyList[0].Payload)
 	}
 	if len(propertyList) == 1 {
 		return n, nil
 	}
-	if s, ok := propertyList[1].Payload().(string); ok {
+	if s, ok := propertyList[1].Payload.(string); ok {
 		n.attrName = s
 	} else {
 		return nil, errors.New("Expected string type for attrName")
@@ -102,7 +107,7 @@ func (l *Loader) parseBinaryNode(r *BinaryReader, version int) (*Node, error) {
 	if len(propertyList) == 2 {
 		return n, nil
 	}
-	if s, ok := propertyList[2].Payload().(string); ok {
+	if s, ok := propertyList[2].Payload.(string); ok {
 		n.attrType = s
 	} else {
 		return nil, errors.New("Expected string type for attrType")
@@ -115,27 +120,52 @@ func (l *Loader) parseBinarySubNode(name string, root, child *Node) error {
 	if child.singleProperty {
 		value := child.propertyList[0]
 		if value.IsArray() {
-			root.props[child.name] = child
+			root.props[child.name] = NodeProperty(child)
 			child.a = value
 		} else {
 			root.props[child.name] = value
 		}
 	} else if name == "Connections" && child.name == "C" {
-		props := make([]Property, len(root.propertyList)-1)
-		for i := 1; i < len(root.propertyList); i++ {
-			props[i-1] = root.propertyList[i]
+		props := child.propertyList
+		conn := ofbx.Connection{}
+		connType, ok := props[0].Payload.(string)
+		if !ok {
+			return errors.New("Expected string for connection type")
 		}
-		root.connections = append(root.connections, props...)
+		switch connType {
+		case "OO":
+			conn.Typ = ofbx.ObjectConn
+		case "OP":
+			conn.Typ = ofbx.PropConn
+			if len(props) > 3 {
+				conn.Property, ok = props[3].Payload.(string)
+				if !ok {
+					return errors.New("Expected string for connection property")
+				}
+			}
+		default:
+			return errors.New("Unknown connection type " + connType)
+		}
+		conn.From, ok = props[1].Payload.(uint64)
+		if !ok {
+			return errors.New("Expected uint64 for conn.From")
+		}
+		conn.To, ok = props[2].Payload.(uint64)
+		if !ok {
+			return errors.New("Expected uint64 for conn.To")
+		}
+		// Javascript discards FBX connection type, we keep it
+		l.rawConnections = append(l.rawConnections, props)
 	} else if child.name == "Properties70" {
 		for k, v := range child.props {
 			root.props[k] = v
 		}
 	} else if name == "Properties70" && child.name == "P" {
-		innerPropName, ok := child.propertyList[0].Payload().(string)
+		innerPropName, ok := child.propertyList[0].Payload.(string)
 		if !ok {
 			return errors.New("Expected string inner property name")
 		}
-		inPropType, ok := child.propertyList[1].Payload().(string)
+		inPropType, ok := child.propertyList[1].Payload.(string)
 		if !ok {
 			return errors.New("Expected string inner property type")
 		}
@@ -151,42 +181,40 @@ func (l *Loader) parseBinarySubNode(name string, root, child *Node) error {
 		}
 
 		if inPropType == "Color" || inPropType == "ColorRGB" || inPropType == "Vector" || inPropType == "Vector3D" || strings.HasPrefix(inPropType, "Lcl_") {
-			innerPropValue = &ArrayProperty{
-				[]interface{}{
-					child.propertyList[4].Payload(),
-					child.propertyList[5].Payload(),
-					child.propertyList[6].Payload(),
+			innerPropValue = Property{
+				Payload: []interface{}{
+					child.propertyList[4].Payload,
+					child.propertyList[5].Payload,
+					child.propertyList[6].Payload,
 				},
 			}
 		} else {
 			innerPropValue = child.propertyList[4]
 		}
 		// this will be copied to parent, see above
-		root.props[innerPropName] = &MapProperty{map[string]Property{
-			"type":  &SimpleProperty{inPropType},
+		root.props[innerPropName] = Property{Payload: map[string]Property{
+			"type":  Property{Payload: inPropType},
 			"type2": inPropType2,
 			"flag":  innerPropFlag,
 			"value": innerPropValue,
 		}}
 	} else if _, ok := root.props[child.name]; !ok {
-		root.props[child.name] = &IDMapProperty{map[int]Property{child.ID: child}}
+		root.props[child.name] = Property{Payload: map[IDType]Property{child.ID: NodeProperty(child)}}
 	} else {
 		if child.name == "PoseNode" {
 			if !root.props[child.name].IsArray() {
 				// Patrick: Ugh??
-				root.props[child.name] = &ArrayProperty{[]interface{}{root.props[child.name], child}}
+				root.props[child.name] = Property{Payload: []interface{}{root.props[child.name], child}}
 				return nil
 			}
-			pay := root.props[child.name].Payload()
-			root.props[child.name] = &ArrayProperty{
-				append(pay.([]interface{}), child),
-			}
+			pay := root.props[child.name].Payload
+			root.props[child.name] = Property{Payload: append(pay.([]interface{}), child)}
 		} else {
 			prop, ok := root.props[child.name]
 			if !ok {
 				return nil
 			}
-			m, ok := prop.Payload().(map[int]Property)
+			m, ok := prop.Payload.(map[IDType]Property)
 			if !ok {
 				return nil
 			}
@@ -194,8 +222,8 @@ func (l *Loader) parseBinarySubNode(name string, root, child *Node) error {
 			if ok {
 				return nil
 			}
-			m[child.ID] = child
-			root.props[child.name] = &IDMapProperty{m}
+			m[child.ID] = NodeProperty(child)
+			root.props[child.name] = Property{Payload: m}
 		}
 	}
 	return nil
@@ -205,21 +233,21 @@ func (l *Loader) parseBinaryProperty(r *BinaryReader) (Property, error) {
 	ty := r.getString(1)
 	switch ty {
 	case "C":
-		return &SimpleProperty{r.getBoolean()}, nil
+		return Property{ofbx.PropertyType(ty[0]), r.getBoolean()}, nil
 	case "D":
-		return &SimpleProperty{r.getFloat64()}, nil
+		return Property{ofbx.PropertyType(ty[0]), r.getFloat64()}, nil
 	case "F":
-		return &SimpleProperty{r.getFloat32()}, nil
+		return Property{ofbx.PropertyType(ty[0]), r.getFloat32()}, nil
 	case "I":
-		return &SimpleProperty{r.getInt32()}, nil
+		return Property{ofbx.PropertyType(ty[0]), r.getInt32()}, nil
 	case "L":
-		return &SimpleProperty{r.getInt64()}, nil
+		return Property{ofbx.PropertyType(ty[0]), r.getInt64()}, nil
 	case "R":
-		return &ArrayProperty{r.getArrayBuffer(r.getUint32())}, nil
+		return Property{ofbx.PropertyType(ty[0]), r.getArrayBuffer(r.getUint32())}, nil
 	case "S":
-		return &SimpleProperty{r.getString(r.getUint32())}, nil
+		return Property{ofbx.PropertyType(ty[0]), r.getString(r.getUint32())}, nil
 	case "Y":
-		return &SimpleProperty{r.getInt16()}, nil
+		return Property{ofbx.PropertyType(ty[0]), r.getInt16()}, nil
 	case "b":
 	case "c":
 	case "d":
@@ -233,37 +261,37 @@ func (l *Loader) parseBinaryProperty(r *BinaryReader) (Property, error) {
 			switch ty {
 			case "b":
 			case "c":
-				return &ArrayProperty{r.getBooleanArray(arrayLength)}, nil
+				return Property{ofbx.PropertyType(ty[0]), r.getBooleanArray(arrayLength)}, nil
 			case "d":
-				return &ArrayProperty{r.getFloat64Array(arrayLength)}, nil
+				return Property{ofbx.PropertyType(ty[0]), r.getFloat64Array(arrayLength)}, nil
 			case "f":
-				return &ArrayProperty{r.getFloat32Array(arrayLength)}, nil
+				return Property{ofbx.PropertyType(ty[0]), r.getFloat32Array(arrayLength)}, nil
 			case "i":
-				return &ArrayProperty{r.getInt32Array(arrayLength)}, nil
+				return Property{ofbx.PropertyType(ty[0]), r.getInt32Array(arrayLength)}, nil
 			case "l":
-				return &ArrayProperty{r.getInt64Array(arrayLength)}, nil
+				return Property{ofbx.PropertyType(ty[0]), r.getInt64Array(arrayLength)}, nil
 			}
 		}
 		buff := r.getArrayBuffer(compressedLength)
 		r2, err := zlib.NewReader(bytes.NewReader(buff))
 		if err != nil {
-			return nil, err
+			return Property{}, err
 		}
 		defer r2.Close()
 		r3 := NewBinaryReader(r2, false)
 		switch ty {
 		case "b":
 		case "c":
-			return &ArrayProperty{r3.getBooleanArray(arrayLength)}, nil
+			return Property{ofbx.PropertyType(ty[0]), r3.getBooleanArray(arrayLength)}, nil
 		case "d":
-			return &ArrayProperty{r3.getFloat64Array(arrayLength)}, nil
+			return Property{ofbx.PropertyType(ty[0]), r3.getFloat64Array(arrayLength)}, nil
 		case "f":
-			return &ArrayProperty{r3.getFloat32Array(arrayLength)}, nil
+			return Property{ofbx.PropertyType(ty[0]), r3.getFloat32Array(arrayLength)}, nil
 		case "i":
-			return &ArrayProperty{r3.getInt32Array(arrayLength)}, nil
+			return Property{ofbx.PropertyType(ty[0]), r3.getInt32Array(arrayLength)}, nil
 		case "l":
-			return &ArrayProperty{r3.getInt64Array(arrayLength)}, nil
+			return Property{ofbx.PropertyType(ty[0]), r3.getInt64Array(arrayLength)}, nil
 		}
 	}
-	return nil, errors.New("Undefined property type: " + ty)
+	return Property{}, errors.New("Undefined property type: " + ty)
 }

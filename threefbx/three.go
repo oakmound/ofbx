@@ -1,7 +1,6 @@
 package threefbx
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -12,12 +11,14 @@ import (
 	"github.com/go-gl/mathgl/mgl64"
 	"github.com/oakmound/oak/alg"
 	"github.com/oakmound/oak/alg/floatgeom"
+	"github.com/oakmound/ofbx"
 )
 
 type Loader struct {
-	tree        *Tree
-	connections ParsedConnections
-	sceneGraph  Model
+	tree           *Tree
+	connections    ParsedConnections
+	rawConnections [][]Property
+	sceneGraph     Model
 }
 
 func NewLoader() *Loader {
@@ -31,7 +32,7 @@ func Load(r io.Reader, textureDir string) (Model, error) {
 
 func (l *Loader) Load(r io.Reader, textureDir string) (Model, error) {
 	var err error
-	if isBinary(r) {
+	if ofbx.IsBinary(r) {
 		l.tree, err = l.ParseBinary(r)
 	} else {
 		tree, err := l.ParseASCII(r)
@@ -79,22 +80,22 @@ type VideoNode struct {
 func NewVideoNode(n *Node) (VideoNode, error) {
 	vn := VideoNode{}
 	var ok bool
-	vn.Filename, ok = n.props["Filename"].Payload().(string)
+	vn.Filename, ok = n.props["Filename"].Payload.(string)
 	if !ok {
 		return vn, errors.New("Node lacking VideoNode properties")
 	}
-	vn.ContentType, ok = n.props["ContentType"].Payload().(string)
+	vn.ContentType, ok = n.props["ContentType"].Payload.(string)
 	if !ok {
 		return vn, errors.New("Node lacking VideoNode properties")
 	}
-	vn.Content, _ = n.props["Content"].Payload().(io.Reader)
+	vn.Content, _ = n.props["Content"].Payload.(io.Reader)
 	return vn, nil
 }
 
-func (l *Loader) parseImages() (map[int]io.Reader, error) {
-	fnms := make(map[int]string)
+func (l *Loader) parseImages() (map[IDType]io.Reader, error) {
+	fnms := make(map[IDType]string)
 	inBlobs := make(map[string]io.Reader)
-	outBlobs := make(map[int]io.Reader)
+	outBlobs := make(map[IDType]io.Reader)
 	vids := l.tree.Objects["Videos"]
 	for id, v := range vids {
 		vn, err := NewVideoNode(v)
@@ -122,8 +123,8 @@ func (l *Loader) parseImage(vn VideoNode) (io.Reader, error) {
 	return vn.Content, nil
 }
 
-func (l *Loader) parseTextures(images map[int]io.Reader) (map[int]Texture, error) {
-	txm := make(map[int]Texture)
+func (l *Loader) parseTextures(images map[IDType]io.Reader) (map[IDType]Texture, error) {
+	txm := make(map[IDType]Texture)
 	for id, txn := range l.tree.Objects["Texture"] {
 		t, err := l.parseTexture(*txn, images)
 		if err != nil {
@@ -142,7 +143,7 @@ const (
 )
 
 type Texture struct {
-	ID      int
+	ID      IDType
 	name    string
 	wrapS   Wrapping
 	wrapT   Wrapping
@@ -151,20 +152,20 @@ type Texture struct {
 	content io.Reader
 }
 
-func (l *Loader) parseTexture(tx Node, images map[int]io.Reader) (Texture, error) {
+func (l *Loader) parseTexture(tx Node, images map[IDType]io.Reader) (Texture, error) {
 	r, err := l.loadTexture(tx, images)
 	return Texture{
 		ID:      tx.ID,
 		name:    tx.attrName,
-		wrapS:   tx.props["WrapModeU"].Payload().(Wrapping),
-		wrapT:   tx.props["WrapModeV"].Payload().(Wrapping),
-		repeat:  tx.props["Scaling"].Payload().(floatgeom.Point2),
+		wrapS:   tx.props["WrapModeU"].Payload.(Wrapping),
+		wrapT:   tx.props["WrapModeV"].Payload.(Wrapping),
+		repeat:  tx.props["Scaling"].Payload.(floatgeom.Point2),
 		content: r,
 	}, err
 }
 
-func (l *Loader) parseMaterials(txs map[int]Texture) map[int]Material {
-	mm := make(map[int]Material)
+func (l *Loader) parseMaterials(txs map[IDType]Texture) map[IDType]Material {
+	mm := make(map[IDType]Material)
 	for id, mnt := range l.tree.Objects["Material"] {
 		mn := NewMaterialNode(mnt)
 		mm[id] = l.parseMaterial(mn, txs)
@@ -172,14 +173,14 @@ func (l *Loader) parseMaterials(txs map[int]Texture) map[int]Material {
 	return mm
 }
 
-func (l *Loader) parseMaterial(mn MaterialNode, txs map[int]Texture) Material {
+func (l *Loader) parseMaterial(mn MaterialNode, txs map[IDType]Texture) Material {
 	mat := mn.ShadingModel.Material()
 	mat.Name = mn.attrName
 	mat = l.parseParameters(mn, txs, mn.ID, mat)
 	return mat
 }
 
-func (l *Loader) loadTexture(tx Node, images map[int]io.Reader) (io.Reader, error) {
+func (l *Loader) loadTexture(tx Node, images map[IDType]io.Reader) (io.Reader, error) {
 	// Todo: filetype parsing
 	cns := l.connections[tx.ID].children
 	if len(cns) < 1 {
@@ -212,55 +213,55 @@ type MaterialNode struct {
 // NewMaterialNode creates a material node from a Node!
 func NewMaterialNode(n *Node) MaterialNode {
 	mn := MaterialNode{Node: n}
-	v, ok := mn.props["BumpFactor"].Payload().(float64)
+	v, ok := mn.props["BumpFactor"].Payload.(float64)
 	if ok {
 		mn.BumpFactor = &v
 	}
-	v2, ok := mn.props["Diffuse"].Payload().([3]float32)
+	v2, ok := mn.props["Diffuse"].Payload.([3]float32)
 	if ok {
 		mn.Diffuse = &v2
 	}
-	v3, ok := mn.props["DiffuseColor"].Payload().([3]float32)
+	v3, ok := mn.props["DiffuseColor"].Payload.([3]float32)
 	if ok {
 		mn.DiffuseColor = &v3
 	}
-	v4, ok := mn.props["DisplacementFactor"].Payload().(float64)
+	v4, ok := mn.props["DisplacementFactor"].Payload.(float64)
 	if ok {
 		mn.DisplacementFactor = &v4
 	}
-	v5, ok := mn.props["Emissive"].Payload().([3]float32)
+	v5, ok := mn.props["Emissive"].Payload.([3]float32)
 	if ok {
 		mn.Emissive = &v5
 	}
-	v6, ok := mn.props["EmissiveColor"].Payload().([3]float32)
+	v6, ok := mn.props["EmissiveColor"].Payload.([3]float32)
 	if ok {
 		mn.EmissiveColor = &v6
 	}
-	v7, ok := mn.props["EmissiveFactor"].Payload().(float64)
+	v7, ok := mn.props["EmissiveFactor"].Payload.(float64)
 	if ok {
 		mn.EmissiveFactor = &v7
 	}
-	v8, ok := mn.props["Opacity"].Payload().(float64)
+	v8, ok := mn.props["Opacity"].Payload.(float64)
 	if ok {
 		mn.Opacity = &v8
 	}
-	v9, ok := mn.props["ReflectionFactor"].Payload().(float64)
+	v9, ok := mn.props["ReflectionFactor"].Payload.(float64)
 	if ok {
 		mn.ReflectionFactor = &v9
 	}
-	v10, ok := mn.props["Shininess"].Payload().(float64)
+	v10, ok := mn.props["Shininess"].Payload.(float64)
 	if ok {
 		mn.Shininess = &v10
 	}
-	v11, ok := mn.props["Specular"].Payload().([3]float32)
+	v11, ok := mn.props["Specular"].Payload.([3]float32)
 	if ok {
 		mn.Specular = &v11
 	}
-	v12, ok := mn.props["SpecularColor"].Payload().([3]float32)
+	v12, ok := mn.props["SpecularColor"].Payload.([3]float32)
 	if ok {
 		mn.SpecularColor = &v12
 	}
-	v13, ok := mn.props["ShadingModel"].Payload().(ShadingModel)
+	v13, ok := mn.props["ShadingModel"].Payload.(ShadingModel)
 	if ok {
 		mn.ShadingModel = &v13
 	}
@@ -268,7 +269,7 @@ func NewMaterialNode(n *Node) MaterialNode {
 	return mn
 }
 
-func (l *Loader) parseParameters(materialNode MaterialNode, txs map[int]Texture, id int, mat Material) Material {
+func (l *Loader) parseParameters(materialNode MaterialNode, txs map[IDType]Texture, id IDType, mat Material) Material {
 
 	if materialNode.BumpFactor != nil {
 		mat.BumpFactor = *materialNode.BumpFactor
@@ -325,8 +326,8 @@ func (l *Loader) parseParameters(materialNode MaterialNode, txs map[int]Texture,
 	for _, child := range l.connections[id].children {
 		// TODO: Remember to throw away layered things and use the first layer's
 		// ID for layered textures
-		txt := txs[int(child.ID)]
-		switch child.Relationship {
+		txt := txs[child.ID]
+		switch child.Property {
 		case "Bump":
 			mat.bumpMap = txt
 		case "DiffuseColor":
@@ -350,15 +351,15 @@ func (l *Loader) parseParameters(materialNode MaterialNode, txs map[int]Texture,
 		//case "SpecularFactor": // AKA specularLevel
 		//case "VectorDisplacementColor": // NOTE: Seems to be a copy of DisplacementColor
 		default:
-			fmt.Printf("%s map is not supported in three.js, skipping texture.\n", child.Relationship)
+			fmt.Printf("%s map is not supported in three.js, skipping texture.\n", child.Property)
 		}
 	}
 	return mat
 }
 
-func (l *Loader) parseDeformers() (map[int]Skeleton, map[int]MorphTarget) {
-	skeletons := make(map[int]Skeleton)
-	morphTargets := make(map[int]MorphTarget)
+func (l *Loader) parseDeformers() (map[IDType]Skeleton, map[IDType]MorphTarget) {
+	skeletons := make(map[IDType]Skeleton)
+	morphTargets := make(map[IDType]MorphTarget)
 	deformer := l.tree.Objects["Deformer"]
 	for id, dn := range deformer {
 		relationships := l.connections[id]
@@ -384,7 +385,7 @@ func (l *Loader) parseDeformers() (map[int]Skeleton, map[int]MorphTarget) {
 }
 
 type Bone struct {
-	ID            int
+	ID            IDType
 	Indices       []int
 	Weights       []float64
 	Transform     mgl64.Mat4
@@ -395,7 +396,7 @@ type Bone struct {
 // Parse single nodes in tree.Objects.Deformer
 // The top level skeleton node has type 'Skin' and sub nodes have type 'Cluster'
 // Each skin node represents a skeleton and each cluster node represents a bone
-func (l *Loader) parseSkeleton(relationships ConnectionSet, deformerNodes map[int]*Node) Skeleton {
+func (l *Loader) parseSkeleton(relationships ConnectionSet, deformerNodes map[IDType]*Node) Skeleton {
 	rawBones := make([]Bone, 0)
 	for _, child := range relationships.children {
 		boneNode := deformerNodes[child.ID]
@@ -407,14 +408,14 @@ func (l *Loader) parseSkeleton(relationships ConnectionSet, deformerNodes map[in
 			Indices: []int{},
 			Weights: []float64{},
 			// Todo: matrices
-			Transform:     Mat4FromSlice(boneNode.props["Transform"].Payload().([]float64)),
-			TransformLink: Mat4FromSlice(boneNode.props["TransformLink"].Payload().([]float64)),
+			Transform:     Mat4FromSlice(boneNode.props["Transform"].Payload.([]float64)),
+			TransformLink: Mat4FromSlice(boneNode.props["TransformLink"].Payload.([]float64)),
 			LinkMode:      boneNode.props["Mode"],
 		}
 		// Todo types, what has 'a' as a field?
 		if idxs, ok := boneNode.props["Indexes"]; ok {
-			rawBone.Indices = idxs.Payload().([]int)
-			rawBone.Weights = boneNode.props["Weights"].Payload().([]float64)
+			rawBone.Indices = idxs.Payload.([]int)
+			rawBone.Weights = boneNode.props["Weights"].Payload.([]float64)
 		}
 		rawBones = append(rawBones, rawBone)
 	}
@@ -425,20 +426,20 @@ func (l *Loader) parseSkeleton(relationships ConnectionSet, deformerNodes map[in
 }
 
 type MorphTarget struct {
-	ID         int
+	ID         IDType
 	RawTargets []RawTarget
 }
 
 type RawTarget struct {
-	id            int
-	geoID         int
+	id            IDType
+	geoID         IDType
 	name          string
 	initialWeight float64
 	fullWeights   []float64
 }
 
 // The top level morph deformer node has type "BlendShape" and sub nodes have type "BlendShapeChannel"
-func (l *Loader) parseMorphTargets(relationships ConnectionSet, deformerNodes map[int]*Node) []RawTarget {
+func (l *Loader) parseMorphTargets(relationships ConnectionSet, deformerNodes map[IDType]*Node) []RawTarget {
 	rawMorphTargets := make([]RawTarget, 0)
 	for i := 0; i < len(relationships.children); i++ {
 		child := relationships.children[i]
@@ -448,12 +449,12 @@ func (l *Loader) parseMorphTargets(relationships ConnectionSet, deformerNodes ma
 		}
 		target := RawTarget{
 			name:          morphTargetNode.attrName,
-			initialWeight: morphTargetNode.props["DeformPercent"].Payload().(float64),
+			initialWeight: morphTargetNode.props["DeformPercent"].Payload.(float64),
 			id:            morphTargetNode.ID,
-			fullWeights:   morphTargetNode.props["FullWeights"].Payload().([]float64),
+			fullWeights:   morphTargetNode.props["FullWeights"].Payload.([]float64),
 		}
 		for _, child := range l.connections[child.ID].children {
-			if child.Relationship == "" {
+			if child.Property == "" {
 				target.geoID = child.ID
 			}
 		}
@@ -468,10 +469,10 @@ func (l *Loader) parseMorphTargets(relationships ConnectionSet, deformerNodes ma
 
 // create the main THREE.Group() to be returned by the loader
 func (l *Loader) parseScene(
-	skeletons map[int]Skeleton,
-	morphTargets map[int]MorphTarget,
-	geometryMap map[int]Geometry,
-	materialMap map[int]Material) Model {
+	skeletons map[IDType]Skeleton,
+	morphTargets map[IDType]MorphTarget,
+	geometryMap map[IDType]Geometry,
+	materialMap map[IDType]Material) Model {
 
 	var sceneGraph Model = &ModelGroup{}
 	modelMap := l.parseModels(skeletons, geometryMap, materialMap)
@@ -495,13 +496,19 @@ func (l *Loader) parseScene(
 	if len(sceneGraph.Children()) == 1 && sceneGraph.Children()[0].IsGroup() {
 		sceneGraph = sceneGraph.Children()[0]
 	}
-	sceneGraph.SetAnimations(l.parseAnimations())
+	anims := l.parseAnimations()
+	// Todo: maybe this should just take the map
+	animSlice := make([]Animation, 0, len(anims))
+	for _, a := range anims {
+		animSlice = append(animSlice, a)
+	}
+	sceneGraph.SetAnimations(animSlice)
 	return sceneGraph
 }
 
 // parse nodes in FBXTree.Objects.Model
-func (l *Loader) parseModels(skeletons map[int]Skeleton, geometryMap map[int]Geometry, materialMap map[int]Material) map[int]Model {
-	modelMap := map[int]Model{}
+func (l *Loader) parseModels(skeletons map[IDType]Skeleton, geometryMap map[IDType]Geometry, materialMap map[IDType]Material) map[IDType]Model {
+	modelMap := map[IDType]Model{}
 	modelNodes := l.tree.Objects["Model"]
 	for id, node := range modelNodes {
 		relationships := l.connections[id]
@@ -535,7 +542,7 @@ func (l *Loader) parseModels(skeletons map[int]Skeleton, geometryMap map[int]Geo
 	return modelMap
 }
 
-func (l *Loader) buildSkeleton(relationships ConnectionSet, skeletons map[int]Skeleton, id int, name string) *BoneModel {
+func (l *Loader) buildSkeleton(relationships ConnectionSet, skeletons map[IDType]Skeleton, id IDType, name string) *BoneModel {
 	var bone *BoneModel
 	for _, parent := range relationships.parents {
 		for id, skeleton := range skeletons {
@@ -570,7 +577,7 @@ func (l *Loader) createCamera(relationships ConnectionSet) Model {
 		attr := l.tree.Objects["NodeAttribute"][child.ID]
 		if attr != nil {
 			for k, prop := range attr.props {
-				cameraAttribute[k] = prop.Payload()
+				cameraAttribute[k] = prop.Payload
 			}
 			break
 		}
@@ -647,42 +654,42 @@ type LightNode struct {
 
 func NewLightNode(n *Node) (*LightNode, error) {
 	ln := &LightNode{}
-	lt, ok := n.props["LightType"].Payload().(int)
+	lt, ok := n.props["LightType"].Payload.(int)
 	if ok {
 		v := LightType(lt)
 		ln.LightType = &v
 	}
-	ln.Color, ok = n.props["Color"].Payload().(Color)
+	ln.Color, ok = n.props["Color"].Payload.(Color)
 	if !ok {
 		return nil, errors.New("Invalid LightNode")
 	}
 	var f float64
-	f, ok = n.props["Intensity"].Payload().(float64)
+	f, ok = n.props["Intensity"].Payload.(float64)
 	if ok {
 		ln.Intensity = &f
 	}
-	f, ok = n.props["FarAttenuationEnd"].Payload().(float64)
+	f, ok = n.props["FarAttenuationEnd"].Payload.(float64)
 	if ok {
 		ln.FarAttenuationEnd = &f
 	}
-	f, ok = n.props["InnerAngle"].Payload().(float64)
+	f, ok = n.props["InnerAngle"].Payload.(float64)
 	if ok {
 		ln.InnerAngle = &f
 	}
-	f, ok = n.props["OuterAngle"].Payload().(float64)
+	f, ok = n.props["OuterAngle"].Payload.(float64)
 	if ok {
 		ln.OuterAngle = &f
 	}
 
-	ln.CastLightOnObject, ok = n.props["CastLightOnObject"].Payload().(bool)
+	ln.CastLightOnObject, ok = n.props["CastLightOnObject"].Payload.(bool)
 	if !ok {
 		return nil, errors.New("Invalid LightNode")
 	}
-	ln.EnableFarAttenuation, ok = n.props["EnableFarAttenuation"].Payload().(bool)
+	ln.EnableFarAttenuation, ok = n.props["EnableFarAttenuation"].Payload.(bool)
 	if !ok {
 		return nil, errors.New("Invalid LightNode")
 	}
-	ln.CastShadows, ok = n.props["CastShadows"].Payload().(bool)
+	ln.CastShadows, ok = n.props["CastShadows"].Payload.(bool)
 	if !ok {
 		return nil, errors.New("Invalid LightNode")
 	}
@@ -762,7 +769,7 @@ func (l *Loader) createLight(relationships ConnectionSet) Light {
 	return model
 }
 
-func (l *Loader) createMesh(relationships ConnectionSet, geometryMap map[int]Geometry, materialMap map[int]Material) Model {
+func (l *Loader) createMesh(relationships ConnectionSet, geometryMap map[IDType]Geometry, materialMap map[IDType]Material) Model {
 	var model Model
 	var geometry Geometry
 	var materials = []*Material{}
@@ -801,37 +808,37 @@ func (l *Loader) createMesh(relationships ConnectionSet, geometryMap map[int]Geo
 func (l *Loader) setModelTransforms(model Model, modelNode *Node) {
 	var td = TransformData{}
 	if v, ok := modelNode.props["RotationOrder"]; ok {
-		v2 := EulerOrder(v.Payload().(int))
+		v2 := EulerOrder(v.Payload.(int))
 		td.eulerOrder = &v2
 	}
 	if v, ok := modelNode.props["Lcl_Translation"]; ok {
-		v2 := v.Payload().(floatgeom.Point3)
+		v2 := v.Payload.(floatgeom.Point3)
 		td.translation = &v2
 	}
 	if v, ok := modelNode.props["RotationOffset"]; ok {
-		v2 := v.Payload().(floatgeom.Point3)
+		v2 := v.Payload.(floatgeom.Point3)
 		td.rotationOffset = &v2
 	}
 	if v, ok := modelNode.props["Lcl_Rotation"]; ok {
-		v2 := v.Payload().(floatgeom.Point3)
+		v2 := v.Payload.(floatgeom.Point3)
 		td.rotation = &v2
 	}
 	if v, ok := modelNode.props["PreRotation"]; ok {
-		v2 := v.Payload().(floatgeom.Point3)
+		v2 := v.Payload.(floatgeom.Point3)
 		td.preRotation = &v2
 	}
 	if v, ok := modelNode.props["PostRotation"]; ok {
-		v2 := v.Payload().(floatgeom.Point3)
+		v2 := v.Payload.(floatgeom.Point3)
 		td.postRotation = &v2
 	}
 	if v, ok := modelNode.props["Lcl_Scaling"]; ok {
-		v2 := v.Payload().(floatgeom.Point3)
+		v2 := v.Payload.(floatgeom.Point3)
 		td.scale = &v2
 	}
 	model.applyMatrix(generateTransform(td))
 }
 
-func (l *Loader) createCurve(relationships ConnectionSet, geometryMap map[int]Geometry) Curve {
+func (l *Loader) createCurve(relationships ConnectionSet, geometryMap map[IDType]Geometry) Curve {
 	var geometry Geometry
 	for i := len(relationships.children) - 1; i >= 0; i-- {
 		child := relationships.children[i]
@@ -849,10 +856,10 @@ func (l *Loader) setLookAtProperties(model Model, modelNode *Node) {
 	if _, ok := modelNode.props["LookAtProperty"]; ok {
 		children := l.connections[model.ID()].children
 		for _, child := range children {
-			if child.Relationship == "LookAtProperty" {
+			if child.Property == "LookAtProperty" {
 				lookAtTarget := l.tree.Objects["Model"][child.ID]
 				if prop, ok := lookAtTarget.props["Lcl_Translation"]; ok {
-					pos := prop.Payload().([]float64)
+					pos := prop.Payload.([]float64)
 					// DirectionalLight, SpotLight
 					if tger, ok := model.(Light); ok {
 						tger.SetTarget(floatgeom.Point3{pos[0], pos[1], pos[2]})
@@ -866,7 +873,7 @@ func (l *Loader) setLookAtProperties(model Model, modelNode *Node) {
 	}
 }
 
-func (l *Loader) bindSkeleton(skeletons map[int]Skeleton, geometryMap map[int]Geometry, modelMap map[int]Model) {
+func (l *Loader) bindSkeleton(skeletons map[IDType]Skeleton, geometryMap map[IDType]Geometry, modelMap map[IDType]Model) {
 	bindMatrices := l.parsePoseNodes()
 	for _, skeleton := range skeletons {
 		for _, parent := range l.connections[skeleton.ID].parents {
@@ -881,19 +888,19 @@ func (l *Loader) bindSkeleton(skeletons map[int]Skeleton, geometryMap map[int]Ge
 	}
 }
 
-func (l *Loader) parsePoseNodes() map[int]mgl64.Mat4 {
-	var bindMatrices = map[int]mgl64.Mat4{}
+func (l *Loader) parsePoseNodes() map[IDType]mgl64.Mat4 {
+	var bindMatrices = map[IDType]mgl64.Mat4{}
 	if BindPoseNode, ok := l.tree.Objects["Pose"]; ok {
 		for _, v := range BindPoseNode {
 			if v.attrType == "BindPose" {
 				poseNodes := v.props["PoseNode"]
 				if poseNodes.IsArray() {
-					for _, n := range poseNodes.Payload().([]Node) {
-						bindMatrices[n.ID] = n.props["Matrix"].Payload().(mgl64.Mat4)
+					for _, n := range poseNodes.Payload.([]Node) {
+						bindMatrices[n.ID] = n.props["Matrix"].Payload.(mgl64.Mat4)
 					}
 				} else {
-					n := poseNodes.Payload().(Node)
-					bindMatrices[n.ID] = n.props["Matrix"].Payload().(mgl64.Mat4)
+					n := poseNodes.Payload.(Node)
+					bindMatrices[n.ID] = n.props["Matrix"].Payload.(mgl64.Mat4)
 				}
 			}
 		}
@@ -901,40 +908,19 @@ func (l *Loader) parsePoseNodes() map[int]mgl64.Mat4 {
 	return bindMatrices
 }
 
-// FBXTree holds a representation of the FBX data, returned by the TextParser ( FBX ASCII format)
+// Tree holds a representation of the FBX data, returned by the TextParser ( FBX ASCII format)
 // and BinaryParser( FBX Binary format)
 type Tree struct {
-	Objects map[string]map[int]*Node
+	Objects map[string]map[IDType]*Node
 }
 
 func NewTree() *Tree {
 	return &Tree{
-		Objects: make(map[string]map[int]*Node),
+		Objects: make(map[string]map[IDType]*Node),
 	}
 }
 
-func isBinary(r io.Reader) bool {
-	magic := append([]byte("Kaydara FBX Binary  "), 0)
-	header := make([]byte, len(magic))
-	n, err := r.Read(header)
-	if n != len(header) {
-		return false
-	}
-	if err != nil {
-		return false
-	}
-	return bytes.Equal(magic, header)
-}
-
-var fbxVersionMatch *regexp.Regexp
-
-func init() {
-	var err error
-	fbxVersionMatch, err = regexp.Compile("FBXVersion: (\\d+)")
-	if err != nil {
-		fmt.Println("Unable to compile fbx version regex:", err)
-	}
-}
+var fbxVersionMatch = regexp.MustCompile("FBXVersion: (\\d+)")
 
 func getFBXVersion(text string) (int, error) {
 	matches := fbxVersionMatch.FindStringSubmatch(text)

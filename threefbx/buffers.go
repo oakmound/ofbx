@@ -2,16 +2,6 @@ package threefbx
 
 import "fmt"
 
-//TODO remove this once we can by breaking out each data object into its own type
-// For example each implementation should have a different buffer type (float64 vs int)
-type threeDataObject struct {
-	dataSize      int
-	buffer        []int
-	indices       []int
-	mappingType   string
-	referenceType string
-}
-
 type bufferDefinition struct {
 	dataSize      int
 	indices       []int

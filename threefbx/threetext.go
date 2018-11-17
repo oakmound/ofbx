@@ -78,7 +78,7 @@ func unwrapProperty(toUnwrap string) string {
 }
 
 type nodeAttr struct {
-	ID   int
+	ID   IDType
 	Name string
 	Typ  string
 }
@@ -86,10 +86,7 @@ type nodeAttr struct {
 //TODO what is a node attr
 //REMINDER: bring up at meeting: original id format doesnt make sense  assign and reassign if not int unless rollback?
 func (tp *TextParser) parseNodeAttr(attrs []string) (nodeAttr, error) {
-	id, err := strconv.Atoi(attrs[0])
-	if err != nil {
-		return nodeAttr{}, err
-	}
+	id := attrs[0]
 	name := ""
 	typ := ""
 	if len(attrs) > 2 {
@@ -111,9 +108,9 @@ func (tp *TextParser) getCurrentNode() Node {
 	return tp.nodeStack[tp.currentIndent-1]
 }
 
-func (tp *TextParser) addNode(nodeName string, attrID int, node *Node) {
+func (tp *TextParser) addNode(nodeName string, attrID IDType, node *Node) {
 	if _, ok := tp.allNodes.Objects[nodeName]; !ok {
-		tp.allNodes.Objects[nodeName] = make(map[int]*Node)
+		tp.allNodes.Objects[nodeName] = make(map[IDType]*Node)
 	}
 
 	tp.allNodes.Objects[nodeName][attrID] = node
@@ -145,20 +142,18 @@ func (tp *TextParser) parseNodeBegin(line string, property []string) error {
 		eProp, ok := currentNode.props[nodeName]
 		if ok {
 			if nodeName == "PoseNode" {
-				poseNodes := currentNode.props["PoseNode"].Payload().([]*Node)
+				poseNodes := currentNode.props["PoseNode"].Payload.([]*Node)
 				poseNodes = append(poseNodes, node)
-				currentNode.props["PoseNode"] = &ArrayProperty{poseNodes}
+				currentNode.props["PoseNode"] = Property{Payload: poseNodes}
 			} else if _, ok := currentNode.props[nodeName]; ok {
 				// currentNode.props[nodeName]
 				//TODO: Figure this out looks like it may be the mechanism they used to go from single prop to multi?
 				// currentNode[ nodeName ] = {};
 				//         currentNode[ nodeName ][ currentNode[ nodeName ].id ] = currentNode[ nodeName ];
-				currentNode.props[nodeName] = &IDMapProperty{
-					map[int]Property{attrs.ID: eProp},
-				}
+				currentNode.props[nodeName] = Property{Payload: map[IDType]Property{attrs.ID: eProp}}
 			}
-			if attrs.ID != 0 {
-				m, ok := eProp.Payload().(map[int]Property)
+			if attrs.ID != "" {
+				m, ok := eProp.Payload.(map[IDType]Property)
 				if !ok {
 					return nil
 				}
@@ -166,19 +161,17 @@ func (tp *TextParser) parseNodeBegin(line string, property []string) error {
 				if ok {
 					return nil
 				}
-				m[attrs.ID] = node
-				currentNode.props[nodeName] = &IDMapProperty{m}
+				m[attrs.ID] = NodeProperty(node)
+				currentNode.props[nodeName] = Property{Payload: m}
 			}
 		} else if nodeName != "Properties70" {
 			if nodeName == "PoseNode" {
-				currentNode.props[nodeName] = &ArrayProperty{[]*Node{node}}
+				currentNode.props[nodeName] = Property{Payload: []*Node{node}}
 			} else {
-				currentNode.props[nodeName] = &IDMapProperty{map[int]Property{attrs.ID: node}}
+				currentNode.props[nodeName] = Property{Payload: map[IDType]Property{attrs.ID: NodeProperty(node)}}
 			}
 		} else {
-			currentNode.props[nodeName] = &IDMapProperty{
-				map[int]Property{attrs.ID: currentNode.props[nodeName]},
-			}
+			currentNode.props[nodeName] = Property{Payload: map[IDType]Property{attrs.ID: currentNode.props[nodeName]}}
 		}
 		node.ID = attrs.ID
 
@@ -218,36 +211,36 @@ func (tp *TextParser) parseNodeProperty(line string, property []string, contentL
 	if propName == "C" {
 		con := Connection{}
 		connProps := strings.Split(propValue.(string), ",")[1:]
-		from, err1 := strconv.Atoi(connProps[0])
-		to, err2 := strconv.Atoi(connProps[1])
-		if err1 != nil || err2 != nil {
-			return
-		}
-		con.From = from
-		con.To = to
+		//from, err1 := strconv.Atoi(connProps[0])
+		//to, err2 := strconv.Atoi(connProps[1])
+		//if err1 != nil || err2 != nil {
+		//	return
+		//}
+		con.From = connProps[0]
+		con.To = connProps[1]
 
 		rest := strings.Split(propValue.(string), ",")[3:]
 		for i := 0; i < len(rest); i++ {
 			rest[i] = strings.TrimSpace(firstQuote.ReplaceAllString(rest[i], ""))
 		}
-		con.Relationship = strings.Join(rest, ",")
+		con.Property = strings.Join(rest, ",")
 		propName = "connections"
 	} else if propName == "Node" {
-		id, err := strconv.Atoi(propValue.(string))
-		if err != nil {
-			return
-		}
-		currentNode.ID = id
+		//id, err := strconv.Atoi(propValue.(string))
+		//	if err != nil {
+		//	return
+		//}
+		currentNode.ID = propValue.(string)
 	}
 	if nodeHasProp && currentNode.props[propName].IsArray() {
-		pl := currentNode.props[propName].Payload().([]*Node)
-		currentNode.props[propName] = &ArrayProperty{append(pl, propValue.(*Node))}
+		pl := currentNode.props[propName].Payload.([]*Node)
+		currentNode.props[propName] = Property{Payload: append(pl, propValue.(*Node))}
 	} else {
 		if propName != "a" {
-			currentNode.props[propName] = &SimpleProperty{propValue}
+			currentNode.props[propName] = Property{Payload: propValue}
 		} else {
 			// currentNode.a = propValue
-			currentNode.props[propName] = &ArrayProperty{propValue}
+			currentNode.props[propName] = Property{Payload: propValue}
 		}
 	}
 
@@ -288,11 +281,11 @@ func (tp *TextParser) parseNodeSpecialProperty(line string, propName string, pro
 	default:
 		parsedValue = innerPropValue
 	}
-	tp.nodeStack[tp.currentIndent-2].props[innerPropName] = &MapProperty{map[string]Property{
-		"type":  &SimpleProperty{innerPropType1},
-		"type2": &SimpleProperty{innerPropType2},
-		"flag":  &SimpleProperty{innerPropFlag},
-		"value": &SimpleProperty{parsedValue},
+	tp.nodeStack[tp.currentIndent-2].props[innerPropName] = Property{Payload: map[string]Property{
+		"type":  Property{Payload: innerPropType1},
+		"type2": Property{Payload: innerPropType2},
+		"flag":  Property{Payload: innerPropFlag},
+		"value": Property{Payload: parsedValue},
 	}}
 }
 
@@ -307,10 +300,10 @@ func (tp *TextParser) parseNumberArray(s string) Property {
 		)
 		if err != nil {
 			fmt.Println("Error parsing float", ar[i])
-			return nil
+			return Property{}
 		}
 	}
-	return &ArrayProperty{floatArr}
+	return Property{Payload: floatArr}
 }
 
 // parseNodePropertyContinued appends lines to the property on .a until it is finished and then parses itas a number array
@@ -318,14 +311,10 @@ func (tp *TextParser) parseNodePropertyContinued(line string) {
 	currentNode := tp.getCurrentNode()
 	if line[len(line)-1] != ',' {
 		new := tp.parseNumberArray(line)
-		old := currentNode.a.Payload().([]float64)
-		currentNode.a = &ArrayProperty{append(old, new.Payload().([]float64)...)}
+		old := currentNode.a.Payload.([]float64)
+		currentNode.a = Property{Payload: append(old, new.Payload.([]float64)...)}
 	} else {
-		old := currentNode.a.Payload().([]string)
-		currentNode.a = &ArrayProperty{append(old, line)}
+		old := currentNode.a.Payload.([]string)
+		currentNode.a = Property{Payload: append(old, line)}
 	}
 }
-
-// Numbers:
-// 1,2,3,4
-// 5,6,7,8

@@ -3,8 +3,8 @@ package threefbx
 import "github.com/go-gl/mathgl/mgl64"
 
 type Skeleton struct {
-	ID         int
-	geometryID int
+	ID         IDType
+	geometryID IDType
 	// Todo: instead of rawBones and Bones,
 	// if rawBones isn't used after it is 'refined'
 	// into bones, have a 'processed' bool?
@@ -21,7 +21,7 @@ func (s *Skeleton) calculateInverses() {
 	}
 }
 
-func NewSkeleton(bones []BoneModel) *Skeleton {	
+func NewSkeleton(bones []BoneModel) *Skeleton {
 	sk := &Skeleton{}
 	sk.bones = bones
 	return sk

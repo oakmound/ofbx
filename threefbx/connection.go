@@ -1,40 +1,55 @@
 package threefbx
 
-import "errors"
+import (
+	"errors"
+)
 
-type ParsedConnections map[int]ConnectionSet
+// Connection is a connection from an Object to either another Object or a Property
+type Connection struct {
+	Typ      ConnectionType
+	From, To IDType
+	Property string
+}
+
+// ConnectionType dictates what the Object is connecting to
+type ConnectionType int
+
+// Connection Types
+const (
+	// ObjectConn is a connection to another Object
+	ObjectConn ConnectionType = iota
+	// PropConn is a connection to a proprety
+	PropConn ConnectionType = iota
+)
+
+type ParsedConnections map[IDType]ConnectionSet
 
 type ConnectionSet struct {
-	parents  []Connection
-	children []Connection
+	parents  []Relationship
+	children []Relationship
+}
+
+type Relationship struct {
+	ID       IDType
+	Property string
 }
 
 func NewParsedConnections() ParsedConnections {
-	return ParsedConnections(make(map[int]ConnectionSet))
-}
-
-type Connection struct {
-	ID           int
-	To, From     int
-	Relationship string
+	return ParsedConnections(make(map[IDType]ConnectionSet))
 }
 
 func NewConnection(n *Node) (Connection, error) {
 	cn := Connection{}
 	var ok bool
-	cn.ID, ok = n.props["ID"].Payload().(int)
+	cn.To, ok = n.props["To"].Payload.(IDType)
 	if !ok {
 		return cn, errors.New("Node lacking Connection properties")
 	}
-	cn.To, ok = n.props["To"].Payload().(int)
+	cn.From, ok = n.props["From"].Payload.(IDType)
 	if !ok {
 		return cn, errors.New("Node lacking Connection properties")
 	}
-	cn.From, ok = n.props["From"].Payload().(int)
-	if !ok {
-		return cn, errors.New("Node lacking Connection properties")
-	}
-	cn.Relationship, ok = n.props["Relationship"].Payload().(string)
+	cn.Property, ok = n.props["Property"].Payload.(string)
 	if !ok {
 		return cn, errors.New("Node lacking Connection properties")
 	}
@@ -50,8 +65,10 @@ func (l *Loader) parseConnections() (ParsedConnections, error) {
 		}
 		cf := cns[cn.From]
 		ct := cns[cn.To]
-		cf.parents = append(cf.parents, cn)
-		ct.children = append(ct.children, cn)
+		pr := Relationship{ID: cn.To, Property: cn.Property}
+		cr := Relationship{ID: cn.From, Property: cn.Property}
+		cf.parents = append(cf.parents, pr)
+		ct.children = append(ct.children, cr)
 		cns[cn.From] = cf
 		cns[cn.To] = ct
 	}

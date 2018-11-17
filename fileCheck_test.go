@@ -20,6 +20,6 @@ func TestIsBinary(t *testing.T) {
 	for _, tc := range testCases {
 		r, err := os.Open(tc.file)
 		require.Nil(t, err)
-		require.Equal(t, tc.binary, isBinary(r))
+		require.Equal(t, tc.binary, IsBinary(r))
 	}
 }

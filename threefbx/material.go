@@ -308,7 +308,3 @@ func NewLineBasicMaterial(c Color, opacity, lineWidth float64) Material {
 	mat.Opacity = opacity
 	return mat
 }
-
-// func (m *Material) setValues(params) {
-
-// }

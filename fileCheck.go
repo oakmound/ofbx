@@ -5,7 +5,7 @@ import (
 	"io"
 )
 
-func isBinary(r io.Reader) bool {
+func IsBinary(r io.Reader) bool {
 	magic := append([]byte("Kaydara FBX Binary  "), 0)
 	header := make([]byte, len(magic))
 	n, err := r.Read(header)
