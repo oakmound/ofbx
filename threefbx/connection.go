@@ -2,6 +2,7 @@ package threefbx
 
 import (
 	"errors"
+	"fmt"
 )
 
 // Connection is a connection from an Object to either another Object or a Property
@@ -38,31 +39,28 @@ func NewParsedConnections() ParsedConnections {
 	return ParsedConnections(make(map[IDType]ConnectionSet))
 }
 
-func NewConnection(n *Node) (Connection, error) {
+func NewConnection(props []Property) (Connection, error) {
 	cn := Connection{}
 	var ok bool
-	cn.To, ok = n.props["To"].Payload.(IDType)
+	cn.To, ok = props[0].Payload.(IDType)
 	if !ok {
-		return cn, errors.New("Node lacking Connection properties")
+		return cn, errors.New("Node lacking Connection properties: To")
 	}
-	cn.From, ok = n.props["From"].Payload.(IDType)
+	cn.From, ok = props[1].Payload.(IDType)
 	if !ok {
-		return cn, errors.New("Node lacking Connection properties")
+		return cn, errors.New("Node lacking Connection properties: From")
 	}
-	cn.Property, ok = n.props["Property"].Payload.(string)
+	cn.Property, ok = props[2].Payload.(string)
 	if !ok {
-		return cn, errors.New("Node lacking Connection properties")
+		return cn, errors.New("Node lacking Connection properties: Property")
 	}
 	return cn, nil
 }
 
 func (l *Loader) parseConnections() (ParsedConnections, error) {
 	cns := NewParsedConnections()
-	for _, n := range l.tree.Objects["Connections"] {
-		cn, err := NewConnection(n)
-		if err != nil {
-			return nil, err
-		}
+	fmt.Println("Raw connections", l.rawConnections)
+	for _, cn := range l.rawConnections {
 		cf := cns[cn.From]
 		ct := cns[cn.To]
 		pr := Relationship{ID: cn.To, Property: cn.Property}

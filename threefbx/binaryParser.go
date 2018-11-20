@@ -15,6 +15,7 @@ import (
 func (l *Loader) ParseBinary(r io.Reader) (*Tree, error) {
 	reader := NewBinaryReader(r, true)
 	// We already read first 21 bytes
+	reader.r.cr.ReadSoFar += 21
 	reader.r.Discard(2) // skip reserved bytes
 
 	var version = reader.getUint32()
@@ -83,6 +84,8 @@ func (l *Loader) parseBinaryNode(r *BinaryReader, version int) (*Node, error) {
 		return nil, nil
 	}
 
+	fmt.Println("Read A:", r.r.ReadSoFar(), nodeEnd)
+
 	fmt.Println("Properties(", n.name, " ", numProperties, nodeEnd, "):")
 	propertyList := make([]Property, numProperties)
 	for i := uint64(0); i < numProperties; i++ {
@@ -100,6 +103,8 @@ func (l *Loader) parseBinaryNode(r *BinaryReader, version int) (*Node, error) {
 		n.singleProperty = true
 	}
 
+	fmt.Println("Read B:", r.r.ReadSoFar(), nodeEnd)
+
 	if uint64(r.r.ReadSoFar()) < nodeEnd {
 		for uint64(r.r.ReadSoFar()) < nodeEnd-uint64(blockSentinelLength) {
 			subNode, err := l.parseBinaryNode(r, version)
@@ -109,10 +114,18 @@ func (l *Loader) parseBinaryNode(r *BinaryReader, version int) (*Node, error) {
 			if subNode == nil {
 				break
 			}
-			l.parseBinarySubNode(n.name, n, subNode)
+			err = l.parseBinarySubNode(n.name, n, subNode)
+			if err != nil {
+				return nil, err
+			}
 		}
+		fmt.Println("About to discard", r.r.ReadSoFar(), blockSentinelLength)
 		r.r.Discard(blockSentinelLength)
+	} else {
+		fmt.Println("No sentinel??")
 	}
+
+	fmt.Println("Read C:", r.r.ReadSoFar(), nodeEnd)
 
 	// Regards the first three elements in propertyList as id, attrName, and attrType
 	if len(propertyList) == 0 {
@@ -152,17 +165,18 @@ func (l *Loader) parseBinarySubNode(name string, root, child *Node) error {
 			root.props[child.name] = value
 		}
 	} else if name == "Connections" && child.name == "C" {
+		fmt.Println("Found connections sub node")
 		props := child.propertyList
-		conn := ofbx.Connection{}
+		conn := Connection{}
 		connType, ok := props[0].Payload.(string)
 		if !ok {
 			return errors.New("Expected string for connection type")
 		}
 		switch connType {
 		case "OO":
-			conn.Typ = ofbx.ObjectConn
+			conn.Typ = ObjectConn
 		case "OP":
-			conn.Typ = ofbx.PropConn
+			conn.Typ = PropConn
 			if len(props) > 3 {
 				conn.Property, ok = props[3].Payload.(string)
 				if !ok {
@@ -172,16 +186,18 @@ func (l *Loader) parseBinarySubNode(name string, root, child *Node) error {
 		default:
 			return errors.New("Unknown connection type " + connType)
 		}
-		conn.From, ok = props[1].Payload.(uint64)
+		from, ok := props[1].Payload.(int64)
 		if !ok {
-			return errors.New("Expected uint64 for conn.From")
+			return fmt.Errorf("Expected int64 for conn.From %t:%v", props[1].Payload, props[1].Payload)
 		}
-		conn.To, ok = props[2].Payload.(uint64)
+		to, ok := props[2].Payload.(int64)
 		if !ok {
-			return errors.New("Expected uint64 for conn.To")
+			return errors.New("Expected int64 for conn.To")
 		}
+		conn.From = strconv.FormatInt(from, 10)
+		conn.To = strconv.FormatInt(to, 10)
 		// Javascript discards FBX connection type, we keep it
-		l.rawConnections = append(l.rawConnections, props)
+		l.rawConnections = append(l.rawConnections, conn)
 	} else if child.name == "Properties70" {
 		for k, v := range child.props {
 			root.props[k] = v

@@ -17,7 +17,7 @@ import (
 type Loader struct {
 	tree           *Tree
 	connections    ParsedConnections
-	rawConnections [][]Property
+	rawConnections []Connection
 	sceneGraph     Model
 }
 
@@ -47,6 +47,9 @@ func (l *Loader) Load(r io.Reader, textureDir string) (Model, error) {
 	if _, ok := l.tree.Objects["LayeredTexture"]; ok {
 		fmt.Println("layered textures are not supported. Discarding all but first layer.")
 	}
+	fmt.Println("Tree:", l.tree.Objects)
+	fmt.Println("Tree.Objects:", l.tree.Objects["Objects"])
+	fmt.Println("Tree.Objects:", l.tree.Objects["Objects"][""])
 	return l.parseTree(textureDir)
 }
 
@@ -56,17 +59,24 @@ func (l *Loader) parseTree(textureDir string) (Model, error) {
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("Parsed connections:", l.connections)
 	images, err := l.parseImages()
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("Parsed images:", images)
 	textures, err := l.parseTextures(images)
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("Parsed textures:", textures)
 	materials := l.parseMaterials(textures)
+	fmt.Println("Parsed materials:", materials)
 	skeletons, morphTargets := l.parseDeformers()
+	fmt.Println("Parsed skeletons:", skeletons)
+	fmt.Println("Parsed morphTargets:", morphTargets)
 	geometry, err := l.parseGeometry(skeletons, morphTargets)
+	fmt.Println("Parsed geometry:", geometry)
 	l.sceneGraph = l.parseScene(skeletons, morphTargets, geometry, materials)
 	return l.sceneGraph, nil
 }
@@ -361,6 +371,7 @@ func (l *Loader) parseDeformers() (map[IDType]Skeleton, map[IDType]MorphTarget) 
 	skeletons := make(map[IDType]Skeleton)
 	morphTargets := make(map[IDType]MorphTarget)
 	deformer := l.tree.Objects["Deformer"]
+	fmt.Println("deformer objects", deformer)
 	for id, dn := range deformer {
 		relationships := l.connections[id]
 		if dn.attrType == "Skin" {
@@ -474,9 +485,14 @@ func (l *Loader) parseScene(
 	geometryMap map[IDType]Geometry,
 	materialMap map[IDType]Material) Model {
 
-	var sceneGraph Model = &ModelGroup{}
+	fmt.Println("parse scene start", skeletons, morphTargets, geometryMap, materialMap)
+
+	var sceneGraph Model = NewModelGroup()
 	modelMap := l.parseModels(skeletons, geometryMap, materialMap)
 	modelNodes := l.tree.Objects["Model"]
+
+	fmt.Println(modelMap, modelNodes)
+
 	for id, model := range modelMap {
 		modelNode := modelNodes[id]
 		l.setLookAtProperties(model, modelNode)
@@ -492,9 +508,10 @@ func (l *Loader) parseScene(
 		}
 	}
 	l.bindSkeleton(skeletons, geometryMap, modelMap)
+	children := sceneGraph.Children()
 	// if all the models where already combined in a single group, just return that
-	if len(sceneGraph.Children()) == 1 && sceneGraph.Children()[0].IsGroup() {
-		sceneGraph = sceneGraph.Children()[0]
+	if len(children) == 1 && children[0].IsGroup() {
+		sceneGraph = children[0]
 	}
 	anims := l.parseAnimations()
 	// Todo: maybe this should just take the map

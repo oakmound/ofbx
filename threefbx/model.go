@@ -174,6 +174,12 @@ func (bm *baseModel) IsGroup() bool {
 	panic("baseModel called as full model")
 }
 
+func NewModelGroup() *ModelGroup {
+	return &ModelGroup{
+		baseModel: &baseModel{},
+	}
+}
+
 type ModelGroup struct {
 	*baseModel
 }

@@ -6,6 +6,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/oakmound/ofbx"
 	"github.com/oakmound/ofbx/threefbx"
 )
@@ -33,5 +34,6 @@ func TestThreePrint(t *testing.T) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(scene)
+	spew.Dump(scene)
+	log.Fatal("failing for print")
 }

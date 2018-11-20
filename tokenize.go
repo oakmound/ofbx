@@ -183,6 +183,8 @@ func (c *Cursor) readElement(version uint16) (*Element, error) {
 	}
 	//fmt.Println("Read short string", id)
 
+	//fmt.Println("Read A:", c.ReadSoFar(), endOffset)
+
 	element := Element{}
 	element.ID = NewDataView(id)
 
@@ -191,8 +193,10 @@ func (c *Cursor) readElement(version uint16) (*Element, error) {
 		element.Properties[i], err = c.readProperty()
 	}
 
+	//fmt.Println("Read B:", c.ReadSoFar(), endOffset)
+
 	if uint64(c.ReadSoFar()) >= endOffset {
-		//fmt.Println("NO Sentinel sizes ", c.ReadSoFar(), endOffset)
+		//fmt.Println("NO Sentinel; sizes: ", c.ReadSoFar(), endOffset)
 		return &element, nil
 	}
 	blockSentinelLength := 13
@@ -214,8 +218,10 @@ func (c *Cursor) readElement(version uint16) (*Element, error) {
 	if uint64(c.ReadSoFar()) > endOffset {
 		//fmt.Println("Read past where we were supposed to!!", c.ReadSoFar(), endOffset)
 	}
+	//fmt.Println("About to discard", c.ReadSoFar(), blockSentinelLength)
 	c.Discard(blockSentinelLength)
 	//fmt.Println("With Sentinel", uint64(c.ReadSoFar()), "versus", endOffset)
+	//fmt.Println("Read C:", c.ReadSoFar(), endOffset)
 	return &element, nil
 }
 
