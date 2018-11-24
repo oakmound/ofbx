@@ -3,8 +3,8 @@ package threefbx
 import "fmt"
 
 type bufferDefinition struct {
-	dataSize      int
-	indices       []int
+	dataSize      int32
+	indices       []int32
 	mappingType   string
 	referenceType string
 }
@@ -19,8 +19,8 @@ type floatBuffer struct {
 	buffer []float64
 }
 
-func getDataSlicePos(bfd bufferDefinition, polygonVertexIndex, polygonIndex, vertexIndex int) (from, to int) {
-	var index int
+func getDataSlicePos(bfd bufferDefinition, polygonVertexIndex, polygonIndex, vertexIndex int32) (from, to int32) {
+	var index int32
 	switch bfd.mappingType {
 	case "ByPolygonVertex":
 		index = polygonVertexIndex
@@ -42,16 +42,16 @@ func getDataSlicePos(bfd bufferDefinition, polygonVertexIndex, polygonIndex, ver
 }
 
 // extracts the data from the correct position in the FBX array based on indexing type
-func (info intBuffer) getData(polygonVertexIndex, polygonIndex, vertexIndex int) []int {
-	from, to := getDataSlicePos(info.bufferDefinition, polygonVertexIndex, polygonIndex, vertexIndex)
+func (info intBuffer) getData(polygonVertexIndex int, polygonIndex, vertexIndex int32) []int {
+	from, to := getDataSlicePos(info.bufferDefinition, int32(polygonVertexIndex), polygonIndex, vertexIndex)
 	out := make([]int, info.dataSize)
 	copy(out, info.buffer[from:to])
 	return out
 }
 
 // extracts the data from the correct position in the FBX array based on indexing type
-func (info floatBuffer) getData(polygonVertexIndex, polygonIndex, vertexIndex int) []float64 {
-	from, to := getDataSlicePos(info.bufferDefinition, polygonVertexIndex, polygonIndex, vertexIndex)
+func (info floatBuffer) getData(polygonVertexIndex int, polygonIndex, vertexIndex int32) []float64 {
+	from, to := getDataSlicePos(info.bufferDefinition, int32(polygonVertexIndex), polygonIndex, vertexIndex)
 	out := make([]float64, info.dataSize)
 	copy(out, info.buffer[from:to])
 	return out

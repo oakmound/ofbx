@@ -44,12 +44,29 @@ func (l *Loader) Load(r io.Reader, textureDir string) (Model, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Objects["Objects"] is a map which we want to pull up a level
+	//We anticipate that there should only be one thing in objects but if not we have this loop
+	for _, objects := range l.tree.Objects["Objects"] { //TODO: should we panic if it loops?
+		for oType, propObj := range objects.props {
+			//propObj is a property that contains all of the things of oType (like animationStacks)
+
+			objs := propObj.Payload.(map[string]Property)
+			l.tree.Objects[oType] = make(map[IDType]*Node)
+
+			// fmt.Printf("type of object, %s is %T \n", oType, obj)
+			for oID, oNode := range objs {
+				obj := oNode.Payload.(*Node)
+				l.tree.Objects[oType][oID] = obj
+			}
+		}
+	}
+	delete(l.tree.Objects, "Objects")
+
 	if _, ok := l.tree.Objects["LayeredTexture"]; ok {
 		fmt.Println("layered textures are not supported. Discarding all but first layer.")
 	}
 	fmt.Println("Tree:", l.tree.Objects)
-	fmt.Println("Tree.Objects:", l.tree.Objects["Objects"])
-	fmt.Println("Tree.Objects:", l.tree.Objects["Objects"][""])
 	return l.parseTree(textureDir)
 }
 
@@ -397,7 +414,7 @@ func (l *Loader) parseDeformers() (map[IDType]Skeleton, map[IDType]MorphTarget) 
 
 type Bone struct {
 	ID            IDType
-	Indices       []int
+	Indices       []int32
 	Weights       []float64
 	Transform     mgl64.Mat4
 	TransformLink mgl64.Mat4
@@ -416,7 +433,7 @@ func (l *Loader) parseSkeleton(relationships ConnectionSet, deformerNodes map[ID
 		}
 		rawBone := Bone{
 			ID:      child.ID,
-			Indices: []int{},
+			Indices: []int32{},
 			Weights: []float64{},
 			// Todo: matrices
 			Transform:     Mat4FromSlice(boneNode.props["Transform"].Payload.([]float64)),
@@ -425,7 +442,7 @@ func (l *Loader) parseSkeleton(relationships ConnectionSet, deformerNodes map[ID
 		}
 		// Todo types, what has 'a' as a field?
 		if idxs, ok := boneNode.props["Indexes"]; ok {
-			rawBone.Indices = idxs.Payload.([]int)
+			rawBone.Indices = idxs.Payload.([]int32)
 			rawBone.Weights = boneNode.props["Weights"].Payload.([]float64)
 		}
 		rawBones = append(rawBones, rawBone)

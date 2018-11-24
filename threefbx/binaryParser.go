@@ -33,6 +33,9 @@ func (l *Loader) ParseBinary(r io.Reader) (*Tree, error) {
 		if node == nil {
 			break
 		}
+		if node.name == "Objects" {
+			fmt.Println("Node in Objects: ", node)
+		}
 		if _, ok := allNodes.Objects[node.name]; !ok {
 			allNodes.Objects[node.name] = make(map[IDType]*Node)
 		}
@@ -84,7 +87,7 @@ func (l *Loader) parseBinaryNode(r *BinaryReader, version int) (*Node, error) {
 		return nil, nil
 	}
 
-	fmt.Println("Read A:", r.r.ReadSoFar(), nodeEnd)
+	// fmt.Println("Read A:", r.r.ReadSoFar(), nodeEnd)
 
 	fmt.Println("Properties(", n.name, " ", numProperties, nodeEnd, "):")
 	propertyList := make([]Property, numProperties)
@@ -103,7 +106,7 @@ func (l *Loader) parseBinaryNode(r *BinaryReader, version int) (*Node, error) {
 		n.singleProperty = true
 	}
 
-	fmt.Println("Read B:", r.r.ReadSoFar(), nodeEnd)
+	// fmt.Println("Read B:", r.r.ReadSoFar(), nodeEnd)
 
 	if uint64(r.r.ReadSoFar()) < nodeEnd {
 		for uint64(r.r.ReadSoFar()) < nodeEnd-uint64(blockSentinelLength) {
@@ -122,10 +125,10 @@ func (l *Loader) parseBinaryNode(r *BinaryReader, version int) (*Node, error) {
 		fmt.Println("About to discard", r.r.ReadSoFar(), blockSentinelLength)
 		r.r.Discard(blockSentinelLength)
 	} else {
-		fmt.Println("No sentinel??")
+		// fmt.Println("No sentinel??")
 	}
 
-	fmt.Println("Read C:", r.r.ReadSoFar(), nodeEnd)
+	// fmt.Println("Read C:", r.r.ReadSoFar(), nodeEnd)
 
 	// Regards the first three elements in propertyList as id, attrName, and attrType
 	if len(propertyList) == 0 {
@@ -155,6 +158,11 @@ func (l *Loader) parseBinaryNode(r *BinaryReader, version int) (*Node, error) {
 }
 
 func (l *Loader) parseBinarySubNode(name string, root, child *Node) error {
+
+	alreadyHandled := typedProperty(name, root, child)
+	if alreadyHandled {
+		return nil
+	}
 	// special case: child node is single property
 	if child.singleProperty {
 		value := child.propertyList[0]
