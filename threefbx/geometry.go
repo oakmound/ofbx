@@ -53,7 +53,10 @@ func NewGeometry() Geometry {
 
 type UVRaw [2]float32
 
-type Group [3]int
+type Group struct {
+	start, count int
+	value        int32
+}
 
 type WeightEntry struct { //TODO: see if we can find a better way that doesnt use this (we could do array or split weightable itself out to two props.)
 	ID     uint16
@@ -83,7 +86,7 @@ func floatsToVertex4s(arr []float32) ([]floatgeom.Point4, error) {
 }
 
 // AddGroup was a THREE.js thing start of conversion is here it seems to store a range for which a value is the same
-func (g *Geometry) AddGroup(rangeStart, count, groupValue int) {
+func (g *Geometry) AddGroup(rangeStart, count int, groupValue int32) {
 	g.groups = append(g.groups, Group{rangeStart, count, groupValue})
 }
 
@@ -245,7 +248,7 @@ func (l *Loader) genGeometry(geoNode Node, skeleton *Skeleton, morphTarget *Morp
 			}
 			if len(geo.groups) > 0 { //add last group
 				lastGroup := geo.groups[len(geo.groups)-1]
-				lastIndex := lastGroup[0] + lastGroup[1]
+				lastIndex := lastGroup.start + lastGroup.count
 				if lastIndex != len(buffers.materialIndex) {
 					geo.AddGroup(lastIndex, len(buffers.materialIndex)-lastIndex, prevMaterialIndex)
 				}
@@ -275,12 +278,11 @@ func (l *Loader) parseGeoNode(geoNode Node, skeleton *Skeleton) (*GeoInfo, error
 	geoInfo := &GeoInfo{}
 
 	if v, ok := geoNode.props["Vertices"]; ok {
-		// Todo: we need to parse out float64s?
 		geoInfo.vertexPositions = v.Payload.([]float64)
+		fmt.Println("geoinfo.vertexPositions", geoInfo.vertexPositions)
 	}
 
 	if v, ok := geoNode.props["PolygonVertexIndex"]; ok {
-		// Todo: parse out ints??
 		geoInfo.vertexIndices = v.Payload.([]int32)
 	}
 
@@ -293,7 +295,7 @@ func (l *Loader) parseGeoNode(geoNode Node, skeleton *Skeleton) (*GeoInfo, error
 		geoInfo.material = &v2
 	}
 	if v, ok := geoNode.props["LayerElementNormal"]; ok {
-		v2 := parseNormals(v.Payload.([]Node)[0])
+		v2 := parseNormals(v.Payload.(*Node))
 		geoInfo.normal = &v2
 	}
 
@@ -336,7 +338,7 @@ func (l *Loader) genBuffers(geoInfo *GeoInfo) gBuffers {
 	faceUVs := [][]float64{}
 	faceWeights := []float64{}
 	faceWeightIndices := []uint16{}
-	materialIndex := -1
+	var materialIndex int32 = -1
 
 	for polygonVertexIndex, vertexIndex := range geoInfo.vertexIndices {
 		// Face index and vertex index arrays are combined in a single array
@@ -399,7 +401,7 @@ func (l *Loader) genBuffers(geoInfo *GeoInfo) gBuffers {
 				weightIndices = append(weightIndices, 0)
 			}
 
-			for i := 1; i <= 4; i++ {
+			for i := 0; i < 4; i++ {
 				faceWeights = append(faceWeights, weights[i])
 				faceWeightIndices = append(faceWeightIndices, weightIndices[i])
 			}
@@ -440,13 +442,13 @@ type gBuffers struct {
 	normal         []float64
 	colors         []float64
 	uvs            [][]float64
-	materialIndex  []int
+	materialIndex  []int32
 	vertexWeights  []float64
 	weightsIndices []uint16
 }
 
 // genFace generates data for a single face in a geometry. If the face is a quad then split it into 2 tris
-func (l *Loader) genFace(buffers gBuffers, geoInfo *GeoInfo, facePositionIndexes []int32, materialIndex int,
+func (l *Loader) genFace(buffers gBuffers, geoInfo *GeoInfo, facePositionIndexes []int32, materialIndex int32,
 	faceNormals []float64, faceColors []float64, faceUVs [][]float64, faceWeights []float64, faceWeightIndices []uint16, faceLength int) {
 	for i := 2; i < faceLength; i++ {
 		buffers.vertex = append(buffers.vertex, genFaceVertex(geoInfo.vertexPositions, facePositionIndexes, i)...)
@@ -593,7 +595,7 @@ func (l *Loader) genMorphGeometry(parentGeo *Geometry, parentGeoNode, morphGeoNo
 }
 
 // Parse normal from FBXTree.Objects.Geometry.LayerElementNormal if it exists
-func parseNormals(n Node) floatBuffer {
+func parseNormals(n *Node) floatBuffer {
 	mappingType := n.props["MappingInformationType"].Payload.(string)
 	referenceType := n.props["ReferenceInformationType"].Payload.(string)
 	indexBuffer := []int32{}
@@ -659,19 +661,19 @@ func (l *Loader) parseMaterialIndices(node *Node) intBuffer {
 	mappingType := n.props["MappingInformationType"].Payload.(string)
 	referenceType := n.props["ReferenceInformationType"].Payload.(string)
 
-	if mappingType == "NoMappingInformation" {
+	if mappingType == MappingNone {
 		return intBuffer{
 			bufferDefinition: bufferDefinition{
 				dataSize:      1,
 				indices:       []int32{0},
-				mappingType:   "AllSame",
+				mappingType:   MappingAllSame,
 				referenceType: referenceType,
 			},
-			buffer: []int{0},
+			buffer: []int32{0},
 		}
 	}
 
-	materialIndexBuffer := n.props["Materials"].Payload.([]int)
+	materialIndexBuffer := n.props["Materials"].Payload.([]int32)
 	// Since materials are stored as indices, there's a bit of a mismatch between FBX and what
 	// we expect.So we create an intermediate buffer that points to the index in the buffer,
 	// for conforming with the other functions we've written for other data.

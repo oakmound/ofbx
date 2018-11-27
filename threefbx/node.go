@@ -23,10 +23,3 @@ func NewNode(name string) *Node {
 	n.props = make(map[string]Property)
 	return n
 }
-func (n *Node) IsArray() bool {
-	return false
-}
-func (n *Node) Payload() interface{} {
-	//Maybe return property map?
-	return n
-}

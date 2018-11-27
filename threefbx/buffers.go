@@ -11,7 +11,7 @@ type bufferDefinition struct {
 
 type intBuffer struct {
 	bufferDefinition
-	buffer []int
+	buffer []int32
 }
 
 type floatBuffer struct {
@@ -42,9 +42,9 @@ func getDataSlicePos(bfd bufferDefinition, polygonVertexIndex, polygonIndex, ver
 }
 
 // extracts the data from the correct position in the FBX array based on indexing type
-func (info intBuffer) getData(polygonVertexIndex int, polygonIndex, vertexIndex int32) []int {
+func (info intBuffer) getData(polygonVertexIndex int, polygonIndex, vertexIndex int32) []int32 {
 	from, to := getDataSlicePos(info.bufferDefinition, int32(polygonVertexIndex), polygonIndex, vertexIndex)
-	out := make([]int, info.dataSize)
+	out := make([]int32, info.dataSize)
 	copy(out, info.buffer[from:to])
 	return out
 }

@@ -323,7 +323,7 @@ func (l *Loader) parseBinaryProperty(r *BinaryReader) (Property, error) {
 			return Property{}, err
 		}
 		defer r2.Close()
-		r3 := NewBinaryReader(r2, false)
+		r3 := NewBinaryReader(r2, true)
 		switch ty {
 		case "b", "c":
 			return Property{ofbx.PropertyType(ty[0]), r3.getBooleanArray(arrayLength)}, nil

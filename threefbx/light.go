@@ -103,9 +103,17 @@ func NewDirectionalLight(color Color, intensity float64) *DirectionalLight {
 func NewPointLight(color Color, intensity, distance, decay float64) *PointLight {
 
 	npl := PointLight{
-		baseLight: &baseLight{color: color, intensity: intensity},
-		distance:  distance,
-		decay:     decay,
+		baseLight: &baseLight{
+			baseModel: &baseModel{
+				position:   DefaultUp,
+				scale:      floatgeom.Point3{1, 1, 1},
+				quaternion: floatgeom.Point4{0, 0, 0, 1},
+			},
+			color:     color,
+			intensity: intensity,
+		},
+		distance: distance,
+		decay:    decay,
 	}
 	// this.shadow = new LightShadow( new PerspectiveCamera( 90, 1, 0.5, 500 ) );
 	return &npl
@@ -114,11 +122,19 @@ func NewPointLight(color Color, intensity, distance, decay float64) *PointLight 
 // NewSpotLight creates a spotlight
 func NewSpotLight(color Color, intensity, distance, angle, penumbra, decay float64) *SpotLight {
 	nsl := SpotLight{
-		baseLight: &baseLight{color: color, intensity: intensity},
-		distance:  distance,
-		decay:     decay,
-		angle:     angle,
-		penumbra:  penumbra,
+		baseLight: &baseLight{
+			baseModel: &baseModel{
+				position:   DefaultUp,
+				scale:      floatgeom.Point3{1, 1, 1},
+				quaternion: floatgeom.Point4{0, 0, 0, 1},
+			},
+			color:     color,
+			intensity: intensity,
+		},
+		distance: distance,
+		decay:    decay,
+		angle:    angle,
+		penumbra: penumbra,
 	}
 
 	return &nsl

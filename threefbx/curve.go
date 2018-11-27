@@ -6,8 +6,8 @@ type Curve struct {
 	material Material
 }
 
-func NewLine(geometry *Geometry, material Material) Curve {
-	return Curve{
+func NewLine(geometry *Geometry, material Material) *Curve {
+	return &Curve{
 		geometry: geometry,
 		material: material,
 	}

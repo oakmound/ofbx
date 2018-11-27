@@ -93,7 +93,6 @@ func (l *Loader) parseTree(textureDir string) (Model, error) {
 	fmt.Println("Parsed skeletons:", skeletons)
 	fmt.Println("Parsed morphTargets:", morphTargets)
 	geometry, err := l.parseGeometry(skeletons, morphTargets)
-	fmt.Println("Parsed geometry:", geometry)
 	l.sceneGraph = l.parseScene(skeletons, morphTargets, geometry, materials)
 	return l.sceneGraph, nil
 }
@@ -502,7 +501,7 @@ func (l *Loader) parseScene(
 	geometryMap map[IDType]Geometry,
 	materialMap map[IDType]Material) Model {
 
-	fmt.Println("parse scene start", skeletons, morphTargets, geometryMap, materialMap)
+	fmt.Println("parse scene start", skeletons, morphTargets, materialMap)
 
 	var sceneGraph Model = NewModelGroup()
 	modelMap := l.parseModels(skeletons, geometryMap, materialMap)
@@ -544,31 +543,54 @@ func (l *Loader) parseScene(
 func (l *Loader) parseModels(skeletons map[IDType]Skeleton, geometryMap map[IDType]Geometry, materialMap map[IDType]Material) map[IDType]Model {
 	modelMap := map[IDType]Model{}
 	modelNodes := l.tree.Objects["Model"]
+NodeLoop:
 	for id, node := range modelNodes {
+		fmt.Println("Parsing model:", id, node)
 		relationships := l.connections[id]
-		var model Model = l.buildSkeleton(relationships, skeletons, id, node.attrName)
-		if model == nil {
+		var model Model
+		m := l.buildSkeleton(relationships, skeletons, id, node.attrName)
+		if m != nil {
+			model = m
+		} else {
 			switch node.attrType {
 			case "Camera":
-				model = l.createCamera(relationships)
-				break
+				m := l.createCamera(relationships)
+				if m == nil {
+					continue NodeLoop
+				}
+				model = m
 			case "Light":
-				model = l.createLight(relationships)
-				break
+				m := l.createLight(relationships)
+				if m == nil {
+					continue NodeLoop
+				}
+				model = m
 			case "Mesh":
-				model = l.createMesh(relationships, geometryMap, materialMap)
-				break
+				m := l.createMesh(relationships, geometryMap, materialMap)
+				if m == nil {
+					continue NodeLoop
+				}
+				model = m
 			case "NurbsCurve":
-				model = l.createCurve(relationships, geometryMap)
-				break
+				m := l.createCurve(relationships, geometryMap)
+				if m == nil {
+					continue NodeLoop
+				}
+				model = m
 			case "LimbNode": // usually associated with a Bone, however if a Bone was not created we"ll make a Group instead
+				fallthrough
 			case "Null":
+				fallthrough
 			default:
-				model = &ModelGroup{}
-				break
+				model = NewModelGroup()
 			}
 			model.SetName(sanitizeNodeName(node.attrName))
 			model.SetID(id)
+		}
+		fmt.Println("model:", model, node.attrType)
+		if model == nil {
+			fmt.Println("For some reason, a", node.attrType, "model was nil")
+			continue
 		}
 		l.setModelTransforms(model, node)
 		modelMap[id] = model
@@ -580,10 +602,11 @@ func (l *Loader) buildSkeleton(relationships ConnectionSet, skeletons map[IDType
 	var bone *BoneModel
 	for _, parent := range relationships.parents {
 		for id, skeleton := range skeletons {
+			skeleton.bones = make([]BoneModel, len(skeleton.rawBones))
 			for i, rawBone := range skeleton.rawBones {
 				if rawBone.ID == parent.ID {
 					subBone := bone
-					bone = &BoneModel{}
+					bone = NewBoneModel()
 					bone.matrixWorld = rawBone.TransformLink
 					// set name and id here - otherwise in cases where "subBone" is created it will not have a name / id
 					bone.SetName(sanitizeNodeName(name))
@@ -831,8 +854,10 @@ func (l *Loader) createMesh(relationships ConnectionSet, geometryMap map[IDType]
 			m.skinning = true
 		}
 
+		fmt.Println("New Skinned Mesh")
 		model = NewSkinnedMesh(&geometry, materials)
 	} else {
+		fmt.Println("New Mesh")
 		model = NewMesh(&geometry, materials)
 	}
 	return model
@@ -869,10 +894,11 @@ func (l *Loader) setModelTransforms(model Model, modelNode *Node) {
 		v2 := v.Payload.(floatgeom.Point3)
 		td.scale = &v2
 	}
+	fmt.Println("model:", model)
 	model.applyMatrix(generateTransform(td))
 }
 
-func (l *Loader) createCurve(relationships ConnectionSet, geometryMap map[IDType]Geometry) Curve {
+func (l *Loader) createCurve(relationships ConnectionSet, geometryMap map[IDType]Geometry) *Curve {
 	var geometry Geometry
 	for i := len(relationships.children) - 1; i >= 0; i-- {
 		child := relationships.children[i]
@@ -927,13 +953,11 @@ func (l *Loader) parsePoseNodes() map[IDType]mgl64.Mat4 {
 	if BindPoseNode, ok := l.tree.Objects["Pose"]; ok {
 		for _, v := range BindPoseNode {
 			if v.attrType == "BindPose" {
-				poseNodes := v.props["PoseNode"]
-				if poseNodes.IsArray() {
-					for _, n := range poseNodes.Payload.([]Node) {
-						bindMatrices[n.ID] = n.props["Matrix"].Payload.(mgl64.Mat4)
-					}
-				} else {
-					n := poseNodes.Payload.(Node)
+				poseNodes, ok := v.props["PoseNode"]
+				if !ok {
+					continue
+				}
+				for _, n := range poseNodes.Payload.([]*Node) {
 					bindMatrices[n.ID] = n.props["Matrix"].Payload.(mgl64.Mat4)
 				}
 			}

@@ -190,7 +190,9 @@ func (mg *ModelGroup) IsGroup() bool {
 
 func NewPerspectiveCamera(int, int, int, int) *PerspectiveCamera {
 	// Not implemented
-	return &PerspectiveCamera{}
+	return &PerspectiveCamera{
+		baseModel: &baseModel{},
+	}
 }
 
 func (pc *PerspectiveCamera) SetFocalLength(int) {}
@@ -205,7 +207,9 @@ func (pc *PerspectiveCamera) IsGroup() bool {
 
 func NewOrthographicCamera(int, int, int, int, int, int) *OrthographicCamera {
 	// Not implemented
-	return &OrthographicCamera{}
+	return &OrthographicCamera{
+		baseModel: &baseModel{},
+	}
 }
 
 func (pc *OrthographicCamera) SetFocalLength(int) {}
@@ -221,6 +225,12 @@ func (oc *OrthographicCamera) IsGroup() bool {
 type BoneModel struct {
 	*baseModel
 	matrixWorld mgl64.Mat4
+}
+
+func NewBoneModel() *BoneModel {
+	return &BoneModel{
+		baseModel: &baseModel{},
+	}
 }
 
 func (bm *BoneModel) IsGroup() bool {
