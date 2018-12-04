@@ -13,6 +13,8 @@ import (
 	"github.com/oakmound/oak/alg/floatgeom"
 )
 
+//Works like three.js animationclip.parse
+
 // parse animation data from FBXTree
 // take raw animation clips and turn them into three.js animation clips
 func (l *Loader) parseAnimations() map[IDType]Animation {
@@ -32,8 +34,10 @@ func (l *Loader) parseAnimations() map[IDType]Animation {
 
 func (l *Loader) parseClips() map[IDType]Clip {
 	curveNodesMap := l.parseAnimationCurveNodes()
+	fmt.Println("CurveNodesMap:", curveNodesMap)
 	l.parseAnimationCurves(curveNodesMap)
 	layersMap := l.parseAnimationLayers(curveNodesMap)
+	fmt.Println("Layers Map", layersMap)
 	rawClips := l.parseAnimStacks(layersMap)
 	return rawClips
 }
@@ -45,13 +49,20 @@ func (l *Loader) parseAnimationCurveNodes() map[IDType]CurveNode {
 	rawCurveNodes := l.tree.Objects["AnimationCurveNode"]
 	curveNodesMap := make(map[IDType]CurveNode)
 	for _, node := range rawCurveNodes {
-		if match, _ := regexp.Match("S|R|T|DeformPercent", []byte(node.attrName)); match {
+		fmt.Println(" lengthy of ", len(node.attrName))
+		fmt.Println("AnimCurve Name:", string(node.attrName[0:1]), " len of ", len(node.attrName))
+		//if match, _ := regexp.Match("[S|R|T|DeformPercent]", []byte(node.attrName)); match {
+		switch string(node.attrName[:1]) {
+		case "S", "T", "R", "DeformPercent":
+
 			curveNode := CurveNode{
 				ID:       node.ID,
 				AttrName: node.attrName,
 				curves:   map[string]AnimationCurve{},
 			}
 			curveNodesMap[curveNode.ID] = curveNode
+		default:
+			fmt.Println("AnimCurve was found with name", node.attrName)
 		}
 	}
 	return curveNodesMap
@@ -155,6 +166,9 @@ func (l *Loader) parseAnimationLayers(curveNodesMap map[IDType]CurveNode) map[ID
 								modelID = parent.ID
 								break
 							}
+						}
+						if modelID == "" {
+							break
 						}
 						rawModel := l.tree.Objects["Model"][modelID]
 						node := CurveNode{
@@ -283,15 +297,23 @@ func (l *Loader) parseAnimStacks(layersMap map[IDType][]CurveNode) map[IDType]Cl
 }
 
 func (l *Loader) addClip(clip Clip) Animation {
+
+	fmt.Println("Len of tracks", len(clip.layer))
+
 	tracks := make([]KeyframeTrack, 0, len(clip.layer))
 	for _, rawTracks := range clip.layer {
 		tracks = append(tracks, l.generateTracks(rawTracks)...)
 	}
+	fmt.Println("Len of completed tracks", len(tracks))
+
 	// ??
 	return NewAnimationClip(clip.name, -1, tracks)
 }
 
 func (l *Loader) generateTracks(rawTracks CurveNode) []KeyframeTrack {
+
+	fmt.Println("Raw tracks", rawTracks)
+
 	tracks := []KeyframeTrack{}
 	initialPosition := floatgeom.Point3{}
 	initialRotation := Euler{}
@@ -528,6 +550,9 @@ func (l *Loader) interpolateRotations(curve AnimationCurve) AnimationCurve {
 }
 
 type Animation struct {
+	Name     string
+	Duration float64
+	Tracks   []KeyframeTrack
 }
 
 type AnimationCurve struct {
@@ -536,8 +561,18 @@ type AnimationCurve struct {
 	Values []float64
 }
 
-func NewAnimationClip(name string, duration int, tracks []KeyframeTrack) Animation {
-	return Animation{}
+func NewAnimationClip(name string, duration float64, tracks []KeyframeTrack) Animation {
+	if duration < 0 {
+		//resetDuration function
+		for _, t := range tracks {
+			duration = math.Max(duration, t.times[len(t.times)-1])
+		}
+	}
+	return Animation{
+		Name:     name,
+		Duration: duration,
+		Tracks:   tracks,
+	}
 }
 
 // Copy is a NOP right now because Animation doesn't have any fields yet
