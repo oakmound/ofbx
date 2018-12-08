@@ -14,18 +14,18 @@ const (
 
 type Mesh struct {
 	*baseModel
-	geometry  *Geometry
-	materials []*Material
-	drawMode  DrawMode
+	Geometry  *Geometry
+	Materials []*Material
+	DrawMode  DrawMode
 }
 
 func NewMesh(geometry *Geometry, materials []*Material) *Mesh {
 
 	m := Mesh{
 		baseModel: &baseModel{},
-		geometry:  geometry,
-		materials: materials,
-		drawMode:  TrianglesDrawMode,
+		Geometry:  geometry,
+		Materials: materials,
+		DrawMode:  TrianglesDrawMode,
 	}
 
 	// m.updateMorphTargets() //Currently think that morph targets does nothing we care about in the scope of FBX
@@ -35,22 +35,22 @@ func NewMesh(geometry *Geometry, materials []*Material) *Mesh {
 
 type SkinnedMesh struct {
 	*Mesh
-	bound             bool
-	bindMatrix        mgl64.Mat4
-	bindMatrixInverse mgl64.Mat4
-	bones             []Model
-	skeleton          *Skeleton
+	Bound             bool
+	BindMatrix        mgl64.Mat4
+	BindMatrixInverse mgl64.Mat4
+	Bones             []Model
+	Skeleton          *Skeleton
 }
 
 func NewSkinnedMesh(geometry *Geometry, materials []*Material) *SkinnedMesh {
 
 	sm := SkinnedMesh{
 		Mesh:  NewMesh(geometry, materials),
-		bones: make([]Model, len(geometry.FBX_Deformer.bones)),
+		Bones: make([]Model, len(geometry.FBX_Deformer.bones)),
 	}
 
-	for i, b := range sm.geometry.FBX_Deformer.bones {
-		sm.bones[i] = b.Copy()
+	for i, b := range sm.Geometry.FBX_Deformer.bones {
+		sm.Bones[i] = b.Copy()
 	}
 
 	// sm.skeleton =
@@ -65,10 +65,10 @@ func NewSkinnedMesh(geometry *Geometry, materials []*Material) *SkinnedMesh {
 
 func (sm *SkinnedMesh) updateMatrixWorld(force bool) {
 	sm.Mesh.updateMatrixWorld(force)
-	if sm.bound {
-		sm.bindMatrixInverse = sm.matrixWorld.Inv()
+	if sm.Bound {
+		sm.BindMatrixInverse = sm.matrixWorld.Inv()
 	} else {
-		sm.bindMatrixInverse = sm.bindMatrix.Inv()
+		sm.BindMatrixInverse = sm.BindMatrix.Inv()
 	}
 }
 
@@ -76,12 +76,12 @@ func (sm *SkinnedMesh) bind(skeleton *Skeleton, bindMatrix mgl64.Mat4) {
 	sm.skeleton = skeleton
 	if bindMatrix == (mgl64.Mat4{}) {
 		sm.skeleton.calculateInverses()
-		sm.bindMatrix = sm.matrixWorld
-		sm.bindMatrixInverse = sm.bindMatrix.Inv()
+		sm.BindMatrix = sm.matrixWorld
+		sm.BindMatrixInverse = sm.BindMatrix.Inv()
 		return
 	}
-	sm.bindMatrix = bindMatrix
-	sm.bindMatrixInverse = bindMatrix.Inv()
+	sm.BindMatrix = bindMatrix
+	sm.BindMatrixInverse = bindMatrix.Inv()
 }
 
 func (sm *SkinnedMesh) normalizeSkinWeights() {
@@ -99,9 +99,9 @@ func (sm *SkinnedMesh) normalizeSkinWeights() {
 	// 	}
 	// } else if ( this.geometry && this.geometry.isBufferGeometry ) {
 
-	skinWeight := sm.geometry.skinWeight
+	skinWeight := sm.Geometry.SkinWeight
 	for i, sw := range skinWeight {
 		sum := sw[0] + sw[1] + sw[2] + sw[3]
-		sm.geometry.skinWeight[i] = [4]float64{sw[0] / sum, sw[1] / sum, sw[2] / sum, sw[3] / sum}
+		sm.Geometry.SkinWeight[i] = [4]float64{sw[0] / sum, sw[1] / sum, sw[2] / sum, sw[3] / sum}
 	}
 }

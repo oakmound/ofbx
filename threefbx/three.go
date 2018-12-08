@@ -844,7 +844,7 @@ func (l *Loader) createMesh(relationships ConnectionSet, geometryMap map[IDType]
 		mp.color = Color{0.8, 0.8, 0.8}
 		materials = []*Material{&mp}
 	}
-	if len(geometry.color) > 0 {
+	if len(geometry.Color) > 0 {
 		for _, m := range materials {
 			m.vertexColors = VertexColors
 		}

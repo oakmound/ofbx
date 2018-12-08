@@ -565,7 +565,7 @@ func NewAnimationClip(name string, duration float64, tracks []KeyframeTrack) Ani
 	if duration < 0 {
 		//resetDuration function
 		for _, t := range tracks {
-			duration = math.Max(duration, t.times[len(t.times)-1])
+			duration = math.Max(duration, t.Times[len(t.Times)-1])
 		}
 	}
 	return Animation{

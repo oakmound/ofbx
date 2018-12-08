@@ -11,10 +11,12 @@ import (
 type Model interface {
 	setParent(Model)
 	Parent() Model
+
 	Children() []Model
 	AddChild(child Model)
 
 	SetAnimations([]Animation)
+	Animations() []Animation
 
 	SetName(name string)
 	Name() string
@@ -158,6 +160,9 @@ func (bm *baseModel) AddChild(ch Model) {
 func (bm *baseModel) SetAnimations(anims []Animation) {
 	bm.animations = anims
 }
+func (bm *baseModel) Animations() []Animation {
+	return bm.animations
+}
 func (bm *baseModel) SetName(name string) {
 	bm.name = name
 }
@@ -242,4 +247,34 @@ func (bm *BoneModel) Copy() *BoneModel {
 	out.baseModel = bm.baseModel.copy(out)
 	out.matrixWorld = bm.matrixWorld
 	return out
+}
+
+type Content struct {
+	Meshes        []*Mesh
+	SkinnedMeshes []*SkinnedMesh
+}
+
+func newContent() Content {
+	return Content{
+		Meshes:        make([]*Mesh, 0),
+		SkinnedMeshes: make([]*SkinnedMesh, 0),
+	}
+}
+
+func ModelContent(m Model) Content {
+	// Parse out Meshes as field
+	c := newContent()
+	fmt.Printf("%v:%T \n", m, m)
+	switch v := m.(type) {
+	case *Mesh:
+		c.Meshes = []*Mesh{v}
+	case *SkinnedMesh:
+		c.SkinnedMeshes = []*SkinnedMesh{v}
+	}
+	for _, child := range m.Children() {
+		cnt := ModelContent(child)
+		c.Meshes = append(c.Meshes, cnt.Meshes...)
+		c.SkinnedMeshes = append(c.SkinnedMeshes, cnt.SkinnedMeshes...)
+	}
+	return c
 }

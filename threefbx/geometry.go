@@ -18,20 +18,20 @@ import (
 
 // Geometry tries to replace the need for THREE.BufferGeometry
 type Geometry struct {
-	name     string
-	position []floatgeom.Point3
-	color    []Color
+	Name     string
+	Position []floatgeom.Point3
+	Color    []Color
 
-	skinIndex    [][4]uint16
-	skinWeight   [][4]float64
+	SkinIndex    [][4]uint16
+	SkinWeight   [][4]float64
 	FBX_Deformer *Skeleton
 
-	normal []floatgeom.Point3
-	uvs    [][]float64
+	Normal []floatgeom.Point3
+	Uvs    [][]floatgeom.Point2
 
-	groups []Group
+	Groups []Group
 
-	morphAttributes MorphAttributes
+	MorphAttributes MorphAttributes
 }
 
 type MorphAttributes struct {
@@ -39,14 +39,12 @@ type MorphAttributes struct {
 	normal   []floatgeom.Point3
 }
 
-type UV struct{} // ???
-
 func NewGeometry() Geometry {
 	g := Geometry{}
-	g.groups = make([]Group, 0)
-	g.uvs = make([][]float64, 0)
-	g.position = make([]floatgeom.Point3, 0)
-	g.color = make([]Color, 0)
+	g.Groups = make([]Group, 0)
+	g.Uvs = make([][]floatgeom.Point2, 0)
+	g.Position = make([]floatgeom.Point3, 0)
+	g.Color = make([]Color, 0)
 
 	return g
 }
@@ -87,7 +85,7 @@ func floatsToVertex4s(arr []float32) ([]floatgeom.Point4, error) {
 
 // AddGroup was a THREE.js thing start of conversion is here it seems to store a range for which a value is the same
 func (g *Geometry) AddGroup(rangeStart, count int, groupValue int32) {
-	g.groups = append(g.groups, Group{rangeStart, count, groupValue})
+	g.Groups = append(g.Groups, Group{rangeStart, count, groupValue})
 }
 
 // parseGeometry converted from parse in the geometry section of the original code
@@ -181,7 +179,7 @@ func (l *Loader) parseMeshGeometry(relationships ConnectionSet, geoNode Node, sk
 // genGeometry generates a THREE.BufferGeometry(ish) from a node in FBXTree.Objects.Geometry
 func (l *Loader) genGeometry(geoNode Node, skeleton *Skeleton, morphTarget *MorphTarget, preTransform mgl64.Mat4) (Geometry, error) {
 	geo := NewGeometry() //https://threejs.org/docs/#api/en/core/BufferGeometry
-	geo.name = geoNode.attrName
+	geo.Name = geoNode.attrName
 
 	geoInfo, err := l.parseGeoNode(geoNode, skeleton)
 	if err != nil {
@@ -195,27 +193,27 @@ func (l *Loader) genGeometry(geoNode Node, skeleton *Skeleton, morphTarget *Morp
 
 	positionAttribute = applyBufferAttribute(preTransform, positionAttribute)
 
-	geo.position = positionAttribute
+	geo.Position = positionAttribute
 	if len(buffers.colors) > 0 {
 		colors, err := floatsToVertex3s(buffers.colors)
 		if err != nil {
 			return Geometry{}, err
 		}
-		geo.color = make([]Color, len(colors))
+		geo.Color = make([]Color, len(colors))
 		for i, c := range colors {
-			geo.color[i] = Color{float32(c.X()), float32(c.Y()), float32(c.Z())}
+			geo.Color[i] = Color{float32(c.X()), float32(c.Y()), float32(c.Z())}
 		}
 	}
 
 	if skeleton != nil {
-		geo.skinIndex = make([][4]uint16, len(buffers.weightsIndices)/4)
-		geo.skinWeight = make([][4]float64, len(buffers.vertexWeights)/4)
+		geo.SkinIndex = make([][4]uint16, len(buffers.weightsIndices)/4)
+		geo.SkinWeight = make([][4]float64, len(buffers.vertexWeights)/4)
 
 		for i := 0; i < len(buffers.weightsIndices); i += 4 {
-			geo.skinIndex[i/4] = [4]uint16{buffers.weightsIndices[i], buffers.weightsIndices[i+1], buffers.weightsIndices[i+2], buffers.weightsIndices[i+3]}
+			geo.SkinIndex[i/4] = [4]uint16{buffers.weightsIndices[i], buffers.weightsIndices[i+1], buffers.weightsIndices[i+2], buffers.weightsIndices[i+3]}
 		}
 		for i := 0; i < len(buffers.vertexWeights); i += 4 {
-			geo.skinWeight[i/4] = [4]float64{buffers.vertexWeights[i], buffers.vertexWeights[i+1], buffers.vertexWeights[i+2], buffers.vertexWeights[i+3]}
+			geo.SkinWeight[i/4] = [4]float64{buffers.vertexWeights[i], buffers.vertexWeights[i+1], buffers.vertexWeights[i+2], buffers.vertexWeights[i+3]}
 		}
 		geo.FBX_Deformer = skeleton
 	}
@@ -228,10 +226,10 @@ func (l *Loader) genGeometry(geoNode Node, skeleton *Skeleton, morphTarget *Morp
 		normalMatrix := mgl64.Mat4Normal(preTransform)
 
 		normalAttribute = applyBufferAttributeMat3(normalMatrix, normalAttribute)
-		geo.normal = normalAttribute
+		geo.Normal = normalAttribute
 	}
 
-	geo.uvs = buffers.uvs //NOTE: pulled back from variadic array of uvs where they progress down uv -> uv1 -> uv2 and so on
+	geo.Uvs = buffers.uvs //NOTE: pulled back from variadic array of uvs where they progress down uv -> uv1 -> uv2 and so on
 
 	if geoInfo.material != nil {
 		mat := *geoInfo.material
@@ -246,14 +244,14 @@ func (l *Loader) genGeometry(geoNode Node, skeleton *Skeleton, morphTarget *Morp
 					startIndex = i
 				}
 			}
-			if len(geo.groups) > 0 { //add last group
-				lastGroup := geo.groups[len(geo.groups)-1]
+			if len(geo.Groups) > 0 { //add last group
+				lastGroup := geo.Groups[len(geo.Groups)-1]
 				lastIndex := lastGroup.start + lastGroup.count
 				if lastIndex != len(buffers.materialIndex) {
 					geo.AddGroup(lastIndex, len(buffers.materialIndex)-lastIndex, prevMaterialIndex)
 				}
 			}
-			if len(geo.groups) == 0 {
+			if len(geo.Groups) == 0 {
 				geo.AddGroup(0, len(buffers.materialIndex), buffers.materialIndex[0])
 			}
 		}
@@ -441,7 +439,7 @@ type gBuffers struct {
 	vertex         []float64
 	normal         []float64
 	colors         []float64
-	uvs            [][]float64
+	uvs            [][]floatgeom.Point2
 	materialIndex  []int32
 	vertexWeights  []float64
 	weightsIndices []uint16
@@ -450,6 +448,8 @@ type gBuffers struct {
 // genFace generates data for a single face in a geometry. If the face is a quad then split it into 2 tris
 func (l *Loader) genFace(buffers gBuffers, geoInfo *GeoInfo, facePositionIndexes []int32, materialIndex int32,
 	faceNormals []float64, faceColors []float64, faceUVs [][]float64, faceWeights []float64, faceWeightIndices []uint16, faceLength int) {
+	// Current understanding of this code:
+	// It effectively triangulates the faces
 	for i := 2; i < faceLength; i++ {
 		buffers.vertex = append(buffers.vertex, genFaceVertex(geoInfo.vertexPositions, facePositionIndexes, i)...)
 		if geoInfo.skeleton != nil {
@@ -469,9 +469,10 @@ func (l *Loader) genFace(buffers gBuffers, geoInfo *GeoInfo, facePositionIndexes
 		}
 
 		if geoInfo.uv != nil {
-			buffers.uvs = make([][]float64, len(geoInfo.uv))
+			buffers.uvs = make([][]floatgeom.Point2, len(geoInfo.uv))
 			for j := range geoInfo.uv {
-				buffers.uvs[j] = append(buffers.uvs[j], genFloatFaceArray(2, faceUVs[j], i)...)
+				arr := genFloatFaceArray(2, faceUVs[j], i)
+				buffers.uvs[j] = append(buffers.uvs[j], floatgeom.Point2{arr[0], arr[1]})
 			}
 		}
 	}
@@ -538,8 +539,8 @@ func (l *Loader) addMorphTargets(parentGeo *Geometry, parentGeoNode Node, morphT
 	if morphTarget == nil {
 		return nil
 	}
-	parentGeo.morphAttributes.position = []floatgeom.Point3{}
-	parentGeo.morphAttributes.normal = []floatgeom.Point3{}
+	parentGeo.MorphAttributes.position = []floatgeom.Point3{}
+	parentGeo.MorphAttributes.normal = []floatgeom.Point3{}
 	for _, t := range morphTarget.RawTargets {
 		morphGeoNode := l.tree.Objects["Geometry"][t.geoID]
 		if morphGeoNode != nil {
@@ -590,7 +591,7 @@ func (l *Loader) genMorphGeometry(parentGeo *Geometry, parentGeoNode, morphGeoNo
 	//positionAttribute.name = morphGeoNode.attrName
 	positionAttribute = applyBufferAttribute(preTransform, positionAttribute)
 
-	parentGeo.morphAttributes.position = append(parentGeo.morphAttributes.position, positionAttribute...)
+	parentGeo.MorphAttributes.position = append(parentGeo.MorphAttributes.position, positionAttribute...)
 	return nil
 }
 
@@ -733,7 +734,7 @@ func (l *Loader) parseNurbsGeometry(geoNode Node) (Geometry, error) {
 		vertValues[int(i)] = curve.getPoint(i / vertLen)
 	}
 	g := NewGeometry()
-	g.position = vertValues
+	g.Position = vertValues
 	return g, err
 }
 
