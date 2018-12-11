@@ -101,6 +101,7 @@ func (l *Loader) parseGeometry(skeletons map[IDType]Skeleton, morphTargets map[I
 			if err != nil {
 				return nil, err
 			}
+			fmt.Println("Geo normality:", len(geo.Normal))
 			geometryMap[nodeID] = geo
 		}
 	}
@@ -258,6 +259,7 @@ func (l *Loader) genGeometry(geoNode Node, skeleton *Skeleton, morphTarget *Morp
 	}
 
 	err = l.addMorphTargets(&geo, geoNode, morphTarget, preTransform)
+
 	return geo, nil
 }
 
@@ -420,7 +422,7 @@ func (l *Loader) genBuffers(geoInfo *GeoInfo) gBuffers {
 		}
 		faceLength++
 		if endOfFace {
-			l.genFace(buffers, geoInfo, facePositionIndexes, materialIndex, faceNormals, faceColors, faceUVs, faceWeights, faceWeightIndices, faceLength)
+			l.genFace(&buffers, geoInfo, facePositionIndexes, materialIndex, faceNormals, faceColors, faceUVs, faceWeights, faceWeightIndices, faceLength)
 			polygonIndex++
 			faceLength = 0
 			// reset arrays for the next face
@@ -432,6 +434,7 @@ func (l *Loader) genBuffers(geoInfo *GeoInfo) gBuffers {
 			faceWeightIndices = []uint16{}
 		}
 	}
+	fmt.Println("Returning Buffers with a len ", len(buffers.normal), "of normals")
 	return buffers
 }
 
@@ -446,7 +449,7 @@ type gBuffers struct {
 }
 
 // genFace generates data for a single face in a geometry. If the face is a quad then split it into 2 tris
-func (l *Loader) genFace(buffers gBuffers, geoInfo *GeoInfo, facePositionIndexes []int32, materialIndex int32,
+func (l *Loader) genFace(buffers *gBuffers, geoInfo *GeoInfo, facePositionIndexes []int32, materialIndex int32,
 	faceNormals []float64, faceColors []float64, faceUVs [][]float64, faceWeights []float64, faceWeightIndices []uint16, faceLength int) {
 	// Current understanding of this code:
 	// It effectively triangulates the faces

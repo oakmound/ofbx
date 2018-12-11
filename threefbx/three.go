@@ -93,6 +93,10 @@ func (l *Loader) parseTree(textureDir string) (Model, error) {
 	fmt.Println("Parsed skeletons:", skeletons)
 	fmt.Println("Parsed morphTargets:", morphTargets)
 	geometry, err := l.parseGeometry(skeletons, morphTargets)
+	if err != nil {
+		return nil, err
+	}
+
 	l.sceneGraph = l.parseScene(skeletons, morphTargets, geometry, materials)
 	return l.sceneGraph, nil
 }
