@@ -300,10 +300,8 @@ func (l *Loader) parseGeoNode(geoNode Node, skeleton *Skeleton) (*GeoInfo, error
 	}
 
 	if uvList, ok := geoNode.props["LayerElementUV"]; ok {
-		uvBuffs := make([]floatBuffer, len(uvList.Payload.([]Node)))
-		for i, v := range uvList.Payload.([]Node) {
-			uvBuffs[i] = l.parseUVs(v)
-		}
+		uvBuffs := make([]floatBuffer, 1)
+		uvBuffs[0] = l.parseUVs(uvList.Payload.(*Node))
 		geoInfo.uv = uvBuffs
 	}
 
@@ -415,6 +413,7 @@ func (l *Loader) genBuffers(geoInfo *GeoInfo) gBuffers {
 			materialIndex = geoInfo.material.getData(polygonVertexIndex, polygonIndex, vertexIndex)[0]
 		}
 		if geoInfo.uv != nil {
+			faceUVs = make([][]float64, len(geoInfo.uv))
 			for i, uv := range geoInfo.uv {
 				data := uv.getData(polygonVertexIndex, polygonIndex, vertexIndex)
 				faceUVs[i] = append(faceUVs[i], data[0], data[1])
@@ -473,9 +472,15 @@ func (l *Loader) genFace(buffers *gBuffers, geoInfo *GeoInfo, facePositionIndexe
 
 		if geoInfo.uv != nil {
 			buffers.uvs = make([][]floatgeom.Point2, len(geoInfo.uv))
+			for i, u := range faceUVs {
+				fmt.Println("i, len:", i, len(u))
+			}
 			for j := range geoInfo.uv {
+				fmt.Println("geoinfo UV", len(faceUVs[j]), "face", i)
 				arr := genFloatFaceArray(2, faceUVs[j], i)
-				buffers.uvs[j] = append(buffers.uvs[j], floatgeom.Point2{arr[0], arr[1]})
+				for k := 0; k < len(arr); k +=2 {
+					buffers.uvs[j] = append(buffers.uvs[j], flaotgeom.Point2{arr[k], arr[k+1]}
+				}	
 			}
 		}
 	}
@@ -622,7 +627,7 @@ func parseNormals(n *Node) floatBuffer {
 }
 
 // Parse UVs from FBXTree.Objects.Geometry.LayerElementUV if it exists
-func (l *Loader) parseUVs(n Node) floatBuffer {
+func (l *Loader) parseUVs(n *Node) floatBuffer {
 	mappingType := n.props["MappingInformationType"].Payload.(string)
 	referenceType := n.props["ReferenceInformationType"].Payload.(string)
 	indexBuffer := []int32{}

@@ -18,19 +18,19 @@ type Loader struct {
 	tree           *Tree
 	connections    ParsedConnections
 	rawConnections []Connection
-	sceneGraph     Model
+	sceneGraph     *Scene
 }
 
 func NewLoader() *Loader {
 	return &Loader{}
 }
 
-func Load(r io.Reader, textureDir string) (Model, error) {
+func Load(r io.Reader, textureDir string) (*Scene, error) {
 	l := NewLoader()
 	return l.Load(r, textureDir)
 }
 
-func (l *Loader) Load(r io.Reader, textureDir string) (Model, error) {
+func (l *Loader) Load(r io.Reader, textureDir string) (*Scene, error) {
 	var err error
 	if ofbx.IsBinary(r) {
 		l.tree, err = l.ParseBinary(r)
@@ -70,7 +70,7 @@ func (l *Loader) Load(r io.Reader, textureDir string) (Model, error) {
 	return l.parseTree(textureDir)
 }
 
-func (l *Loader) parseTree(textureDir string) (Model, error) {
+func (l *Loader) parseTree(textureDir string) (*Scene, error) {
 	var err error
 	l.connections, err = l.parseConnections()
 	if err != nil {
@@ -503,7 +503,7 @@ func (l *Loader) parseScene(
 	skeletons map[IDType]Skeleton,
 	morphTargets map[IDType]MorphTarget,
 	geometryMap map[IDType]Geometry,
-	materialMap map[IDType]Material) Model {
+	materialMap map[IDType]Material) *Scene {
 
 	fmt.Println("parse scene start", skeletons, morphTargets, materialMap)
 
@@ -533,14 +533,10 @@ func (l *Loader) parseScene(
 	if len(children) == 1 && children[0].IsGroup() {
 		sceneGraph = children[0]
 	}
-	anims := l.parseAnimations()
-	// Todo: maybe this should just take the map
-	animSlice := make([]Animation, 0, len(anims))
-	for _, a := range anims {
-		animSlice = append(animSlice, a)
+	return &Scene{
+		Model:      sceneGraph,
+		Animations: l.parseAnimations(),
 	}
-	sceneGraph.SetAnimations(animSlice)
-	return sceneGraph
 }
 
 // parse nodes in FBXTree.Objects.Model

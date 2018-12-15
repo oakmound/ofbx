@@ -15,9 +15,6 @@ type Model interface {
 	Children() []Model
 	AddChild(child Model)
 
-	SetAnimations([]Animation)
-	Animations() []Animation
-
 	SetName(name string)
 	Name() string
 
@@ -51,8 +48,6 @@ type baseModel struct {
 	parent   Model
 	children []Model
 
-	animations []Animation
-
 	position   floatgeom.Point3
 	quaternion floatgeom.Point4
 	scale      floatgeom.Point3
@@ -70,11 +65,10 @@ type baseModel struct {
 // put into as it's 'wrapping' argument
 func (bm *baseModel) copy(wrapping Model) *baseModel {
 	bm2 := &baseModel{
-		name:       bm.name,
-		id:         bm.id,
-		parent:     bm.parent,
-		children:   make([]Model, len(bm.children)),
-		animations: make([]Animation, len(bm.animations)),
+		name:     bm.name,
+		id:       bm.id,
+		parent:   bm.parent,
+		children: make([]Model, len(bm.children)),
 	}
 	for i, c := range bm.children {
 		if c2, ok := c.(ModelCopyable); ok {
@@ -84,9 +78,6 @@ func (bm *baseModel) copy(wrapping Model) *baseModel {
 		} else {
 			fmt.Println(" Tried to copy an uncopiable model, this would normally be an error. #TODO")
 		}
-	}
-	for i, a := range bm.animations {
-		bm2.animations[i] = *a.Copy()
 	}
 	return bm2
 }
@@ -156,12 +147,6 @@ func (bm *baseModel) AddChild(ch Model) {
 	bm.children = append(bm.children, ch)
 	// Note could warn here if child already has parent
 	ch.setParent(bm)
-}
-func (bm *baseModel) SetAnimations(anims []Animation) {
-	bm.animations = anims
-}
-func (bm *baseModel) Animations() []Animation {
-	return bm.animations
 }
 func (bm *baseModel) SetName(name string) {
 	bm.name = name

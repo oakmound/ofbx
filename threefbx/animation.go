@@ -34,10 +34,8 @@ func (l *Loader) parseAnimations() map[IDType]Animation {
 
 func (l *Loader) parseClips() map[IDType]Clip {
 	curveNodesMap := l.parseAnimationCurveNodes()
-	fmt.Println("CurveNodesMap:", curveNodesMap)
 	l.parseAnimationCurves(curveNodesMap)
 	layersMap := l.parseAnimationLayers(curveNodesMap)
-	fmt.Println("Layers Map", layersMap)
 	rawClips := l.parseAnimStacks(layersMap)
 	return rawClips
 }
@@ -49,12 +47,10 @@ func (l *Loader) parseAnimationCurveNodes() map[IDType]CurveNode {
 	rawCurveNodes := l.tree.Objects["AnimationCurveNode"]
 	curveNodesMap := make(map[IDType]CurveNode)
 	for _, node := range rawCurveNodes {
-		fmt.Println(" lengthy of ", len(node.attrName))
 		fmt.Println("AnimCurve Name:", string(node.attrName[0:1]), " len of ", len(node.attrName))
 		//if match, _ := regexp.Match("[S|R|T|DeformPercent]", []byte(node.attrName)); match {
 		switch string(node.attrName[:1]) {
 		case "S", "T", "R", "DeformPercent":
-
 			curveNode := CurveNode{
 				ID:       node.ID,
 				AttrName: node.attrName,
@@ -112,7 +108,6 @@ func (l *Loader) parseAnimationCurves(curveNodesMap map[IDType]CurveNode) {
 type CurveNode struct {
 	ID       IDType
 	AttrName string
-	props    map[string]*Property
 
 	modelName       string
 	morphName       string
@@ -154,63 +149,87 @@ func (l *Loader) parseAnimationLayers(curveNodesMap map[IDType]CurveNode) map[ID
 			// all the animationCurveNodes used in the layer
 			for i, child := range connSet.children {
 				if curveNode, ok := curveNodesMap[child.ID]; ok {
+					parents := l.connections[child.ID].parents
 					// check that the curves are defined for at least one axis, otherwise ignore the curveNode
 					_, ok := curveNode.curves["x"]
 					_, ok2 := curveNode.curves["y"]
 					_, ok3 := curveNode.curves["z"]
 					if ok || ok2 || ok3 {
-						var modelID IDType
-						for i := len(connSet.parents) - 1; i >= 0; i-- {
-							parent := connSet.parents[i]
-							if parent.Property != "" {
-								modelID = parent.ID
+						if layerCurveNodes[i].modelName == "" {
+							var modelID IDType
+							for i := len(parents) - 1; i >= 0; i-- {
+								parent := parents[i]
+								if parent.Property != "" {
+									modelID = parent.ID
+									break
+								}
+							}
+							if modelID == "" {
+								fmt.Println("No model found")
 								break
 							}
+							rawModel := l.tree.Objects["Model"][modelID]
+							node := CurveNode{
+								modelName:       sanitizeNodeName(rawModel.attrName),
+								initialPosition: floatgeom.Point3{0, 0, 0},
+								initialRotation: floatgeom.Point3{0, 0, 0},
+								initialScale:    floatgeom.Point3{1, 1, 1},
+								transform:       l.getModelAnimTransform(rawModel),
+							}
+							// if the animated model is pre rotated, we'll have to apply the pre rotations to every
+							// animation value as well
+							if v, ok := rawModel.props["PreRotation"]; ok {
+								v2 := v.Payload.([3]float64)
+								node.preRotations = &v2
+							}
+							if v, ok := rawModel.props["PostRotation"]; ok {
+								v2 := v.Payload.([3]float64)
+								node.postRotations = &v2
+							}
+							// This is questionable!
+							layerCurveNodes[i] = node
 						}
-						if modelID == "" {
-							break
+						switch curveNode.AttrName[:1] {
+						case "T":
+							layerCurveNodes[i].T = &curveNode
+						case "R":
+							layerCurveNodes[i].R = &curveNode
+						case "S":
+							layerCurveNodes[i].S = &curveNode
+						default:
+							fmt.Println("Unknown curve node attribute", curveNode.AttrName)
 						}
-						rawModel := l.tree.Objects["Model"][modelID]
-						node := CurveNode{
-							modelName:       sanitizeNodeName(rawModel.attrName),
-							initialPosition: floatgeom.Point3{0, 0, 0},
-							initialRotation: floatgeom.Point3{0, 0, 0},
-							initialScale:    floatgeom.Point3{1, 1, 1},
-							transform:       l.getModelAnimTransform(rawModel),
-						}
-						// if the animated model is pre rotated, we'll have to apply the pre rotations to every
-						// animation value as well
-						if v, ok := rawModel.props["PreRotation"]; ok {
-							v2 := v.Payload.([3]float64)
-							node.preRotations = &v2
-						}
-						if v, ok := rawModel.props["PostRotation"]; ok {
-							v2 := v.Payload.([3]float64)
-							node.postRotations = &v2
-						}
-						// This is questionable!
-						layerCurveNodes[i] = node
-						layerCurveNodes[i].props[curveNode.AttrName] = &Property{Payload: curveNode}
 					} else if _, ok := curveNode.curves["morph"]; ok {
-						var deformerID IDType
-						for i := len(connSet.parents) - 1; i >= 0; i-- {
-							parent := connSet.parents[i]
-							if parent.Property != "" {
-								deformerID = parent.ID
-								break
+						if layerCurveNodes[i].modelName == "" {
+							var deformerID IDType
+							for i := len(parents) - 1; i >= 0; i-- {
+								parent := parents[i]
+								if parent.Property != "" {
+									deformerID = parent.ID
+									break
+								}
 							}
+							morpherID := l.connections[deformerID].parents[0].ID
+							geoID := l.connections[morpherID].parents[0].ID
+							// assuming geometry is not used in more than one model
+							modelID := l.connections[geoID].parents[0].ID
+							rawModel := l.tree.Objects["Model"][modelID]
+							var node = CurveNode{
+								modelName: sanitizeNodeName(rawModel.attrName),
+								morphName: l.tree.Objects["Deformer"][deformerID].attrName,
+							}
+							layerCurveNodes[i] = node
 						}
-						morpherID := l.connections[deformerID].parents[0].ID
-						geoID := l.connections[morpherID].parents[0].ID
-						// assuming geometry is not used in more than one model
-						modelID := l.connections[geoID].parents[0].ID
-						rawModel := l.tree.Objects["Model"][modelID]
-						var node = CurveNode{
-							modelName: sanitizeNodeName(rawModel.attrName),
-							morphName: l.tree.Objects["Deformer"][deformerID].attrName,
+						switch curveNode.AttrName[:1] {
+						case "T":
+							layerCurveNodes[i].T = &curveNode
+						case "R":
+							layerCurveNodes[i].R = &curveNode
+						case "S":
+							layerCurveNodes[i].S = &curveNode
+						default:
+							fmt.Println("Unknown curve node attribute", curveNode.AttrName)
 						}
-						layerCurveNodes[i] = node
-						layerCurveNodes[i].props[curveNode.AttrName] = &Property{Payload: curveNode}
 					}
 				}
 			}
@@ -321,6 +340,7 @@ func (l *Loader) generateTracks(rawTracks CurveNode) []KeyframeTrack {
 	if !IsZeroMat(rawTracks.transform) {
 		initialPosition, initialRotation, initialScale = decomposeMat(rawTracks.transform)
 	}
+	fmt.Println(rawTracks.T)
 	if rawTracks.T != nil && len(rawTracks.T.curves) > 0 {
 		positionTrack := l.generateVectorTrack(rawTracks.modelName, rawTracks.T.curves, initialPosition, "position")
 		tracks = append(tracks, positionTrack)
