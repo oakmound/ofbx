@@ -340,7 +340,7 @@ func (l *Loader) generateTracks(rawTracks CurveNode) []KeyframeTrack {
 	if !IsZeroMat(rawTracks.transform) {
 		initialPosition, initialRotation, initialScale = decomposeMat(rawTracks.transform)
 	}
-	fmt.Println(rawTracks.T)
+	fmt.Println(rawTracks.T, rawTracks.S, rawTracks.R)
 	if rawTracks.T != nil && len(rawTracks.T.curves) > 0 {
 		positionTrack := l.generateVectorTrack(rawTracks.modelName, rawTracks.T.curves, initialPosition, "position")
 		tracks = append(tracks, positionTrack)

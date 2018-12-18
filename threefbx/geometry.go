@@ -325,6 +325,7 @@ func (l *Loader) parseGeoNode(geoNode Node, skeleton *Skeleton) (*GeoInfo, error
 
 func (l *Loader) genBuffers(geoInfo *GeoInfo) gBuffers {
 	buffers := gBuffers{}
+	buffers.uvs = make([][]floatgeom.Point2, len(geoInfo.uv))
 	polygonIndex := int32(0)
 	faceLength := 0
 	displayedWeightsWarning := false
@@ -333,11 +334,12 @@ func (l *Loader) genBuffers(geoInfo *GeoInfo) gBuffers {
 	facePositionIndexes := []int32{}
 	faceNormals := []float64{}
 	faceColors := []float64{}
-	faceUVs := [][]float64{}
+
 	faceWeights := []float64{}
 	faceWeightIndices := []uint16{}
 	var materialIndex int32 = -1
 
+	faceUVs := make([][]float64, len(geoInfo.uv))
 	for polygonVertexIndex, vertexIndex := range geoInfo.vertexIndices {
 		// Face index and vertex index arrays are combined in a single array
 		// A cube with quad faces looks like this:
@@ -413,7 +415,7 @@ func (l *Loader) genBuffers(geoInfo *GeoInfo) gBuffers {
 			materialIndex = geoInfo.material.getData(polygonVertexIndex, polygonIndex, vertexIndex)[0]
 		}
 		if geoInfo.uv != nil {
-			faceUVs = make([][]float64, len(geoInfo.uv))
+
 			for i, uv := range geoInfo.uv {
 				data := uv.getData(polygonVertexIndex, polygonIndex, vertexIndex)
 				faceUVs[i] = append(faceUVs[i], data[0], data[1])
@@ -428,9 +430,9 @@ func (l *Loader) genBuffers(geoInfo *GeoInfo) gBuffers {
 			facePositionIndexes = []int32{}
 			faceNormals = []float64{}
 			faceColors = []float64{}
-			faceUVs = [][]float64{}
 			faceWeights = []float64{}
 			faceWeightIndices = []uint16{}
+			faceUVs = make([][]float64, len(geoInfo.uv))
 		}
 	}
 	fmt.Println("Returning Buffers with a len ", len(buffers.normal), "of normals")
@@ -450,6 +452,7 @@ type gBuffers struct {
 // genFace generates data for a single face in a geometry. If the face is a quad then split it into 2 tris
 func (l *Loader) genFace(buffers *gBuffers, geoInfo *GeoInfo, facePositionIndexes []int32, materialIndex int32,
 	faceNormals []float64, faceColors []float64, faceUVs [][]float64, faceWeights []float64, faceWeightIndices []uint16, faceLength int) {
+
 	// Current understanding of this code:
 	// It effectively triangulates the faces
 	for i := 2; i < faceLength; i++ {
@@ -471,16 +474,17 @@ func (l *Loader) genFace(buffers *gBuffers, geoInfo *GeoInfo, facePositionIndexe
 		}
 
 		if geoInfo.uv != nil {
-			buffers.uvs = make([][]floatgeom.Point2, len(geoInfo.uv))
+
 			for i, u := range faceUVs {
 				fmt.Println("i, len:", i, len(u))
 			}
 			for j := range geoInfo.uv {
 				fmt.Println("geoinfo UV", len(faceUVs[j]), "face", i)
+				fmt.Println("norms versus uvs ", len(faceNormals), " and, ", len(faceUVs[j]), " with i of ")
 				arr := genFloatFaceArray(2, faceUVs[j], i)
-				for k := 0; k < len(arr); k +=2 {
-					buffers.uvs[j] = append(buffers.uvs[j], flaotgeom.Point2{arr[k], arr[k+1]}
-				}	
+				for k := 0; k < len(arr); k += 2 {
+					buffers.uvs[j] = append(buffers.uvs[j], floatgeom.Point2{arr[k], arr[k+1]})
+				}
 			}
 		}
 	}

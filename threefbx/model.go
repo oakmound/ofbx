@@ -249,7 +249,7 @@ func newContent() Content {
 func ModelContent(m Model) Content {
 	// Parse out Meshes as field
 	c := newContent()
-	fmt.Printf("%v:%T \n", m, m)
+	//fmt.Printf("%v:%T \n", m, m)
 	switch v := m.(type) {
 	case *Mesh:
 		c.Meshes = []*Mesh{v}
