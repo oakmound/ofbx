@@ -287,7 +287,7 @@ func (l *Loader) parseGeoNode(geoNode Node, skeleton *Skeleton) (*GeoInfo, error
 	}
 
 	if v, ok := geoNode.props["LayerElementColor"]; ok {
-		v2 := parseVertexColors(v.Payload.([]Node)[0])
+		v2 := parseVertexColors(v.Payload.(*Node))
 		geoInfo.color = &v2
 	}
 	if v, ok := geoNode.props["LayerElementMaterial"]; ok {
@@ -650,12 +650,15 @@ func (l *Loader) parseUVs(n *Node) floatBuffer {
 }
 
 // Parse Vertex Colors from FBXTree.Objects.Geometry.LayerElementColor if it exists
-func parseVertexColors(n Node) floatBuffer {
+func parseVertexColors(n *Node) floatBuffer {
 	mappingType := n.props["MappingInformationType"].Payload.(string)
 	referenceType := n.props["ReferenceInformationType"].Payload.(string)
 	indexBuffer := []int32{}
 	if referenceType == "IndexToDirect" {
-		indexBuffer = n.props["ColorIndex"].Payload.([]int32)
+		ci := n.props["ColorIndex"].Payload.(map[string]Property)
+		n2 := ci[""].Payload.(*Node)
+		prop := n2.propertyList[0]
+		indexBuffer = prop.Payload.([]int32)
 	}
 	return floatBuffer{
 		bufferDefinition: bufferDefinition{
