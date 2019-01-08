@@ -26,7 +26,7 @@ func TestPrintScene(t *testing.T) {
 }
 
 func TestThreePrint(t *testing.T) {
-	f, err := os.Open("walkinglegend.FBX")
+	f, err := os.Open("character3.fbx")
 	if err != nil {
 		log.Fatal(err)
 	}

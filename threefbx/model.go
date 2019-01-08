@@ -237,12 +237,14 @@ func (bm *BoneModel) Copy() *BoneModel {
 type Content struct {
 	Meshes        []*Mesh
 	SkinnedMeshes []*SkinnedMesh
+	Bones         map[string]*BoneModel
 }
 
 func newContent() Content {
 	return Content{
 		Meshes:        make([]*Mesh, 0),
 		SkinnedMeshes: make([]*SkinnedMesh, 0),
+		Bones:         make(map[string]*BoneModel),
 	}
 }
 
@@ -251,6 +253,8 @@ func ModelContent(m Model) Content {
 	c := newContent()
 	//fmt.Printf("%v:%T \n", m, m)
 	switch v := m.(type) {
+	case *BoneModel:
+		c.Bones[v.Name()] = v
 	case *Mesh:
 		c.Meshes = []*Mesh{v}
 	case *SkinnedMesh:
@@ -260,6 +264,12 @@ func ModelContent(m Model) Content {
 		cnt := ModelContent(child)
 		c.Meshes = append(c.Meshes, cnt.Meshes...)
 		c.SkinnedMeshes = append(c.SkinnedMeshes, cnt.SkinnedMeshes...)
+		for name, b := range cnt.Bones {
+			// Note: there's no duplicate checking here-- hypothetically
+			// no bones will share names. If things start to go wonky
+			// consider adding checks here
+			c.Bones[name] = b
+		}
 	}
 	return c
 }
