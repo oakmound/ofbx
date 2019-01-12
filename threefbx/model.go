@@ -3,6 +3,7 @@ package threefbx
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/go-gl/mathgl/mgl64"
 	"github.com/oakmound/oak/alg/floatgeom"
@@ -83,12 +84,14 @@ func (bm *baseModel) copy(wrapping Model) *baseModel {
 }
 
 func SearchModelsByName(root Model, name string) (Model, error) {
-	if root.Name() == name {
+
+	nameFields := strings.Split(root.Name(), "\x00") // TODO: Figure out whether we should be stripping the \x00 \x01 from all names (this shows up currently as a space and smiley which is then postpended with the class name)
+	if len(nameFields) != 0 && nameFields[0] == name {
 		return root, nil
 	}
 	for _, c := range root.Children() {
 		m, err := SearchModelsByName(c, name)
-		if err != nil {
+		if err == nil {
 			return m, nil
 		}
 	}
@@ -248,7 +251,7 @@ func newContent() Content {
 	}
 }
 
-func ModelContent(m Model) Content {
+func ModelContent(m Model) Content { //TODO: Consider having flag for removal of class names for object's names ie "LeftHandIndex1 ☺Model" becomes "LeftHandIndex1" and "T ☺AnimCurveNode" becomes "T"
 	// Parse out Meshes as field
 	c := newContent()
 	//fmt.Printf("%v:%T \n", m, m)
