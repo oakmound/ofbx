@@ -24,21 +24,21 @@ type Euler struct {
 	EulerOrder
 }
 
-func (e Euler) ToQuaternion() floatgeom.Point4 {
-	cy := math.Cos(e.Z() * 0.5)
-	sy := math.Sin(e.Z() * 0.5)
-	cr := math.Cos(e.Y() * 0.5)
-	sr := math.Sin(e.Y() * 0.5)
-	cp := math.Cos(e.X() * 0.5)
-	sp := math.Sin(e.X() * 0.5)
+// func (e Euler) ToQuaternion() floatgeom.Point4 {
+// 	cy := math.Cos(e.Z() * 0.5)
+// 	sy := math.Sin(e.Z() * 0.5)
+// 	cr := math.Cos(e.Y() * 0.5)
+// 	sr := math.Sin(e.Y() * 0.5)
+// 	cp := math.Cos(e.X() * 0.5)
+// 	sp := math.Sin(e.X() * 0.5)
 
-	return floatgeom.Point4{
-		cy*sr*cp - sy*cr*sp,
-		cy*cr*sp + sy*sr*cp,
-		sy*cr*cp - cy*sr*sp,
-		cy*cr*cp + sy*sr*sp,
-	}
-}
+// 	return floatgeom.Point4{
+// 		cy*sr*cp - sy*cr*sp,
+// 		cy*cr*sp + sy*sr*cp,
+// 		sy*cr*cp - cy*sr*sp,
+// 		cy*cr*cp + sy*sr*sp,
+// 	}
+// }
 
 func (euler Euler) makeRotation() mgl64.Mat4 {
 	te := mgl64.Mat4{}

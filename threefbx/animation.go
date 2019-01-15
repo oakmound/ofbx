@@ -388,65 +388,47 @@ func (l *Loader) generateRotationTrack(modelName string, curves map[string]Anima
 	}
 	times := l.getTimesForAllAxes(curves)
 	values := l.getKeyframeTrackValues(times, curves, initialValue.Point3)
-	var preRot *floatgeom.Point4
+	//var preRot floatgeom.Point3
 	if preRotations != nil {
 		preRotations[0] *= alg.DegToRad
 		preRotations[1] *= alg.DegToRad
 		preRotations[2] *= alg.DegToRad
-		eul := Euler{
-			floatgeom.Point3(*preRotations),
-			ZYXOrder,
-		}
-		q := eul.ToQuaternion()
-		preRot = &q
+		// eul := Euler{
+		// 	,
+		// 	ZYXOrder,
+		// }
+		//preRot = floatgeom.Point3(*preRotations)
+		panic("There's a pre rotation!")
 	}
-	var postRot *floatgeom.Point4
+	//var postRot floatgeom.Point3
 	if postRotations != nil {
 		postRotations[0] *= alg.DegToRad
 		postRotations[1] *= alg.DegToRad
 		postRotations[2] *= alg.DegToRad
-		eul := Euler{
-			floatgeom.Point3(*postRotations),
-			ZYXOrder,
-		}
-		q := eul.ToQuaternion().Inverse()
-		postRot = &q
+		// eul := Euler{
+
+		// 	ZYXOrder,
+		// }
+		//postRot = floatgeom.Point3(*postRotations)
+		panic("There's a post rotation!")
 	}
 
 	keyFrameVals := []float64{}
 	for i := 0; i < len(values); i += 3 {
-		euler := Euler{
-			floatgeom.Point3{values[i], values[i+1], values[i+2]},
-			ZYXOrder,
-		}
-		quaternion := euler.ToQuaternion()
-		if preRot != nil {
-			quaternion = preRot.MulQuat(quaternion)
-		}
-		if postRot != nil {
-			quaternion = quaternion.MulQuat(*postRot)
-		}
-		keyFrameVals = append(keyFrameVals, quaternion[0], quaternion[1], quaternion[2], quaternion[3])
-	}
-	return QuaternionKeyframeTrack(modelName+".quaternion", times, keyFrameVals)
-}
+		// euler := Euler{
+		// 	floatgeom.Point3{},
+		// 	ZYXOrder,
+		// }
+		// if preRot != nil {
 
-/*
-func (l *Loader) generateMorphTrack(rawTracks CurveNode) KeyframeTrack {
-	curves := rawTracks.DeformPercent.curves["morph"]
-	values := make([]float64, len(curves.values))
-	for i, val := range curves.values {
-		values[i] = val / 100
+		// }
+		// if postRot != nil {
+
+		// }
+		keyFrameVals = append(keyFrameVals, values[i], values[i+1], values[i+2])
 	}
-	found, err := SearchModelsByName(l.sceneGraph, rawTracks.modelName)
-	if err != nil {
-		fmt.Println("Unable to find model with name", rawTracks.modelName)
-		return KeyframeTrack{}
-	}
-	morphNum := found.morphTargetDictionary[rawTracks.morphName]
-	return NumberKeyframeTrack(rawTracks.modelName+".morphTargetInfluences["+morphNum+"]", curves.Times, values)
+	return QuaternionKeyframeTrack(modelName+".rotate", times, keyFrameVals)
 }
-*/
 
 // For all animated objects, times are defined separately for each axis
 // Here we'll combine the times into one sorted array without duplicates

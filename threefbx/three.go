@@ -443,7 +443,6 @@ func (l *Loader) parseSkeleton(relationships ConnectionSet, deformerNodes map[ID
 			TransformLink: Mat4FromSlice(boneNode.props["TransformLink"].Payload.([]float64)),
 			LinkMode:      boneNode.props["Mode"],
 		}
-		// Todo types, what has 'a' as a field?
 		if idxs, ok := boneNode.props["Indexes"]; ok {
 			rawBone.Indices = idxs.Payload.([]int32)
 			rawBone.Weights = boneNode.props["Weights"].Payload.([]float64)
@@ -611,6 +610,12 @@ func (l *Loader) buildSkeleton(relationships ConnectionSet, skeletons map[IDType
 					// set name and id here - otherwise in cases where "subBone" is created it will not have a name / id
 					bone.SetName(sanitizeNodeName(name))
 					bone.SetID(id)
+					bone.Indices = make([]int, len(rawBone.Indices))
+					for j, in := range rawBone.Indices {
+						bone.Indices[j] = int(in)
+					}
+					bone.Weights = rawBone.Weights
+					bone.Transform = rawBone.Transform
 					skeleton.bones[i] = *bone
 					// In cases where a bone is shared between multiple meshes
 					// duplicate the bone here and and it as a child of the first bone

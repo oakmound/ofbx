@@ -87,13 +87,13 @@ func NewDirectionalLight(color Color, intensity float64) *DirectionalLight {
 			intensity: intensity,
 
 			baseModel: &baseModel{
-				position:   DefaultUp,
+				Position:   DefaultUp,
 				scale:      floatgeom.Point3{1, 1, 1},
 				quaternion: floatgeom.Point4{0, 0, 0, 1},
 			},
 		},
 	}
-	dl.matrix = composeMat(dl.position, dl.quaternion, dl.scale)
+	dl.matrix = composeMat(dl.Position, dl.quaternion, dl.scale)
 
 	// this.shadow = new DirectionalLightShadow(); //TODO: Shadows are reworked later in engine
 	return &dl
@@ -105,7 +105,7 @@ func NewPointLight(color Color, intensity, distance, decay float64) *PointLight 
 	npl := PointLight{
 		baseLight: &baseLight{
 			baseModel: &baseModel{
-				position:   DefaultUp,
+				Position:   DefaultUp,
 				scale:      floatgeom.Point3{1, 1, 1},
 				quaternion: floatgeom.Point4{0, 0, 0, 1},
 			},
@@ -124,7 +124,7 @@ func NewSpotLight(color Color, intensity, distance, angle, penumbra, decay float
 	nsl := SpotLight{
 		baseLight: &baseLight{
 			baseModel: &baseModel{
-				position:   DefaultUp,
+				Position:   DefaultUp,
 				scale:      floatgeom.Point3{1, 1, 1},
 				quaternion: floatgeom.Point4{0, 0, 0, 1},
 			},

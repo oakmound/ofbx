@@ -49,7 +49,7 @@ type baseModel struct {
 	parent   Model
 	children []Model
 
-	position   floatgeom.Point3
+	Position   floatgeom.Point3
 	quaternion floatgeom.Point4
 	scale      floatgeom.Point3
 
@@ -122,14 +122,14 @@ func (bm *baseModel) updateMatrixWorld(force bool) {
 }
 
 func (bm *baseModel) updateMatrix() {
-	bm.matrix = composeMat(bm.position, bm.quaternion, bm.scale)
+	bm.matrix = composeMat(bm.Position, bm.quaternion, bm.scale)
 }
 
 func (bm *baseModel) applyMatrix(m2 mgl64.Mat4) {
 	bm.matrix = m2.Mul4(bm.matrix)
-	var eul Euler
-	bm.position, eul, bm.scale = decomposeMat(bm.matrix)
-	bm.quaternion = eul.ToQuaternion()
+	//var eul Euler
+	bm.Position, _, bm.scale = decomposeMat(bm.matrix)
+	//bm.quaternion = eul.ToQuaternion()
 }
 
 func (bm *baseModel) BindSkeleton(s *Skeleton, mat mgl64.Mat4) {
@@ -218,6 +218,9 @@ func (oc *OrthographicCamera) IsGroup() bool {
 type BoneModel struct {
 	*baseModel
 	matrixWorld mgl64.Mat4
+	Indices     []int
+	Weights     []float64
+	Transform   mgl64.Mat4
 }
 
 func NewBoneModel() *BoneModel {
