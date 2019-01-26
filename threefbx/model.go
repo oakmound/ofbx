@@ -164,7 +164,8 @@ func (bm *baseModel) ID() IDType {
 	return bm.id
 }
 func (bm *baseModel) IsGroup() bool {
-	panic("baseModel called as full model")
+
+	panic("baseModel called as full model, " + bm.name)
 }
 
 func NewModelGroup() *ModelGroup {

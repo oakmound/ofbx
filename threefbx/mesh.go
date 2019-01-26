@@ -32,6 +32,9 @@ func NewMesh(geometry *Geometry, materials []*Material) *Mesh {
 
 	return &m
 }
+func (m *Mesh) IsGroup() bool {
+	return false
+}
 
 type SkinnedMesh struct {
 	*Mesh
