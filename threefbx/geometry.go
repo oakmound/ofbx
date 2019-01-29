@@ -19,9 +19,11 @@ import (
 
 // Geometry tries to replace the need for THREE.BufferGeometry
 type Geometry struct {
-	Name     string
-	Position []floatgeom.Point3
-	Color    []Color
+	Name            string
+	Position        []floatgeom.Point3
+	OrderedVertices []floatgeom.Point3
+	VertexIndices   []int32
+	Color           []Color
 
 	SkinIndex    [][4]uint16
 	SkinWeight   [][4]float64
@@ -192,10 +194,12 @@ func (l *Loader) genGeometry(geoNode Node, skeleton *Skeleton, morphTarget *Morp
 	buffers := l.genBuffers(geoInfo)
 
 	positionAttribute, err := floatsToVertex3s(buffers.vertex) //https://threejs.org/docs/#api/en/core/BufferAttribute
+	geo.OrderedVertices, err = floatsToVertex3s(geoInfo.vertexPositions)
 
 	positionAttribute = applyBufferAttribute(preTransform, positionAttribute)
 
 	geo.Position = positionAttribute
+	geo.VertexIndices = geoInfo.vertexIndices
 	if len(buffers.colors) > 0 {
 		colors, err := floatsToVertex3s(buffers.colors)
 		if err != nil {
