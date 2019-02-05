@@ -22,6 +22,7 @@ type Geometry struct {
 	Name            string
 	Position        []floatgeom.Point3
 	OrderedVertices []floatgeom.Point3
+	OrderedNormals  []floatgeom.Point3
 	VertexIndices   []int32
 	Color           []Color
 
@@ -196,6 +197,10 @@ func (l *Loader) genGeometry(geoNode Node, skeleton *Skeleton, morphTarget *Morp
 	positionAttribute, err := floatsToVertex3s(buffers.vertex) //https://threejs.org/docs/#api/en/core/BufferAttribute
 	geo.OrderedVertices, err = floatsToVertex3s(geoInfo.vertexPositions)
 
+	geo.OrderedNormals, err = floatsToVertex3s(geoInfo.normal.orderByVertice(geoInfo.vertexIndices))
+
+	// geo.Normal = geo.OrderedNormals
+
 	positionAttribute = applyBufferAttribute(preTransform, positionAttribute)
 
 	geo.Position = positionAttribute
@@ -234,6 +239,14 @@ func (l *Loader) genGeometry(geoNode Node, skeleton *Skeleton, morphTarget *Morp
 		normalAttribute = applyBufferAttributeMat3(normalMatrix, normalAttribute)
 		geo.Normal = normalAttribute
 	}
+
+	if len(buffers.normal) > 0 {
+		normalMatrix := mgl64.Mat4Normal(preTransform)
+
+		geo.OrderedNormals = applyBufferAttributeMat3(normalMatrix, geo.OrderedNormals)
+
+	}
+	fmt.Println("Normal versus ordered", len(geo.Normal), "|", len(geo.OrderedNormals))
 
 	geo.Uvs = buffers.uvs //NOTE: pulled back from variadic array of uvs where they progress down uv -> uv1 -> uv2 and so on
 
@@ -624,6 +637,7 @@ func (l *Loader) genMorphGeometry(parentGeo *Geometry, parentGeoNode, morphGeoNo
 // Parse normal from FBXTree.Objects.Geometry.LayerElementNormal if it exists
 func parseNormals(n *Node) floatBuffer {
 	mappingType := n.props["MappingInformationType"].Payload.(string)
+	fmt.Println("MAPPING TYPE: ", mappingType)
 	referenceType := n.props["ReferenceInformationType"].Payload.(string)
 	indexBuffer := []int32{}
 	if referenceType == "IndexToDirect" {
