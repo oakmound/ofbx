@@ -2,6 +2,7 @@ package threefbx
 
 import (
 	"fmt"
+	"math"
 	"sort"
 )
 
@@ -63,6 +64,9 @@ func (info floatBuffer) getData(polygonVertexIndex int, polygonIndex, vertexInde
 // ordereNormals ordrees our normals correctly
 func (info floatBuffer) orderByVertice(indicies []int32) []float64 {
 	ordered := make([]float64, 0)
+	copiedIndices := make([]int32, len(indicies))
+	copy(copiedIndices, indicies)
+	indicies = copiedIndices
 
 	switch info.mappingType { //https://help.autodesk.com/view/FBX/2016/ENU/?guid=__cpp_ref_class_fbx_layer_element_html
 
@@ -79,12 +83,27 @@ func (info floatBuffer) orderByVertice(indicies []int32) []float64 {
 
 		sort.Slice(indicies, func(x, y int) bool { return indicies[x] < indicies[y] })
 
+		//fmt.Println("Index mapping", indexMapping)
 		for _, j := range indicies {
 			if val, ok := indexMapping[j]; ok {
+				for x := range val {
+					if math.Abs(val[x]) < .000001 {
+						val[x] = 0
+					}
+					if math.Abs(val[x]) > .999999 {
+						if val[x] < 0 {
+							val[x] = -1
+						} else {
+							val[x] = 1
+						}
+					}
+				}
 				ordered = append(ordered, val...)
 				delete(indexMapping, j)
 			}
 		}
+		//fmt.Println("Indices", indicies)
+		//fmt.Println("Ordered", ordered)
 
 	case "ByPolygon": // Each polygon can only have one mapping
 

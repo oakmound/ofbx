@@ -23,6 +23,7 @@ type Geometry struct {
 	Position        []floatgeom.Point3
 	OrderedVertices []floatgeom.Point3
 	OrderedNormals  []floatgeom.Point3
+	Faces           [][]int
 	VertexIndices   []int32
 	Color           []Color
 
@@ -194,6 +195,8 @@ func (l *Loader) genGeometry(geoNode Node, skeleton *Skeleton, morphTarget *Morp
 	//TODO: unroll buffers into its consituent slices and do away with the buffer construct
 	buffers := l.genBuffers(geoInfo)
 
+	geo.Faces = geoInfo.faces
+
 	positionAttribute, err := floatsToVertex3s(buffers.vertex) //https://threejs.org/docs/#api/en/core/BufferAttribute
 	geo.OrderedVertices, err = floatsToVertex3s(geoInfo.vertexPositions)
 
@@ -284,6 +287,7 @@ func (l *Loader) genGeometry(geoNode Node, skeleton *Skeleton, morphTarget *Morp
 type GeoInfo struct {
 	vertexPositions []float64 //Todo: parse this immediately as floatgeom.Point3
 	vertexIndices   []int32
+	faces           [][]int
 	color           *floatBuffer
 	material        *intBuffer
 	normal          *floatBuffer
@@ -367,6 +371,23 @@ func (l *Loader) genBuffers(geoInfo *GeoInfo) gBuffers {
 	var materialIndex int32 = -1
 
 	faceUVs := make([][]float64, len(geoInfo.uv))
+	i := 0
+	for i < len(geoInfo.vertexIndices) {
+		start := i
+		for geoInfo.vertexIndices[i] >= 0 {
+			i++
+		}
+		end := i
+		face := make([]int32, (end+1)-start)
+		copy(face, geoInfo.vertexIndices[start:end+1])
+		face[len(face)-1] = face[len(face)-1] ^ -1
+		faceInt := make([]int, len(face))
+		for i, v := range face {
+			faceInt[i] = int(v)
+		}
+		geoInfo.faces = append(geoInfo.faces, faceInt)
+		i++
+	}
 	for polygonVertexIndex, vertexIndex := range geoInfo.vertexIndices {
 		// Face index and vertex index arrays are combined in a single array
 		// A cube with quad faces looks like this:
