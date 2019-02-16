@@ -544,7 +544,7 @@ func (l *Loader) parseModels(skeletons map[IDType]Skeleton, geometryMap map[IDTy
 	modelNodes := l.tree.Objects["Model"]
 NodeLoop:
 	for id, node := range modelNodes {
-		fmt.Println("Parsing model:", id, node)
+		// fmt.Println("Parsing model:", id, node)
 		relationships := l.connections[id]
 		var model Model
 		m := l.buildSkeleton(relationships, skeletons, id, node.attrName)
@@ -586,7 +586,7 @@ NodeLoop:
 			model.SetName(sanitizeNodeName(node.attrName))
 			model.SetID(id)
 		}
-		fmt.Println("model:", model, node.attrType)
+		// fmt.Println("model:", model, node.attrType)
 		if model == nil {
 			fmt.Println("For some reason, a", node.attrType, "model was nil")
 			continue
@@ -599,6 +599,7 @@ NodeLoop:
 
 func (l *Loader) buildSkeleton(relationships ConnectionSet, skeletons map[IDType]Skeleton, id IDType, name string) *BoneModel {
 	var bone *BoneModel
+
 	for _, parent := range relationships.parents {
 		for id, skeleton := range skeletons {
 			skeleton.bones = make([]BoneModel, len(skeleton.rawBones))
@@ -616,7 +617,9 @@ func (l *Loader) buildSkeleton(relationships ConnectionSet, skeletons map[IDType
 					}
 					bone.Weights = rawBone.Weights
 					bone.Transform = rawBone.Transform
+					bone.matrix = rawBone.Transform
 					skeleton.bones[i] = *bone
+
 					// In cases where a bone is shared between multiple meshes
 					// duplicate the bone here and and it as a child of the first bone
 					if subBone != nil {

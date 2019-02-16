@@ -21,7 +21,7 @@ type Model interface {
 
 	SetID(id IDType)
 	ID() IDType
-
+	GetPosition() floatgeom.Point3
 	IsGroup() bool
 
 	MatrixWorld() mgl64.Mat4
@@ -62,14 +62,22 @@ type baseModel struct {
 	skeletonMatrix mgl64.Mat4
 }
 
+func (bm *baseModel) GetPosition() floatgeom.Point3 {
+	return bm.Position
+}
+
 // copy expects the real, non base model that this new base model will be
 // put into as it's 'wrapping' argument
 func (bm *baseModel) copy(wrapping Model) *baseModel {
 	bm2 := &baseModel{
-		name:     bm.name,
-		id:       bm.id,
-		parent:   bm.parent,
-		children: make([]Model, len(bm.children)),
+		name:        bm.name,
+		id:          bm.id,
+		parent:      bm.parent,
+		Position:    bm.Position,
+		quaternion:  bm.quaternion,
+		scale:       bm.scale,
+		matrixWorld: bm.matrixWorld,
+		children:    make([]Model, len(bm.children)),
 	}
 	for i, c := range bm.children {
 		if c2, ok := c.(ModelCopyable); ok {
@@ -237,6 +245,7 @@ func (bm *BoneModel) IsGroup() bool {
 func (bm *BoneModel) Copy() *BoneModel {
 	out := &BoneModel{}
 	out.baseModel = bm.baseModel.copy(out)
+
 	out.matrixWorld = bm.matrixWorld
 	return out
 }
