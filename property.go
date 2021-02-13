@@ -134,10 +134,10 @@ func findChildren(element *Element, id string) []*Element {
 	return []*Element{}
 }
 
-func assignSingleChildProperty(element *Element, id string, dv *DataView) bool {
+func assignSingleChildProperty(element *Element, id string, dv **DataView) bool {
 	prop := findSingleChildProperty(element, id)
 	if prop != nil {
-		*dv = *prop.value
+		*dv = prop.value
 		return true
 	}
 	return false
