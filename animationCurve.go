@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/oakmound/oak/alg/floatgeom"
+	"github.com/oakmound/oak/v2/alg/floatgeom"
 )
 
 // CurveMode details how the values in the CurveNode should be interperted and used (translation,rotation,scale)

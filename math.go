@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/oakmound/oak/alg/floatgeom"
+	"github.com/oakmound/oak/v2/alg/floatgeom"
 )
 
 // UpVector specifies which canonical axis represents up in the system (typically Y or Z).
