@@ -144,6 +144,16 @@ func (acn *AnimationCurveNode) stringPrefix(prefix string) string {
 	}
 	s += "bone_link_property=\"" + acn.BoneLinkProp + "\""
 	s += " mode=" + fmt.Sprintf("%d", acn.mode)
+
+	// NOTE: an animation curve node which specify the focal length property has
+	// exactly one curve (FocalLength), rather than three (X,Y,Z).
+	if strings.HasPrefix(acn.Object.name, "FocalLength") {
+		s += "\n" + prefix + "\t"
+		s += " FocalLength: "
+		s += acn.Curves[0].String()
+		return s
+	}
+
 	for i, curve := range acn.Curves {
 		s += "\n" + prefix + "\t"
 		switch i {
