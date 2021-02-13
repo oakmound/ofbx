@@ -378,8 +378,8 @@ func parseVertexDataInner(element *Element, name, idxName string) ([]int, Vertex
 
 func parseTexture(scene *Scene, element *Element) *Texture {
 	texture := NewTexture(scene, element)
-	assignSingleChildProperty(element, "FileName", texture.filename)
-	assignSingleChildProperty(element, "RelativeFilename", texture.relativeFilename)
+	assignSingleChildProperty(element, "FileName", &texture.filename)
+	assignSingleChildProperty(element, "RelativeFilename", &texture.relativeFilename)
 	return texture
 }
 
