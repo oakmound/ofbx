@@ -3,7 +3,7 @@ package threefbx
 import (
 	"math"
 
-	"github.com/oakmound/oak/alg/floatgeom"
+	"github.com/oakmound/oak/v4/alg/floatgeom"
 )
 
 var (
@@ -29,7 +29,6 @@ func (bl *baseLight) IsGroup() bool {
 	return false
 }
 
-//
 func (bl *baseLight) SetCastShadow(b bool) {
 	bl.castShadow = b
 }

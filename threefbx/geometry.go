@@ -6,8 +6,7 @@ import (
 	"strconv"
 
 	"github.com/go-gl/mathgl/mgl64"
-	"github.com/oakmound/oak/alg/floatgeom"
-	"github.com/oakmound/oak/dlog"
+	"github.com/oakmound/oak/v4/alg/floatgeom"
 )
 
 //Notes:
@@ -331,12 +330,12 @@ func (l *Loader) parseGeoNode(geoNode Node, skeleton *Skeleton) (*GeoInfo, error
 		geoInfo.skeleton = skeleton
 		wt := map[int32][]WeightEntry{}
 		if len(skeleton.rawBones) == 0 {
-			dlog.Warn("No bones found for skeleton", skeleton)
+			fmt.Println("No bones found for skeleton", skeleton)
 		}
 		// loop over the bone's vertex indices and weights
 		for i, rawb := range skeleton.rawBones {
 			if len(rawb.Indices) == 0 {
-				dlog.Warn("Bone without indicies found", rawb)
+				fmt.Println("Bone without indicies found", rawb)
 			}
 			for j, rIndex := range rawb.Indices {
 				if _, ok := wt[rIndex]; !ok {
@@ -348,7 +347,7 @@ func (l *Loader) parseGeoNode(geoNode Node, skeleton *Skeleton) (*GeoInfo, error
 
 		geoInfo.weightTable = wt
 	} else {
-		dlog.Warn("No skeleton found")
+		fmt.Println("No skeleton found")
 	}
 
 	return geoInfo, nil

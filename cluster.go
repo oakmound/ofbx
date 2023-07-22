@@ -2,8 +2,6 @@ package ofbx
 
 import (
 	"fmt"
-
-	"github.com/pkg/errors"
 )
 
 // Cluster is an entity which acts on a subset of a geometry's control points
@@ -102,22 +100,22 @@ func parseCluster(scene *Scene, element *Element) (*Cluster, error) {
 	if prop != nil {
 		mx, err := parseArrayRawFloat64(prop[0])
 		if err != nil {
-			return nil, errors.Wrap(err, "Failed to parse TransformLink")
+			return nil, fmt.Errorf("Failed to parse TransformLink: %w", err)
 		}
 		obj.TransformLink, err = matrixFromSlice(mx)
 		if err != nil {
-			return nil, errors.Wrap(err, "Failed to parse TransformLink")
+			return nil, fmt.Errorf("Failed to parse TransformLink: %w", err)
 		}
 	}
 	prop = findChildProperty(element, "Transform")
 	if prop != nil {
 		mx, err := parseArrayRawFloat64(prop[0])
 		if err != nil {
-			return nil, errors.Wrap(err, "Failed to parse TransformLink")
+			return nil, fmt.Errorf("Failed to parse TransformLink: %w", err)
 		}
 		obj.Transform, err = matrixFromSlice(mx)
 		if err != nil {
-			return nil, errors.Wrap(err, "Failed to parse TransformLink")
+			return nil, fmt.Errorf("Failed to parse TransformLink: %w", err)
 		}
 	}
 	return obj, nil

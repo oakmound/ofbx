@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/go-gl/mathgl/mgl64"
-	"github.com/oakmound/oak/alg/floatgeom"
+	"github.com/oakmound/oak/v4/alg/floatgeom"
 )
 
 type Model interface {

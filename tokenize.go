@@ -3,10 +3,11 @@ package ofbx
 import (
 	"bufio"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"strconv"
 
-	"github.com/pkg/errors"
+	"errors"
 )
 
 // Header is a magic set of ints
@@ -208,7 +209,7 @@ func (c *Cursor) readElement(version uint16) (*Element, error) {
 	for uint64(c.ReadSoFar()) < endOffset-uint64(blockSentinelLength) {
 		child, err := c.readElement(version)
 		if err != nil {
-			return nil, errors.Wrap(err, "ReadingChild element failed")
+			return nil, fmt.Errorf("ReadingChild element failed: %w", err)
 		}
 		element.Children = append(element.Children, child)
 		if uint64(c.ReadSoFar()) > endOffset {

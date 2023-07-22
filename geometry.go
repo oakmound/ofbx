@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/oakmound/oak/alg/floatgeom"
+	"github.com/oakmound/oak/v4/alg/floatgeom"
 )
 
 // VertexDataMapping dictates how the vertex is mapped
@@ -27,7 +27,7 @@ var vtxDataMapFromStrs = map[string]VertexDataMapping{
 // MaxUvs is the highest number of UVs allowed
 const MaxUvs = 4
 
-//Geometry is the base geometric shape objec that is implemented in forms such as meshes that dictate control point deformations
+// Geometry is the base geometric shape objec that is implemented in forms such as meshes that dictate control point deformations
 type Geometry struct {
 	Object
 	Skin *Skin

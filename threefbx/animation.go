@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"github.com/go-gl/mathgl/mgl64"
-	"github.com/oakmound/oak/alg"
-	"github.com/oakmound/oak/alg/floatgeom"
+	"github.com/oakmound/oak/v4/alg"
+	"github.com/oakmound/oak/v4/alg/floatgeom"
 )
 
 //Works like three.js animationclip.parse
@@ -131,7 +131,7 @@ var (
 )
 
 // sanitizeNodeName was a method on propertybinding that would: Replaces spaces with underscores and removes unsupported characters from
-//  * node names, to ensure compatibility with parseTrackName().
+//   - node names, to ensure compatibility with parseTrackName().
 func sanitizeNodeName(nodeName string) string {
 	nodeName = sanitizeRe.ReplaceAllString(nodeName, "_")
 	return sanitizeEnclo.ReplaceAllString(nodeName, "$1")

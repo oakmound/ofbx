@@ -3,7 +3,7 @@ package ofbx
 import (
 	"fmt"
 
-	"github.com/oakmound/oak/alg/floatgeom"
+	"github.com/oakmound/oak/v4/alg/floatgeom"
 )
 
 // Mesh is a geometry made of polygon

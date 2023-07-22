@@ -3,7 +3,7 @@ package ofbx
 import (
 	"io"
 
-	"github.com/oakmound/oak/alg/floatgeom"
+	"github.com/oakmound/oak/v4/alg/floatgeom"
 )
 
 // Object is the top level general class in fbx

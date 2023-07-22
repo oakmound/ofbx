@@ -2,10 +2,9 @@ package ofbx
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"unicode"
-
-	"github.com/pkg/errors"
 )
 
 func (c *Cursor) isEndLine() bool {
@@ -16,7 +15,7 @@ func (c *Cursor) isEndLine() bool {
 	return by[0] == '\n'
 }
 
-//TODO: Make a isspace for bytes not unicode
+// TODO: Make a isspace for bytes not unicode
 func (c *Cursor) skipInsignificantWhitespaces() error {
 	for {
 		by, _, err := c.ReadRune()
@@ -327,7 +326,7 @@ func (c *Cursor) readTextElement() (*Element, error) {
 	return element, nil
 }
 
-//Todo: make this matter
+// Todo: make this matter
 func tokenizeText(r io.Reader) (*Element, error) {
 	return nil, nil
 	/*

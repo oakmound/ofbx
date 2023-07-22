@@ -1,6 +1,6 @@
 package ofbx
 
-import "github.com/oakmound/oak/alg/floatgeom"
+import "github.com/oakmound/oak/v4/alg/floatgeom"
 
 func resolveEnumProperty(object Obj, name string, defaultVal int) int {
 	element := resolveProperty(object, name)

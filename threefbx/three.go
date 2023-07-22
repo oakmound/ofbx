@@ -9,8 +9,8 @@ import (
 	"strconv"
 
 	"github.com/go-gl/mathgl/mgl64"
-	"github.com/oakmound/oak/alg"
-	"github.com/oakmound/oak/alg/floatgeom"
+	"github.com/oakmound/oak/v4/alg"
+	"github.com/oakmound/oak/v4/alg/floatgeom"
 	"github.com/oakmound/ofbx"
 )
 

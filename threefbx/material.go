@@ -3,7 +3,7 @@ package threefbx
 import (
 	"strings"
 
-	"github.com/oakmound/oak/alg/floatgeom"
+	"github.com/oakmound/oak/v4/alg/floatgeom"
 )
 
 type TextureMapping int

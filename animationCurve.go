@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/oakmound/oak/alg/floatgeom"
+	"github.com/oakmound/oak/v4/alg/floatgeom"
 )
 
 // CurveMode details how the values in the CurveNode should be interperted and used (translation,rotation,scale)
@@ -92,7 +92,7 @@ func NewAnimationCurveNode(s *Scene, e *Element) *AnimationCurveNode {
 	return &acn
 }
 
-//Type returns ANIMATION_CURVE_NODE
+// Type returns ANIMATION_CURVE_NODE
 func (acn *AnimationCurveNode) Type() Type {
 	return ANIMATION_CURVE_NODE
 }

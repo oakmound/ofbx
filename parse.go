@@ -8,8 +8,9 @@ import (
 	"io/ioutil"
 	"time"
 
-	"github.com/oakmound/oak/alg/floatgeom"
-	"github.com/pkg/errors"
+	"errors"
+
+	"github.com/oakmound/oak/v4/alg/floatgeom"
 )
 
 func parseTemplates(root *Element) {
@@ -133,7 +134,7 @@ func parseArrayRawInt(property *Property) ([]int, error) {
 	} else if property.Encoding == 1 {
 		zr, err := zlib.NewReader(&property.value.Reader)
 		if err != nil {
-			return nil, errors.Wrap(err, "New Reader failed")
+			return nil, fmt.Errorf("New Reader failed: %w", err)
 		}
 		defer zr.Close()
 		return parseArrayRawIntEnd(zr, property.Count, property.Type.Size()), nil
@@ -169,7 +170,7 @@ func parseArrayRawInt64(property *Property) ([]int64, error) {
 	} else if property.Encoding == 1 {
 		zr, err := zlib.NewReader(&property.value.Reader)
 		if err != nil {
-			return nil, errors.Wrap(err, "New Reader failed")
+			return nil, fmt.Errorf("New Reader failed: %w", err)
 		}
 		defer zr.Close()
 		return parseArrayRawInt64End(zr, property.Count, property.Type.Size()), nil
@@ -201,7 +202,7 @@ func parseArrayRawFloat32(property *Property) ([]float32, error) {
 	} else if property.Encoding == 1 {
 		zr, err := zlib.NewReader(&property.value.Reader)
 		if err != nil {
-			return nil, errors.Wrap(err, "New Reader failed")
+			return nil, fmt.Errorf("New Reader failed: %w", err)
 		}
 		defer zr.Close()
 		return parseArrayRawFloat32End(zr, property.Count, property.Type.Size()), nil
@@ -233,7 +234,7 @@ func parseArrayRawFloat64(property *Property) ([]float64, error) {
 	} else if property.Encoding == 1 {
 		zr, err := zlib.NewReader(&property.value.Reader)
 		if err != nil {
-			return nil, errors.Wrap(err, "New Reader failed")
+			return nil, fmt.Errorf("New Reader failed: %w", err)
 		}
 		defer zr.Close()
 		return parseArrayRawFloat64End(zr, property.Count, property.Type.Size()), nil
@@ -464,25 +465,25 @@ func parseAnimationCurve(scene *Scene, element *Element) (*AnimationCurve, error
 	if attrFlags := findSingleChildProperty(element, "KeyAttrFlags"); attrFlags != nil {
 		curve.AttrFlags, err = attrFlags.getValuesInt64()
 		if err != nil {
-			return nil, errors.Wrap(err, "Invalid animation curve: attrFlags error")
+			return nil, fmt.Errorf("Invalid animation curve: attrFlags error: %w", err)
 		}
 	}
 	if attrData := findSingleChildProperty(element, "KeyAttrDataFloat"); attrData != nil {
 		curve.AttrData, err = attrData.getValuesF32()
 		if err != nil {
-			return nil, errors.Wrap(err, "Invalid animation curve: attrFlags error")
+			return nil, fmt.Errorf("Invalid animation curve: attrFlags error: %w", err)
 		}
 	}
 	if attrRefCt := findSingleChildProperty(element, "KeyAttrRefCount"); attrRefCt != nil {
 		curve.AttrRefCount, err = attrRefCt.getValuesInt64()
 		if err != nil {
-			return nil, errors.Wrap(err, "Invalid animation curve: attrFlags error")
+			return nil, fmt.Errorf("Invalid animation curve: attrFlags error: %w", err)
 		}
 	}
 	if times := findSingleChildProperty(element, "KeyTime"); times != nil {
 		intTimes, err := times.getValuesInt64()
 		if err != nil {
-			return nil, errors.Wrap(err, "Invalid animation curve: times error")
+			return nil, fmt.Errorf("Invalid animation curve: times error: %w", err)
 		}
 		curve.Times = make([]time.Duration, len(intTimes))
 		for i, v := range intTimes {

@@ -4,8 +4,8 @@ import (
 	"math"
 
 	"github.com/go-gl/mathgl/mgl64"
-	"github.com/oakmound/oak/alg"
-	"github.com/oakmound/oak/alg/floatgeom"
+	"github.com/oakmound/oak/v4/alg"
+	"github.com/oakmound/oak/v4/alg/floatgeom"
 )
 
 func Mat4FromSlice(fs []float64) mgl64.Mat4 {
@@ -128,7 +128,7 @@ func decomposeMat(mat mgl64.Mat4) (floatgeom.Point3, Euler, floatgeom.Point3) {
 	return pos, euler, scale
 }
 
-//composeMat https://github.com/mrdoob/three.js/blob/07b24f7f03e73174278152f062d98068124d6ff2/src/math/Matrix4.js#L741
+// composeMat https://github.com/mrdoob/three.js/blob/07b24f7f03e73174278152f062d98068124d6ff2/src/math/Matrix4.js#L741
 func composeMat(position floatgeom.Point3, quaternion floatgeom.Point4, scale floatgeom.Point3) mgl64.Mat4 {
 	te := mgl64.Mat4{}
 	x := quaternion.X()

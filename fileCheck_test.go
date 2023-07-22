@@ -3,8 +3,6 @@ package ofbx
 import (
 	"os"
 	"testing"
-
-	"github.com/stretchr/testify/require"
 )
 
 func TestIsBinary(t *testing.T) {
@@ -19,7 +17,11 @@ func TestIsBinary(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		r, err := os.Open(tc.file)
-		require.Nil(t, err)
-		require.Equal(t, tc.binary, IsBinary(r))
+		if err != nil {
+			t.Fatal("got not nil error")
+		}
+		if tc.binary != IsBinary(r) {
+			t.Fatal("isBinary mismatch")
+		}
 	}
 }

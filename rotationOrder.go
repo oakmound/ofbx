@@ -1,8 +1,8 @@
 package ofbx
 
 import (
-	"github.com/oakmound/oak/alg"
-	"github.com/oakmound/oak/alg/floatgeom"
+	"github.com/oakmound/oak/v4/alg"
+	"github.com/oakmound/oak/v4/alg/floatgeom"
 )
 
 // RotationOrder determines the dimension order for rotation

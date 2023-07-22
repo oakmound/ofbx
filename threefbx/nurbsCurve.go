@@ -3,7 +3,7 @@ package threefbx
 import (
 	"math"
 
-	"github.com/oakmound/oak/alg/floatgeom"
+	"github.com/oakmound/oak/v4/alg/floatgeom"
 )
 
 type NurbsCurve struct {
@@ -39,12 +39,12 @@ func (nc *NurbsCurve) getPoint(t float64) floatgeom.Point3 {
 }
 
 /*
-	Calculate B-Spline curve points. See The NURBS Book, page 82, algorithm A3.1.
-	p : degree of B-Spline
-	U : knot vector
-	P : control points (x, y, z, w)
-	u : parametric point
-	returns point for given u
+Calculate B-Spline curve points. See The NURBS Book, page 82, algorithm A3.1.
+p : degree of B-Spline
+U : knot vector
+P : control points (x, y, z, w)
+u : parametric point
+returns point for given u
 */
 func calcBSplinePoint(nc *NurbsCurve, para float64) floatgeom.Point4 {
 	span := findSpan(nc.degree, para, nc.knots)
@@ -64,11 +64,11 @@ func calcBSplinePoint(nc *NurbsCurve, para float64) floatgeom.Point4 {
 }
 
 /*
-	Finds knot vector span.
-	p : degree
-	u : parametric value
-	U : knot vector
-	returns the span
+Finds knot vector span.
+p : degree
+u : parametric value
+U : knot vector
+returns the span
 */
 func findSpan(degree int, para float64, knots []float64) int {
 

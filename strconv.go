@@ -3,7 +3,7 @@ package ofbx
 import (
 	"strconv"
 
-	"github.com/oakmound/oak/alg/floatgeom"
+	"github.com/oakmound/oak/v4/alg/floatgeom"
 )
 
 func intFromString(str, end string, val *int) string {
